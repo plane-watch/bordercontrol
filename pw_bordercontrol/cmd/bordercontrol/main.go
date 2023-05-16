@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -166,7 +165,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
 			// TODO: need a nice way to update atc that the feeder is online since the time it connected...
 			// TODO: maybe have a timer so that it only updates every 5 minutes + some random seconds (to prevent overload of ATC)
 			// TODO: do we also need to mark offline on disconnect?
-			cLog.Debug().Msgf("data received: %s", fmt.Sprint(buf[:n]))
+			// cLog.Debug().Msgf("data received: %s", fmt.Sprint(buf[:n]))
 
 			// get feeder lat/long
 			atcUrl, err := url.Parse(ctx.String("atcurl"))
