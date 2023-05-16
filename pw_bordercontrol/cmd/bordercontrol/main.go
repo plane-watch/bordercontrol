@@ -242,7 +242,7 @@ func main() {
 				EnvVars:  []string{"ATC_PASS"},
 			},
 		},
-		Action: runBorderControl,
+		Action: runServer,
 	}
 
 	logging.IncludeVerbosityFlags(app)
@@ -260,14 +260,6 @@ func main() {
 		os.Exit(1)
 	}
 
-}
-
-func runBorderControl(ctx *cli.Context) error {
-
-	for {
-		time.Sleep(60 * time.Second)
-	}
-	return nil
 }
 
 func runServer(ctx *cli.Context) error {
