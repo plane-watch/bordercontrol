@@ -8,3 +8,4 @@ services:
       - ATC_URL=${ATC_URL}
       - ATC_USER=${ATC_USER}
       - ATC_PASS=${ATC_PASS}
+      - DEBUG=true
