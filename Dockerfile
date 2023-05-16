@@ -4,6 +4,6 @@ WORKDIR /src/pw_bordercontrol
 RUN go mod tidy
 RUN go build -v -o ./bordercontrol cmd/bordercontrol/main.go
 
-FROM scratch
+FROM alpine:3
 COPY --from=builder /src/pw_bordercontrol/bordercontrol /bordercontrol
 ENTRYPOINT [ "/bordercontrol" ]
