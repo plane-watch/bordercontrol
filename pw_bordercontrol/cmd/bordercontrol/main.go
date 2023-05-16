@@ -49,7 +49,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 			firstRun = false
 		}
 
-		log.Debug().Msg("updating api key cache from atc")
+		log.Debug().Msg("started updating api key cache from atc")
 
 		// get data from atc
 		atcUrl, err := url.Parse(ctx.String("atcurl"))
@@ -64,15 +64,19 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		}
 		f, err := atc.GetFeeders(&s)
 		var newValidFeeders []uuid.UUID
+		count := 0
 		for _, v := range f.Feeders {
 			newValidFeeders = append(newValidFeeders, v.ApiKey)
-			log.Debug().Str("ApiKey", v.ApiKey.String()).Msg("Added feeder")
+			log.Debug().Str("ApiKey", v.ApiKey.String()).Msg("added feeder")
+			count += 1
 		}
 
 		// update validFeeders
 		validFeeders.mu.Lock()
 		validFeeders.feeders = newValidFeeders
 		validFeeders.mu.Unlock()
+
+		log.Debug().Int("count", count).Msg("finish updating api key cache from atc")
 	}
 }
 
