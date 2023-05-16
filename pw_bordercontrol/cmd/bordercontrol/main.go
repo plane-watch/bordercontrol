@@ -278,6 +278,8 @@ func runServer(ctx *cli.Context) error {
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
+	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
+	log.Info().Str("file", ctx.String("key")).Msg("loading private key")
 	cert, err := tls.LoadX509KeyPair(
 		ctx.String("cert"),
 		ctx.String("key"),
