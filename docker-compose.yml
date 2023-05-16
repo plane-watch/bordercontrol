@@ -1,7 +1,8 @@
 version: '3.8'
 
 services:
-  borcercontrol:
+  bordercontrol:
+    container_name: bordercontrol
     build: .
     tty: true
     environment:
@@ -13,3 +14,5 @@ services:
       - DEBUG=true
     volumes:
       - /etc/ssl/private:/etc/ssl/private:ro
+    ports:
+      - 12345:12345
