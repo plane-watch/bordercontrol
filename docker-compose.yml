@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  borcercontrol:
+    build: .
+    tty: true
+    environment:
+      - ATC_URL=${ATC_URL}
+      - ATC_USER=${ATC_USER}
+      - ATC_PASS=${ATC_PASS}
