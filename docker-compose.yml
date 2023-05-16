@@ -1,0 +1,38 @@
+version: '3.8'
+
+networks:
+  bordercontrol_feeder:
+    name: bordercontrol_feeder
+
+services:
+
+  bordercontrol:
+    container_name: bordercontrol
+    build:
+      context: .
+      dockerfile: Dockerfile.bordercontrol
+    image: bordercontrol
+    tty: true
+    environment:
+      - ATC_URL=${ATC_URL}
+      - ATC_USER=${ATC_USER}
+      - ATC_PASS=${ATC_PASS}
+      - BC_CERT_FILE=${BC_CERT_FILE}
+      - BC_KEY_FILE=${BC_KEY_FILE}
+      - PW_INGEST_SINK=${PW_INGEST_SINK}
+      - DEBUG=true
+    volumes:
+      - /etc/ssl/private:/etc/ssl/private:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - bordercontrol_feeder
+    ports:
+      - 12345:12345
+
+  feed-in-builder:
+    container_name: feed-in-builder
+    build:
+      context: .
+      dockerfile: Dockerfile.feeder
+    image: feed-in
+    entrypoint: /bin/true
