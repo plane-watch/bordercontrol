@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"net/url"
 	"os"
 	"sync"
@@ -23,17 +24,17 @@ var (
 	validFeeders atcFeeders
 )
 
-// func isValidApiKey(clientApiKey uuid.UUID) bool {
-// 	// return true of api key clientApiKey is a valid feeder in atc
-// 	validFeeders.mu.Lock()
-// 	defer validFeeders.mu.Unlock()
-// 	for _, v := range validFeeders.feeders {
-// 		if v == clientApiKey {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
+func isValidApiKey(clientApiKey uuid.UUID) bool {
+	// return true of api key clientApiKey is a valid feeder in atc
+	validFeeders.mu.Lock()
+	defer validFeeders.mu.Unlock()
+	for _, v := range validFeeders.feeders {
+		if v == clientApiKey {
+			return true
+		}
+	}
+	return false
+}
 
 func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 	// updates validFeeders with data from atc
@@ -76,7 +77,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		validFeeders.feeders = newValidFeeders
 		validFeeders.mu.Unlock()
 
-		log.Debug().Int("count", count).Msg("finish updating api key cache from atc")
+		log.Info().Int("feeders", count).Msg("finish updating api key cache from atc")
 	}
 }
 
@@ -204,21 +205,24 @@ func main() {
 			`authenticates the feeder based on UUID check against atc.plane.watch, ` +
 			`routes data to feed-in containers.`,
 		Flags: []cli.Flag{
-			// &cli.StringFlag{
-			// 	Name:  "listen",
-			// 	Usage: "Address and TCP port server will listen on",
-			// 	Value: "0.0.0.0:12345",
-			// },
-			// &cli.StringFlag{
-			// 	Name:     "cert",
-			// 	Usage:    "Server certificate PEM file name (x509)",
-			// 	Required: true,
-			// },
-			// &cli.StringFlag{
-			// 	Name:     "key",
-			// 	Usage:    "Server certificate private key PEM file name (x509)",
-			// 	Required: true,
-			// },
+			&cli.StringFlag{
+				Name:    "listen",
+				Usage:   "Address and TCP port server will listen on",
+				Value:   "0.0.0.0:12345",
+				EnvVars: []string{"BC_LISTEN"},
+			},
+			&cli.StringFlag{
+				Name:     "cert",
+				Usage:    "Server certificate PEM file name (x509)",
+				Required: true,
+				EnvVars:  []string{"BC_CERT_FILE"},
+			},
+			&cli.StringFlag{
+				Name:     "key",
+				Usage:    "Server certificate private key PEM file name (x509)",
+				Required: true,
+				EnvVars:  []string{"BC_KEY_FILE"},
+			},
 			&cli.StringFlag{
 				Name:     "atcurl",
 				Usage:    "URL to ATC API",
@@ -259,48 +263,49 @@ func main() {
 }
 
 func runBorderControl(ctx *cli.Context) error {
-	go updateFeederDB(ctx, 30*time.Second)
+
 	for {
 		time.Sleep(60 * time.Second)
 	}
 	return nil
 }
 
-// func runServer(ctx *cli.Context) error {
+func runServer(ctx *cli.Context) error {
 
-// 	// load server cert & key
-// 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-// 	cert, err := tls.LoadX509KeyPair(
-// 		ctx.String("cert"),
-// 		ctx.String("key"),
-// 	)
-// 	if err != nil {
-// 		log.Err(err).Msg("tls.LoadX509KeyPair")
-// 	}
+	// start goroutine to regularly pull feeders from atc
+	log.Info().Msg("starting updateFeederDB")
+	go updateFeederDB(ctx, 60*time.Second)
 
-// 	// tls configuration
-// 	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	// load server cert & key
+	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
+	cert, err := tls.LoadX509KeyPair(
+		ctx.String("cert"),
+		ctx.String("key"),
+	)
+	if err != nil {
+		log.Err(err).Msg("tls.LoadX509KeyPair")
+	}
 
-// 	// start TLS server
-// 	log.Info().Msgf("Starting %s on %s", ctx.App.Name, ctx.String("listen"))
-// 	tlsListener, err := tls.Listen("tcp", ctx.String("listen"), &tlsConfig)
-// 	if err != nil {
-// 		log.Err(err).Msg("tls.Listen")
-// 	}
-// 	defer tlsListener.Close()
+	// tls configuration
+	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
 
-// 	// start api key cache updater
-// 	go updateFeederDB(ctx)
+	// start TLS server
+	log.Info().Msgf("Starting %s on %s", ctx.App.Name, ctx.String("listen"))
+	tlsListener, err := tls.Listen("tcp", ctx.String("listen"), &tlsConfig)
+	if err != nil {
+		log.Err(err).Msg("tls.Listen")
+	}
+	defer tlsListener.Close()
 
-// 	// handle incoming connections
-// 	for {
-// 		conn, err := tlsListener.Accept()
-// 		if err != nil {
-// 			log.Err(err).Msg("tlsListener.Accept")
-// 			continue
-// 		}
-// 		defer conn.Close()
-// 		go clientConnection(ctx, conn, &tlsConfig)
-// 	}
-// 	return nil
-// }
+	// handle incoming connections
+	for {
+		conn, err := tlsListener.Accept()
+		if err != nil {
+			log.Err(err).Msg("tlsListener.Accept")
+			continue
+		}
+		defer conn.Close()
+		go clientConnection(ctx, conn, &tlsConfig)
+	}
+	return nil
+}

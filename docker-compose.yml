@@ -8,4 +8,8 @@ services:
       - ATC_URL=${ATC_URL}
       - ATC_USER=${ATC_USER}
       - ATC_PASS=${ATC_PASS}
+      - BC_CERT_FILE=${BC_CERT_FILE}
+      - BC_KEY_FILE=${BC_KEY_FILE}
       - DEBUG=true
+    volumes:
+      - /etc/ssl/private:/etc/ssl/private:ro
