@@ -284,6 +284,7 @@ func runServer(ctx *cli.Context) error {
 
 	// tls configuration
 	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
 	log.Info().Msgf("Starting %s on %s", ctx.App.Name, ctx.String("listen"))
