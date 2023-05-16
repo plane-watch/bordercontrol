@@ -66,6 +66,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		var newValidFeeders []uuid.UUID
 		for _, v := range f.Feeders {
 			newValidFeeders = append(newValidFeeders, v.ApiKey)
+			log.Debug().Msg("Adding", v.ApiKey)
 		}
 
 		// update validFeeders
