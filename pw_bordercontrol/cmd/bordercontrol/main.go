@@ -305,7 +305,7 @@ func runServer(ctx *cli.Context) error {
 			continue
 		}
 		defer conn.Close()
-		go clientConnection(ctx, conn, &tlsConfig)
+		// go clientConnection(ctx, conn, &tlsConfig)
 	}
 	return nil
 }
