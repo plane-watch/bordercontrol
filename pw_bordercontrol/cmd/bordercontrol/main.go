@@ -95,7 +95,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 
 func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
 	// reads startContainerRequests from channel containersToStart and starts container
-	cLog := log.With().Caller().Logger()
+	cLog := log.With().Logger()
 
 	for {
 		containerToStart := <-containersToStart
