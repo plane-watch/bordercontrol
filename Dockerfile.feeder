@@ -1,0 +1,6 @@
+FROM golang:1.20.4 AS builder
+COPY pw-pipeline/ /src/pw-pipeline
+WORKDIR /src/pw-pipeline
+RUN go mod tidy
+WORKDIR /src/pw-pipeline/cmd/pw_ingest
+RUN go build -o pw_ingest .
