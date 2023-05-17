@@ -322,14 +322,8 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 				} else {
 					defer connOut.Close()
 					clientFeedInContainerConnected = true
-					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
-
-					// set deadline of 1 second
-					wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
-					if wdErr != nil {
-						cLog.Err(wdErr).Str("dst", dialAddress).Msg("could not set deadline on connection")
-						break
-					}
+					cLog = cLog.With().Str("dst", dialAddress).Logger()
+					cLog.Debug().Msg("connected ok")
 				}
 			}
 		}
@@ -339,6 +333,13 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 			// If the client's feed-in container is not yet connected
 			if clientFeedInContainerConnected {
 				if bytesRead > 0 {
+
+					// set deadline of 1 second
+					wdErr := connOut.SetDeadline(time.Now().Add(1 * time.Second))
+					if wdErr != nil {
+						cLog.Err(wdErr).Msg("could not set deadline on connection")
+						break
+					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
 					bytesWritten, err := connOut.Write(buf[:bytesRead])
