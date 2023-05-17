@@ -14,6 +14,7 @@ RUN set -x && \
     TEMP_PACKAGES+=(git) && \
     TEMP_PACKAGES+=(file) && \
     KEPT_PACKAGES+=(ca-certificates) && \
+    KEPT_PACKAGES+=(procps) && \
     # packages needed to build
     TEMP_PACKAGES+=(build-essential) && \
     TEMP_PACKAGES+=(cmake) && \

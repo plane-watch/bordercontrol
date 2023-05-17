@@ -3,7 +3,6 @@
 
 mkdir -p /run/readsb
 chmod -R 755 /run/readsb
-chown -R readsb: /run/readsb
 
 # Set readsb binary
 READSB_BIN="/usr/local/bin/readsb"
