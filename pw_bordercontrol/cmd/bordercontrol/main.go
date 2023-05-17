@@ -100,13 +100,13 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 
 func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
 	// reads startContainerRequests from channel containersToStart and starts container
-	cLog := log.With().Logger()
+	sfcLog := log.With().Logger()
 
 	// set up docker client
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		cLog.Err(err).Msg("Could not create docker client")
+		sfcLog.Err(err).Msg("Could not create docker client")
 		panic(err)
 	}
 	defer cli.Close()
@@ -115,18 +115,27 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		// read from channel (this blocks until a request comes in)
 		containerToStart := <-containersToStart
 
-		cLog.Info().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).Msg("start feed-in container")
+		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).Logger()
 
 		// determine if container is already running
-
 		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
 		if err != nil {
-			cLog.Err(err).Msg("Could not list docker containers")
+			sfcLog.Err(err).Msg("Could not list docker containers")
 		}
-
+		foundContainer := false
+		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
 		for _, container := range containers {
-			fmt.Println(container.Names)
-
+			for _, cn := range container.Names {
+				if cn == feederContainerName {
+					foundContainer = true
+					break
+				}
+			}
+		}
+		if foundContainer {
+			cLog.Info().Msg("feed-in container already running")
+		} else {
+			cLog.Info().Msg("starting feed-in container")
 		}
 
 	}
