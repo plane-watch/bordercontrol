@@ -85,7 +85,6 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 
 func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
 	// handles incoming connections
-
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
 	cLog := log.With().Logger()
