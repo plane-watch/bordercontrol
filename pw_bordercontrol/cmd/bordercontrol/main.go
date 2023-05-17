@@ -196,7 +196,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
 		}
 	}
 
-	cLog.Debug().Msg("gorouting finishing")
+	cLog.Debug().Msg("goroutine finishing")
 
 }
 
