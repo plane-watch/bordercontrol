@@ -148,7 +148,8 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				"READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
 				"READSB_NET_BEAST_REDUCE_INTERVAL=1",
-				"READSB_NET_BEAST_INPUT_PORT=30005",
+				"READSB_NET_BEAST_INPUT_PORT=12345",
+				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
 			}
 
@@ -290,7 +291,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 					}
 
 					// attempt to connect to the container
-					dialAddress := fmt.Sprintf("feed-in-%s:30005", clientApiKey)
+					dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
 					feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, time.Second)
 					if feedInErr != nil {
 						cLog.Err(feedInErr)
@@ -328,9 +329,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 			}
 		}
 	}
-
 	cLog.Debug().Msg("goroutine finishing")
-
 }
 
 func main() {
