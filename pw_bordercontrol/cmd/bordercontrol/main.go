@@ -95,13 +95,12 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 }
 
 func startFeederContainers(ctx *cli.Context) {
-	cLog := log.With().Logger()
-	cLog.Info().Msg("starting startFeederContainers")
+	// reads startContainerRequests from channel containersToStart and starts container
+	cLog := log.With().Caller().Logger()
 
 	for containerToStart := range containersToStart {
 		cLog.Info().Any("info", containerToStart).Msg("Start container!")
 	}
-
 }
 
 func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
@@ -301,6 +300,10 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to regularly pull feeders from atc
 	log.Info().Msg("starting updateFeederDB")
 	go updateFeederDB(ctx, 60*time.Second)
+
+	// start goroutine to start feeder containers
+	log.Info().Msg("starting startFeederContainers")
+	go startFeederContainers(ctx)
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
