@@ -125,7 +125,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		}
 
 		for _, container := range containers {
-			fmt.Println(container.ID)
+			fmt.Println(container.Names)
 
 		}
 
