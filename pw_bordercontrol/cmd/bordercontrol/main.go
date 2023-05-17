@@ -369,6 +369,15 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 
 				// attempt to connect to the feed-in container
 				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
+
+				dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey))
+				if err != nil {
+					cLog.Err(err).Msg("could not perform lookup")
+				}
+				for _, ip := range dstIPs {
+					cLog.Debug().IPAddr("ip", ip).Msg("could not perform lookup")
+				}
+
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
 
