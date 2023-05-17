@@ -19,6 +19,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 )
 
@@ -136,7 +137,35 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		if foundContainer {
 			cLog.Info().Msg("feed-in container already running")
 		} else {
-			cLog.Info().Msg("starting feed-in container")
+			cLog.Debug().Msg("starting feed-in container")
+
+			// prepare environment variables for container
+			envVars := [...]string{
+				fmt.Sprintf("READSB_LAT=%f", containerToStart.refLat),
+				fmt.Sprintf("READSB_LON=%f", containerToStart.refLon),
+				"READSB_STATS_EVERY=300",
+				"READSB_NET_ENABLE=true",
+				"READSB_NET_BEAST_REDUCE_INTERVAL=1",
+				"READSB_NET_BEAST_INPUT_PORT=30005",
+				"READSB_NET_ONLY=true",
+			}
+
+			// create feed-in container
+			resp, err := cli.ContainerCreate(dockerCtx, &container.Config{
+				Image: ctx.String("feedinimage"),
+				Env:   envVars[:],
+			}, nil, nil, nil, "")
+			if err != nil {
+				panic(err)
+			}
+
+			// start container
+			if err := cli.ContainerStart(dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
+				panic(err)
+			}
+
+			cLog.Info().Str("container_id", resp.ID).Msg("started feed-in container")
+
 		}
 
 	}
@@ -315,6 +344,11 @@ func main() {
 				Usage:    "password for ATC API",
 				Required: true,
 				EnvVars:  []string{"ATC_PASS"},
+			},
+			&cli.StringFlag{
+				Name:  "feedinimage",
+				Usage: "feed-in image name",
+				Value: "feed-in",
 			},
 		},
 		Action: runServer,
