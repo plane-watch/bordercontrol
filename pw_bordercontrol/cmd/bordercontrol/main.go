@@ -199,7 +199,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.uuid),
 				"READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
-				"READSB_NET_BEAST_REDUCE_INTERVAL=1",
+				// "READSB_NET_BEAST_REDUCE_INTERVAL=0.5",
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
@@ -219,9 +219,15 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				Labels: containerLabels,
 			}
 
+			// prepare tmpfs config
+			tmpFSConfig := make(map[string]string)
+			tmpFSConfig["/run"] = "exec,size=64M"
+			tmpFSConfig["/var/log"] = ""
+
 			// prepare container host config
 			containerHostConfig := container.HostConfig{
 				AutoRemove: true,
+				Tmpfs:      tmpFSConfig,
 			}
 
 			// prepare container network config
