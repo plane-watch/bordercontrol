@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -102,6 +103,40 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 	}
 }
 
+func muxHostname(mux string) (muxHost string, err error) {
+
+	switch strings.ToUpper(mux) {
+	case "ASIA":
+		muxHost = "mux-asia"
+	case "US":
+		muxHost = "mux-us"
+	case "EU":
+		muxHost = "mux-eu"
+	case "NZ":
+		muxHost = "mux-nz"
+	case "WA":
+		muxHost = "mux-wa"
+	case "VIC":
+		muxHost = "mux-vic"
+	case "TAS":
+		muxHost = "mux-tas"
+	case "SA":
+		muxHost = "mux-sa"
+	case "QLD":
+		muxHost = "mux-qld"
+	case "NT":
+		muxHost = "mux-nt"
+	case "NSW":
+		muxHost = "mux-nsw"
+	case "ACT":
+		muxHost = "mux-act"
+	default:
+		err = errors.New(fmt.Sprintf("no multiplexer for: %s", mux))
+	}
+
+	return muxHost, err
+}
+
 func checkFeederContainers(ctx *cli.Context) {
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Logger()
@@ -192,6 +227,13 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			// if container is not running, create it
 			cLog.Debug().Msg("starting feed-in container")
 
+			mux, err := muxHostname(containerToStart.mux)
+			if err != nil {
+				cLog.Err(err).Msg("could not assign mux")
+				time.Sleep(5 * time.Second)
+				break
+			}
+
 			// prepare environment variables for container
 			envVars := [...]string{
 				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.refLat),
@@ -199,10 +241,10 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.uuid),
 				"READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
-				// "READSB_NET_BEAST_REDUCE_INTERVAL=0.5",
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
+				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", mux),
 				"PW_INGEST_PUBLISH=location-updates",
 				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
 			}
@@ -254,11 +296,11 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	}
 }
 
-func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
-	// handles incoming connections
+func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
+	// handles incoming BEAST connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
-	cLog := log.With().Logger()
+	cLog := log.With().Str("listener", "BEAST").Logger()
 
 	var (
 		sendRecvBufferSize             = 256 * 1024 // 256kB
@@ -449,7 +491,195 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 			}
 		}
 	}
-	cLog.Debug().Msg("clientConnection goroutine finishing")
+	cLog.Debug().Msg("clientBEASTConnection goroutine finishing")
+}
+
+func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config) {
+	// handles incoming MLAT connections
+	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
+
+	cLog := log.With().Str("listener", "MLAT").Logger()
+
+	var (
+		sendRecvBufferSize    = 256 * 1024 // 256kB
+		clientAuthenticated   = false
+		muxContainerConnected = false
+		connOut               *net.TCPConn
+		connOutErr            error
+		connOutAttempts       = 0
+		clientApiKey          uuid.UUID
+		mux                   string
+	)
+
+	defer connIn.Close()
+
+	// update log context with client IP
+	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
+	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
+
+	cLog.Debug().Msgf("connection established")
+	defer cLog.Debug().Msgf("connection closed")
+
+	buf := make([]byte, sendRecvBufferSize)
+	for {
+
+		// read data
+		bytesRead, err := connIn.Read(buf)
+		if err != nil {
+			if err.Error() == "tls: first record does not look like a TLS handshake" {
+				cLog.Warn().Msg(err.Error())
+				break
+			} else if err.Error() == "EOF" {
+				if clientAuthenticated {
+					cLog.Info().Msg("client disconnected")
+				}
+				break
+			} else {
+				cLog.Err(err).Msg("conn.Read")
+				break
+			}
+		}
+
+		// When the first data is sent, the TLS handshake should take place.
+		// Accordingly, we need to track the state...
+		if !clientAuthenticated {
+
+			// check TLS handshake
+			tlscon := connIn.(*tls.Conn)
+			if tlscon.ConnectionState().HandshakeComplete {
+
+				// check valid uuid was returned as ServerName (sni)
+				clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
+				if err != nil {
+					cLog.Warn().Msg("client sent invalid uuid")
+					break
+				}
+
+				// check valid api key
+				if isValidApiKey(clientApiKey) {
+
+					// update log context with client uuid
+					cLog = cLog.With().Str("uuid", clientApiKey.String()).Logger()
+					cLog.Info().Msg("client connected")
+
+					// if API is valid, then set clientAuthenticated to TRUE
+					clientAuthenticated = true
+
+					// get feeder info (lat/lon/mux/label)
+					atcUrl, err := url.Parse(ctx.String("atcurl"))
+					if err != nil {
+						log.Error().Msg("--atcurl is invalid")
+						continue
+					}
+					s := atc.Server{
+						Url:      *atcUrl,
+						Username: ctx.String("atcuser"),
+						Password: ctx.String("atcpass"),
+					}
+					_, _, mux, _, err = atc.GetFeederInfo(&s, clientApiKey)
+					if err != nil {
+						log.Err(err).Msg("atc.GetFeederLatLon")
+						continue
+					}
+
+					// wait for container start
+					time.Sleep(5 * time.Second)
+
+				} else {
+					// if API is not valid, then kill the connection
+					cLog.Warn().Msg("client sent invalid api key")
+					break
+				}
+
+			} else {
+				// if TLS handshake is not complete, then kill the connection
+				cLog.Warn().Msg("data received before tls handshake")
+				break
+			}
+		}
+
+		// If the client has been authenticated, then we can do stuff with the data
+		if clientAuthenticated {
+
+			// If we aren't yet connected to a mux
+			if !muxContainerConnected {
+
+				// attempt to connect to the mux container
+				dialAddress := fmt.Sprintf("%s:12346", mux)
+
+				var dstIP net.IP
+				dstIPs, err := net.LookupIP(mux)
+				if err != nil {
+					cLog.Err(err).Msg("could not perform lookup")
+				} else {
+					if len(dstIPs) > 0 {
+						dstIP = dstIPs[0]
+					} else {
+						continue
+					}
+				}
+
+				dstTCPAddr := net.TCPAddr{
+					IP:   dstIP,
+					Port: 12346,
+				}
+
+				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
+				connOut.SetKeepAlive(true)
+				connOut.SetKeepAlivePeriod(1 * time.Second)
+
+				if connOutErr != nil {
+
+					// handle connection errors to feed-in container
+
+					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to mux container")
+					time.Sleep(1 * time.Second)
+
+					// retry up to 5 times then bail
+					connOutAttempts += 1
+					if connOutAttempts > 5 {
+						break
+					}
+
+				} else {
+
+					// connected OK...
+
+					defer connOut.Close()
+					muxContainerConnected = true
+					connOutAttempts = 0
+					cLog = cLog.With().Str("dst", dialAddress).Logger()
+					cLog.Info().Msg("connected ok")
+				}
+			}
+		}
+
+		// if we are ready to output data to the feed-in container...
+		if clientAuthenticated {
+			if muxContainerConnected {
+
+				// if we have data to write...
+				if bytesRead > 0 {
+
+					// set deadline of 5 second
+					wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
+					if wdErr != nil {
+						cLog.Err(wdErr).Msg("could not set deadline on connection")
+						break
+					}
+
+					// attempt to write data in buf (that was read from client connection earlier)
+					_, err := connOut.Write(buf[:bytesRead])
+					if err != nil {
+						cLog.Err(err).Msg("error writing to mux container")
+						break
+					}
+				}
+			}
+		}
+	}
+	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
 func main() {
@@ -462,10 +692,16 @@ func main() {
 			`routes data to feed-in containers.`,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "listen",
-				Usage:   "Address and TCP port server will listen on",
+				Name:    "listenbeast",
+				Usage:   "Address and TCP port server will listen on for BEAST connections",
 				Value:   "0.0.0.0:12345",
-				EnvVars: []string{"BC_LISTEN"},
+				EnvVars: []string{"BC_LISTEN_BEAST"},
+			},
+			&cli.StringFlag{
+				Name:    "listenmlat",
+				Usage:   "Address and TCP port server will listen on for MLAT connections",
+				Value:   "0.0.0.0:12346",
+				EnvVars: []string{"BC_LISTEN_MLAT"},
 			},
 			&cli.StringFlag{
 				Name:     "cert",
@@ -546,6 +782,24 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to check feed-in containers
 	go checkFeederContainers(ctx)
 
+	var wg sync.WaitGroup
+
+	// start listening for incoming BEAST connections
+	wg.Add(1)
+	go listenBEAST(ctx, &wg, containersToStart)
+
+	// start listening for incoming MLAT connections
+	wg.Add(1)
+	go listenMLAT(ctx, &wg)
+
+	// wait for all listeners to finish / serve forever
+	wg.Wait()
+
+	return nil
+}
+
+func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
+
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
@@ -563,8 +817,8 @@ func runServer(ctx *cli.Context) error {
 	// tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
-	log.Info().Msgf("Starting %s on %s", ctx.App.Name, ctx.String("listen"))
-	tlsListener, err := tls.Listen("tcp", ctx.String("listen"), &tlsConfig)
+	log.Info().Msgf("Starting BEAST listener on %s", ctx.String("listenbeast"))
+	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
 	if err != nil {
 		log.Err(err).Msg("tls.Listen")
 	}
@@ -578,7 +832,48 @@ func runServer(ctx *cli.Context) error {
 			continue
 		}
 		defer conn.Close()
-		go clientConnection(ctx, conn, &tlsConfig, containersToStart)
+		go clientBEASTConnection(ctx, conn, &tlsConfig, containersToStart)
 	}
-	return nil
+
+	wg.Done()
+}
+
+func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
+
+	// load server cert & key
+	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
+	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
+	log.Info().Str("file", ctx.String("key")).Msg("loading private key")
+	cert, err := tls.LoadX509KeyPair(
+		ctx.String("cert"),
+		ctx.String("key"),
+	)
+	if err != nil {
+		log.Err(err).Msg("tls.LoadX509KeyPair")
+	}
+
+	// tls configuration
+	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	// tlsConfig.ServerName = "bordercontrol.plane.watch"
+
+	// start TLS server
+	log.Info().Msgf("Starting MLAT listener on %s", ctx.String("listenmlat"))
+	tlsListener, err := tls.Listen("tcp", ctx.String("listenmlat"), &tlsConfig)
+	if err != nil {
+		log.Err(err).Msg("tls.Listen")
+	}
+	defer tlsListener.Close()
+
+	// handle incoming connections
+	for {
+		conn, err := tlsListener.Accept()
+		if err != nil {
+			log.Err(err).Msg("tlsListener.Accept")
+			continue
+		}
+		defer conn.Close()
+		go clientMLATConnection(ctx, conn, &tlsConfig)
+	}
+
+	wg.Done()
 }
