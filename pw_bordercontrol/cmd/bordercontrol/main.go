@@ -105,6 +105,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 func checkFeederContainers(ctx *cli.Context) {
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Logger()
+	cfcLog.Debug().Msg("Running checkFeederContainers")
 
 	// set up docker client
 	dockerCtx := context.Background()
