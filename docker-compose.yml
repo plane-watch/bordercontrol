@@ -4,6 +4,30 @@ networks:
   bordercontrol_feeder:
     name: bordercontrol_feeder
 
+x-mux-common: &mux-common
+  build:
+    context: .
+    dockerfile: Dockerfile.mux
+  image: feed-multiplexer
+  restart: always
+  tty: true
+  networks:
+    - bordercontrol_feeder
+  environment:
+    - READSB_NET_BEAST_REDUCE_OUT_PORT=30015
+    - READSB_NET_BEAST_REDUCE_INTERVAL=0.5
+    - READSB_NET_BEAST_INPUT_PORT=12345
+    # - AR_SERVE_TCP_ACARS=15550
+    # - AR_SERVE_TCP_VDLM2=15555
+    # - AR_ENABLE_DEDUPE=true
+    # - INFLUXDBV2_URL=${MLAT_SERVER_INFLUXDBV2_URL}
+    # - INFLUXDBV2_TOKEN=${MLAT_SERVER_INFLUXDBV2_TOKEN}
+    # - INFLUXDBV2_ORG=${MLAT_SERVER_INFLUXDBV2_ORG}
+    # - INFLUXDBV2_BUCKET=${MLAT_SERVER_INFLUXDBV2_BUCKET}
+  tmpfs:
+    - /run:exec,size=64M
+    - /var/log
+
 services:
 
   bordercontrol:
@@ -13,6 +37,7 @@ services:
       dockerfile: Dockerfile.bordercontrol
     image: bordercontrol
     tty: true
+    restart: always
     environment:
       - ATC_URL=${ATC_URL}
       - ATC_USER=${ATC_USER}
@@ -36,3 +61,134 @@ services:
       dockerfile: Dockerfile.feeder
     image: feed-in
     entrypoint: /bin/true
+
+  # rebroadcast everything for dev environment
+  mux-dev:
+    container_name: mux-dev
+    hostname: mux-dev
+    <<: *mux-common
+    ports:
+      - 31001:30005
+    environment:
+      - READSB_NET_BEAST_REDUCE_OUT_PORT=30015
+      - READSB_NET_BEAST_REDUCE_INTERVAL=0.5
+      - READSB_NET_BEAST_INPUT_PORT=30004
+      # - AR_SERVE_TCP_ACARS=15550
+      # - AR_SERVE_TCP_VDLM2=15555
+      # - AR_ENABLE_DEDUPE=true
+      - READSB_NET_ONLY=true
+      - READSB_NET_ENABLE=true
+      - READSB_NET_CONNECTOR=mux-act,30015,beast_in;mux-nsw,30015,beast_in;mux-nt,30015,beast_in;mux-qld,30015,beast_in;mux-sa,30015,beast_in;mux-tas,30015,beast_in;mux-vic,30015,beast_in;mux-wa,30015,beast_in;mux-nz,30015,beast_in;mux-eu,30015,beast_in;mux-us,30015,beast_in;mux-asia,30015,beast_in;mux-mapwithlove,30015,beast_in
+
+  # Multiplexer: mapwithlove
+  # mux-mapwithlove:
+  #   container_name: mux-mapwithlove
+  #   hostname: mux-mapwithlove
+  #   <<: *mux-common
+  #   ports:
+  #     - 21001:30015
+  #   environment:
+  #     - READSB_NET_BEAST_REDUCE_INTERVAL=1
+  #     - READSB_NET_BEAST_REDUCE_OUT_PORT=30015
+  #     - READSB_NET_BEAST_INPUT_PORT=30004
+  #     # - AR_SERVE_TCP_ACARS=15550
+  #     # - AR_SERVE_TCP_VDLM2=15555
+  #     # - AR_ENABLE_DEDUPE=true
+  #     - READSB_NET_CONNECTOR=crawled.mapwithlove.com,3004,beast_in
+
+  # Multiplexer: Australia ACT
+  mux-act:
+    container_name: mux-act
+    hostname: mux-act
+    <<: *mux-common
+    ports:
+      - 12601:30015
+
+  # Multiplexer: Australia NSW
+  mux-nsw:
+    container_name: mux-nsw
+    hostname: mux-nsw
+    <<: *mux-common
+    ports:
+      - 12001:30015
+
+  # Multiplexer: Australia NT
+  mux-nt:
+    container_name: mux-nt
+    hostname: mux-nt
+    <<: *mux-common
+    ports:
+      - 10801:30015
+
+  # Multiplexer: QLD
+  mux-qld:
+    container_name: mux-qld
+    hostname: mux-qld
+    <<: *mux-common
+    ports:
+      - 14001:30015
+
+  # Multiplexer: SA
+  mux-sa:
+    container_name: mux-sa
+    hostname: mux-sa
+    <<: *mux-common
+    ports:
+      - 15001:30015
+
+  # Multiplexer: TAS
+  mux-tas:
+    container_name: mux-tas
+    hostname: mux-tas
+    <<: *mux-common
+    ports:
+      - 17001:30015
+
+  # Multiplexer: VIC
+  mux-vic:
+    container_name: mux-vic
+    hostname: mux-vic
+    <<: *mux-common
+    ports:
+      - 13001:30015
+
+  # Multiplexer: WA
+  mux-wa:
+    container_name: mux-wa
+    hostname: mux-wa
+    <<: *mux-common
+    ports:
+      - 16001:30015
+
+  # Multiplexer: NZ
+  mux-nz:
+    container_name: mux-nz
+    hostname: mux-nz
+    <<: *mux-common
+    ports:
+      - 19001:30015
+
+  # Multiplexer: EU
+  mux-eu:
+    container_name: mux-eu
+    hostname: mux-eu
+    <<: *mux-common
+    ports:
+      - 22001:30015
+  
+  # Multiplexer: USA
+  mux-us:
+    container_name: mux-us
+    hostname: mux-us
+    <<: *mux-common
+    ports:
+      - 23001:30015
+
+  # Multiplexer: ASIA
+  mux-asia:
+    container_name: mux-asia
+    hostname: mux-asia
+    <<: *mux-common
+    ports:
+      - 24001:30015
+

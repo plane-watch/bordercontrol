@@ -1,0 +1,71 @@
+FROM debian:bullseye-20230502-slim
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN set -x && \
+    TEMP_PACKAGES=() && \
+    KEPT_PACKAGES=() && \
+    TEMP_PACKAGES+=(curl) && \
+    TEMP_PACKAGES+=(git) && \
+    TEMP_PACKAGES+=(file) && \
+    KEPT_PACKAGES+=(ca-certificates) && \
+    KEPT_PACKAGES+=(procps) && \
+    KEPT_PACKAGES+=(iproute2) && \
+    # packages needed to build
+    TEMP_PACKAGES+=(build-essential) && \
+    TEMP_PACKAGES+=(cmake) && \
+    TEMP_PACKAGES+=(pkg-config) && \
+    # prerequisites for readsb-protobuf \
+    KEPT_PACKAGES+=(protobuf-c-compiler) && \
+    KEPT_PACKAGES+=(libprotobuf-c1) && \
+    TEMP_PACKAGES+=(libprotobuf-c-dev) && \
+    TEMP_PACKAGES+=(librrd-dev) && \
+    KEPT_PACKAGES+=(libncurses6) && \
+    TEMP_PACKAGES+=(libncurses5-dev) && \
+    TEMP_PACKAGES+=(binutils) && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        "${KEPT_PACKAGES[@]}" \
+        "${TEMP_PACKAGES[@]}" \
+        && \
+    # install mictronics readsb
+    BRANCH_READSB="dev" && \
+    # readsb: clone repo
+    git clone \
+      --branch "$BRANCH_READSB" \
+      --depth 1 \
+      --single-branch \
+      'https://github.com/Mictronics/readsb-protobuf.git' \
+      /src/readsb-protobuf \
+      && \
+    # readsb: build & install (note, -j seems to have issues, so not using...)
+    pushd /src/readsb-protobuf && \
+    make BLADERF=no RTLSDR=no PLUTOSDR=no HAVE_BIASTEE=no && \
+    find "/src/readsb-protobuf" -maxdepth 1 -executable -type f -exec cp -v {} /usr/local/bin/ \; && \
+    popd && \
+    ldconfig && \
+    # readsb: simple tests
+    readsb --version && \
+    viewadsb --version && \
+    # install S6 Overlay
+    curl --location --output /tmp/deploy-s6-overlay.sh https://raw.githubusercontent.com/mikenye/deploy-s6-overlay/master/deploy-s6-overlay.sh && \
+    sh /tmp/deploy-s6-overlay.sh && \
+    rm -f /tmp/deploy-s6-overlay.sh && \
+    # deploy healthchecks framework
+    git clone \
+      --depth=1 \
+      https://github.com/mikenye/docker-healthchecks-framework.git \
+      /opt/healthchecks-framework \
+      && \
+    rm -rf \
+      /opt/healthchecks-framework/.git* \
+      /opt/healthchecks-framework/*.md \
+      /opt/healthchecks-framework/tests \
+      && \
+    # Clean up
+    apt-get remove -y "${TEMP_PACKAGES[@]}" && \
+    apt-get autoremove -y && \
+    rm -rf /src/* /tmp/* /var/lib/apt/lists/*
+
+COPY pw_mux/rootfs/ /
+
+# Set s6 init as entrypoint
+ENTRYPOINT [ "/init" ]
