@@ -20,6 +20,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
@@ -98,6 +99,34 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		validFeeders.mu.Unlock()
 
 		log.Info().Int("feeders", count).Msg("updated feeder uuid cache from atc")
+	}
+}
+
+func checkFeederContainers(ctx *cli.Context) {
+	// cycles through feed-in containers and recreates if needed
+	cfcLog := log.With().Logger()
+
+	// set up docker client
+	dockerCtx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		cfcLog.Err(err).Msg("Could not create docker client")
+		panic(err)
+	}
+	defer cli.Close()
+
+	filters := filters.NewArgs()
+	filters.Contains("feed-in-")
+
+	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, container := range containers {
+		for _, cn := range container.Names {
+			cfcLog.Debug().Str("cn", cn).Msg("debug")
+		}
 	}
 }
 
@@ -468,6 +497,9 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to start feeder containers
 	log.Info().Msg("starting startFeederContainers")
 	go startFeederContainers(ctx, containersToStart)
+
+	// start goroutine to check feed-in containers
+	go checkFeederContainers(ctx)
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
