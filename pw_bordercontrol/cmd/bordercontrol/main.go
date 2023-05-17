@@ -116,7 +116,7 @@ func checkFeederContainers(ctx *cli.Context) {
 	defer cli.Close()
 
 	filters := filters.NewArgs()
-	filters.Contains("feed-in-")
+	filters.Add("name", "feed-in-*")
 
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
 	if err != nil {
