@@ -211,8 +211,6 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 
 	defer conn.Close()
 
-	feedInConn.Close()
-
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(conn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
