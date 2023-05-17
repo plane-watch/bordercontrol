@@ -198,7 +198,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	}
 }
 
-func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
+func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
 	// handles incoming connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
@@ -208,15 +208,16 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		sendRecvBufferSize             = 256 * 1024 // 256kB
 		clientAuthenticated            = false
 		clientFeedInContainerConnected = false
-		feedInConn                     net.Conn
-		feedInErr                      error
+		connOut                        net.Conn
+		connOutErr                     error
 		clientApiKey                   uuid.UUID
 	)
 
-	defer conn.Close()
+	defer connIn.Close()
+	defer connOut.Close()
 
 	// update log context with client IP
-	remoteIP := net.ParseIP(strings.Split(conn.RemoteAddr().String(), ":")[0])
+	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
 	cLog.Debug().Msgf("connection established")
@@ -226,7 +227,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 	for {
 
 		// read data
-		bytesRead, err := conn.Read(buf)
+		bytesRead, err := connIn.Read(buf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
@@ -247,7 +248,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		if !clientAuthenticated {
 
 			// check TLS handshake
-			tlscon := conn.(*tls.Conn)
+			tlscon := connIn.(*tls.Conn)
 			if tlscon.ConnectionState().HandshakeComplete {
 
 				// check valid uuid was returned as ServerName (sni)
@@ -316,15 +317,15 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				// attempt to connect to the container
 				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-				feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
-				if feedInErr != nil {
-					cLog.Warn().AnErr("error", feedInErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
+				connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
+				if connOutErr != nil {
+					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
 				} else {
 					clientFeedInContainerConnected = true
 					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
 
 					// set deadline of 1 second
-					wdErr := feedInConn.SetDeadline(time.Now().Add(1 * time.Second))
+					wdErr := connOut.SetDeadline(time.Now().Add(1 * time.Second))
 					if wdErr != nil {
 						cLog.Err(wdErr).Str("dst", dialAddress).Msg("could not set deadline on connection")
 						break
@@ -340,7 +341,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				if bytesRead > 0 {
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					bytesWritten, err := feedInConn.Write(buf[:bytesRead])
+					bytesWritten, err := connOut.Write(buf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to feed-in container")
 						break
