@@ -210,6 +210,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 		clientFeedInContainerConnected = false
 		connOut                        net.Conn
 		connOutErr                     error
+		connOutAttempts                = 0
 		clientApiKey                   uuid.UUID
 	)
 
@@ -319,9 +320,15 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 				connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
 				if connOutErr != nil {
 					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
+					time.Sleep(1 * time.Second)
+					connOutAttempts += 1
+					if connOutAttempts > 5 {
+						break
+					}
 				} else {
 					defer connOut.Close()
 					clientFeedInContainerConnected = true
+					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Debug().Msg("connected ok")
 				}
