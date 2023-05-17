@@ -211,7 +211,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		feedInConn                     net.Conn
 		feedInErr                      error
 		clientApiKey                   uuid.UUID
-		err                            error
+		// err                            error
 	)
 
 	defer conn.Close()
