@@ -150,11 +150,13 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				"READSB_NET_ONLY=true",
 			}
 
-			// create feed-in container
-			resp, err := cli.ContainerCreate(dockerCtx, &container.Config{
+			// prepare container config
+			containerConfig := container.Config{
 				Image: ctx.String("feedinimage"),
 				Env:   envVars[:],
-			}, nil, nil, nil, "")
+			}
+			// create feed-in container
+			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, nil, nil, nil, feederContainerName)
 			if err != nil {
 				panic(err)
 			}

@@ -71,3 +71,6 @@ RUN set -x && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
 
 COPY --from=builder /src/pw-pipeline/cmd/pw_ingest/pw_ingest /usr/local/bin/pw_ingest
+
+# Set s6 init as entrypoint
+ENTRYPOINT [ "/init" ]
