@@ -129,6 +129,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
 		for _, container := range containers {
 			for _, cn := range container.Names {
+				log.Info().Str("cn", cn).Msg("found container")
 				if cn == feederContainerName {
 					foundContainer = true
 					break
