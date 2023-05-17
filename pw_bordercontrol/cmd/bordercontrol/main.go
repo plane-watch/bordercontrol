@@ -370,11 +370,18 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 				// attempt to connect to the feed-in container
 				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
 
+				var dstIP net.IP
 				dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey))
 				if err != nil {
 					cLog.Err(err).Msg("could not perform lookup")
+				} else {
+					if len(dstIPs) > 0 {
+						dstIP = dstIPs[0]
+					} else {
+						continue
+					}
 				}
-				dstIP := dstIPs[0]
+
 				dstTCPAddr := net.TCPAddr{
 					IP:   dstIP,
 					Port: 12345,
