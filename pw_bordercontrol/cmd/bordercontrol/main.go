@@ -99,7 +99,8 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 	for {
 		containerToStart := <-containersToStart
-		cLog.Info().Any("info", containerToStart).Msg("Start container!")
+
+		cLog.Info().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).Msg("start feed-in container")
 	}
 }
 
@@ -160,11 +161,40 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 
 				// check valid api key
 				if isValidApiKey(clientApiKey) {
+
 					// update log context with client uuid
 					cLog = cLog.With().Str("apikey", clientApiKey.String()).Logger()
 					cLog.Info().Msg("client connected")
+
 					// if API is valid, then set clientAuthenticated to TRUE
 					clientAuthenticated = true
+
+					// get feeder lat/long
+					atcUrl, err := url.Parse(ctx.String("atcurl"))
+					if err != nil {
+						log.Error().Msg("--atcurl is invalid")
+						continue
+					}
+					s := atc.Server{
+						Url:      *atcUrl,
+						Username: ctx.String("atcuser"),
+						Password: ctx.String("atcpass"),
+					}
+					refLat, refLon, mux, label, err := atc.GetFeederInfo(&s, clientApiKey)
+					if err != nil {
+						log.Err(err).Msg("atc.GetFeederLatLon")
+						continue
+					}
+
+					// start the container
+					containersToStart <- startContainerRequest{
+						uuid:   clientApiKey,
+						refLat: refLat,
+						refLon: refLon,
+						mux:    mux,
+						label:  label,
+					}
+
 				} else {
 					// if API is not valid, then kill the connection
 					cLog.Warn().Msg("client sent invalid api key")
@@ -185,33 +215,6 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 			// TODO: maybe have a timer so that it only updates every 5 minutes + some random seconds (to prevent overload of ATC)
 			// TODO: do we also need to mark offline on disconnect?
 			// cLog.Debug().Msgf("data received: %s", fmt.Sprint(buf[:n]))
-
-			// get feeder lat/long
-			atcUrl, err := url.Parse(ctx.String("atcurl"))
-			if err != nil {
-				log.Error().Msg("--atcurl is invalid")
-				continue
-			}
-			s := atc.Server{
-				Url:      *atcUrl,
-				Username: ctx.String("atcuser"),
-				Password: ctx.String("atcpass"),
-			}
-			// refLat, refLon, err := atc.GetFeederLatLon(&s, clientApiKey)
-			refLat, refLon, mux, label, err := atc.GetFeederInfo(&s, clientApiKey)
-			if err != nil {
-				log.Err(err).Msg("atc.GetFeederLatLon")
-				continue
-			}
-
-			// start the container
-			containersToStart <- startContainerRequest{
-				uuid:   clientApiKey,
-				refLat: refLat,
-				refLon: refLon,
-				mux:    mux,
-				label:  label,
-			}
 
 			// at this point we should have everything we need to set up a producer for pw_ingest...
 
