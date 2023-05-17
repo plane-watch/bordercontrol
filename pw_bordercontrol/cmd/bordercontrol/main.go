@@ -239,7 +239,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				if clientAuthenticated {
 					cLog.Info().Msg("client disconnected")
 				}
-			} else if err.Timeout() == true {
+			} else if e, ok := err.(net.Error); ok && e.Timeout() {
 				cLog.Debug().AnErr("error", err).Msg("conn.Read")
 			} else {
 				cLog.Err(err).Msg("conn.Read")
