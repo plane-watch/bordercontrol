@@ -200,12 +200,13 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 	cLog := log.With().Logger()
 
 	var (
-		sendRecvBufferSize  = 1024
-		clientAuthenticated = false
-		feedInConn          net.Conn
-		// feedInErr           error
-		clientApiKey uuid.UUID
-		err          error
+		sendRecvBufferSize             = 1024
+		clientAuthenticated            = false
+		clientFeedInContainerConnected = false
+		feedInConn                     net.Conn
+		feedInErr                      error
+		clientApiKey                   uuid.UUID
+		err                            error
 	)
 
 	defer conn.Close()
@@ -289,6 +290,15 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 						srcIP:  remoteIP,
 					}
 
+					// attempt to connect to the container
+					dialAddress := fmt.Sprintf("feed-in-%s:30005", clientApiKey)
+					feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, time.Second)
+					if feedInErr != nil {
+						cLog.Err(feedInErr)
+					} else {
+						clientFeedInContainerConnected = true
+					}
+
 				} else {
 					// if API is not valid, then kill the connection
 					cLog.Warn().Msg("client sent invalid api key")
@@ -305,17 +315,16 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		// If the client has been authenticated, then we can do stuff with the data
 		if clientAuthenticated {
 
-			// attempt to write data in buf (that was read from client connection earlier)
-			_, err := feedInConn.Write(buf)
-			if err != nil {
-				cLog.Err(err).Msg("error writing to feed-in container")
+			// If the client's feed-in container is connected
+			if clientFeedInContainerConnected {
+
+				// attempt to write data in buf (that was read from client connection earlier)
+				_, err := feedInConn.Write(buf)
+				if err != nil {
+					cLog.Err(err).Msg("error writing to feed-in container")
+				}
+
 			}
-
-			// dialAddress := fmt.Sprintf("feed-in-%s:30005", clientApiKey)
-
-			// // connect to server
-			// feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, time.Second)
-
 		}
 	}
 
