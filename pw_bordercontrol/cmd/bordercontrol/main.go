@@ -116,7 +116,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		// read from channel (this blocks until a request comes in)
 		containerToStart := <-containersToStart
 
-		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("ip", containerToStart.srcIP).Logger()
+		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("src", containerToStart.srcIP).Logger()
 
 		// determine if container is already running
 		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
@@ -159,7 +159,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(conn.RemoteAddr().String(), ":")[0])
-	cLog = cLog.With().IPAddr("client", remoteIP).Logger()
+	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
 	cLog.Debug().Msgf("connection established")
 	defer cLog.Debug().Msgf("connection closed")
