@@ -243,8 +243,8 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				cLog.Debug().AnErr("error", err).Msg("conn.Read")
 			} else {
 				cLog.Err(err).Msg("conn.Read")
+				break
 			}
-			break
 		}
 
 		// When the first data is sent, the TLS handshake should take place.
