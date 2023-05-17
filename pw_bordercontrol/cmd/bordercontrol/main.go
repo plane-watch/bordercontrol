@@ -205,7 +205,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 	cLog := log.With().Logger()
 
 	var (
-		sendRecvBufferSize             = 1024
+		sendRecvBufferSize             = 256 * 1024 // 256kB
 		clientAuthenticated            = false
 		clientFeedInContainerConnected = false
 		feedInConn                     net.Conn
