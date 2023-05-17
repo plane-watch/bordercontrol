@@ -203,9 +203,9 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		sendRecvBufferSize  = 1024
 		clientAuthenticated = false
 		feedInConn          net.Conn
-		feedInErr           error
-		clientApiKey        uuid.UUID
-		err                 error
+		// feedInErr           error
+		clientApiKey uuid.UUID
+		err          error
 	)
 
 	defer conn.Close()
@@ -312,7 +312,6 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 
 			// // connect to server
 			// feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, time.Second)
-			feedInErr = nil
 
 		}
 	}
