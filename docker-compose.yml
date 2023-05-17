@@ -3,8 +3,6 @@ version: '3.8'
 networks:
   bordercontrol_feeder:
     name: bordercontrol_feeder
-  bordercontrol_muxes:
-    name: bordercontrol_muxes
 
 x-mux-common: &mux-common
   build:
@@ -14,7 +12,7 @@ x-mux-common: &mux-common
   restart: always
   tty: true
   networks:
-    - bordercontrol_muxes
+    - bordercontrol_feeder
   environment:
     - READSB_NET_BEAST_REDUCE_OUT_PORT=30015
     - READSB_NET_BEAST_REDUCE_INTERVAL=0.5
