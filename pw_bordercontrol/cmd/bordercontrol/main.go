@@ -151,10 +151,16 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				"READSB_NET_ONLY=true",
 			}
 
+			// prepare labels
+			containerLabels := make(map[string]string)
+			containerLabels["plane.watch.label"] = containerToStart.label
+			containerLabels["plane.watch.mux"] = containerToStart.mux
+
 			// prepare container config
 			containerConfig := container.Config{
-				Image: ctx.String("feedinimage"),
-				Env:   envVars[:],
+				Image:  ctx.String("feedinimage"),
+				Env:    envVars[:],
+				Labels: containerLabels,
 			}
 
 			// prepare container host config
@@ -162,6 +168,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				AutoRemove: true,
 			}
 
+			// prepare container network config
 			endpointsConfig := make(map[string]*network.EndpointSettings)
 			endpointsConfig["bordercontrol_feeder"] = &network.EndpointSettings{}
 			networkingConfig := network.NetworkingConfig{
@@ -195,6 +202,8 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 	var (
 		sendRecvBufferSize  = 1024
 		clientAuthenticated = false
+		feedInConn          net.Conn
+		feedInErr           error
 		clientApiKey        uuid.UUID
 		err                 error
 	)
@@ -293,20 +302,17 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 
 		// If the client has been authenticated, then we can do stuff with the data
 		if clientAuthenticated {
-			// TODO: do stuff with the data - talk to boxie
-			// TODO: need a nice way to update atc that the feeder is online since the time it connected...
-			// TODO: maybe have a timer so that it only updates every 5 minutes + some random seconds (to prevent overload of ATC)
-			// TODO: do we also need to mark offline on disconnect?
-			// cLog.Debug().Msgf("data received: %s", fmt.Sprint(buf[:n]))
 
-			// at this point we should have everything we need to set up a producer for pw_ingest...
+			_, err := feedInConn.Write(buf)
+			if err != nil {
+				panic(err)
+			}
 
-			// set up producer
-			// producerOpts := make([]producer.Option, 3)
-			// producerOpts[0] = producer.WithSourceTag(clientApiKey.String())
-			// producerOpts[1] = producer.WithType(producer.Beast)
-			// producerOpts[2] = producer.WithPrometheusCounters(prometheusInputAvrFrames, prometheusInputBeastFrames, prometheusInputSbs1Frames)
-			// producerOpts = append(producerOpts, producer.WithReferenceLatLon(refLat, refLon))
+			// dialAddress := fmt.Sprintf("feed-in-%s:30005", clientApiKey)
+
+			// // connect to server
+			// feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, time.Second)
+			feedInErr = nil
 
 		}
 	}
