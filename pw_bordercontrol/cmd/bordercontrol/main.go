@@ -211,7 +211,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		feedInConn                     net.Conn
 		feedInErr                      error
 		clientApiKey                   uuid.UUID
-\	)
+	)
 
 	defer conn.Close()
 
@@ -236,7 +236,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 					cLog.Info().Msg("client disconnected")
 				}
 				break
-\			} else {
+			} else {
 				cLog.Err(err).Msg("conn.Read")
 				break
 			}
