@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/url"
@@ -15,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+
+	"github.com/docker/docker/client"
 )
 
 // struct for requesting that the startFeederContainers goroutine start a container
@@ -62,7 +65,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 			firstRun = false
 		}
 
-		log.Debug().Msg("started updating api key cache from atc")
+		// log.Debug().Msg("started updating api key cache from atc")
 
 		// get data from atc
 		atcUrl, err := url.Parse(ctx.String("atcurl"))
@@ -89,7 +92,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		validFeeders.feeders = newValidFeeders
 		validFeeders.mu.Unlock()
 
-		log.Info().Int("feeders", count).Msg("finish updating api key cache from atc")
+		log.Info().Int("feeders", count).Msg("updated feeder uuid cache from atc")
 	}
 }
 
@@ -97,10 +100,22 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	// reads startContainerRequests from channel containersToStart and starts container
 	cLog := log.With().Logger()
 
+	// set up docker client
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		panic(err)
+	}
+	defer cli.Close()
+
 	for {
+		// read from channel (this blocks until a request comes in)
 		containerToStart := <-containersToStart
 
 		cLog.Info().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).Msg("start feed-in container")
+
+		// determine if container is already running
+
 	}
 }
 
