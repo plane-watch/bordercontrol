@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"net"
 	"net/url"
@@ -101,7 +100,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	cLog := log.With().Logger()
 
 	// set up docker client
-	ctx := context.Background()
+	// dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
