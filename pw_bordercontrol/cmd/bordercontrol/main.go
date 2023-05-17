@@ -334,21 +334,22 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 			if clientFeedInContainerConnected {
 				if bytesRead > 0 {
 
-					// set deadline of 1 second
-					wdErr := connOut.SetDeadline(time.Now().Add(1 * time.Second))
+					// set deadline of 5 second
+					wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
 					if wdErr != nil {
 						cLog.Err(wdErr).Msg("could not set deadline on connection")
 						break
 					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					bytesWritten, err := connOut.Write(buf[:bytesRead])
+					_, err := connOut.Write(buf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to feed-in container")
 						break
-					} else {
-						cLog.Debug().Int("bytes", bytesWritten).Msg("wrote to feed-in container")
 					}
+					// else {
+					// 	// cLog.Debug().Int("bytes", bytesWritten).Msg("wrote to feed-in container")
+					// }
 				}
 			}
 		}
