@@ -6,4 +6,5 @@ WORKDIR /src/pw-pipeline/cmd/pw_ingest
 RUN go build -o pw_ingest .
 
 FROM alpine
+RUN apk update && apk add gcompat
 COPY --from=builder /src/pw-pipeline/cmd/pw_ingest/pw_ingest /usr/local/bin/pw_ingest
