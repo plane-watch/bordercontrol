@@ -224,10 +224,10 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 	defer cLog.Debug().Msgf("connection closed")
 
 	buf := make([]byte, sendRecvBufferSize)
-	err = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-	if err != nil {
-		panic(err)
-	}
+	// err = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	// if err != nil {
+	// 	panic(err)
+	// }
 	for {
 
 		// read data
@@ -241,11 +241,11 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 					cLog.Info().Msg("client disconnected")
 				}
 				break
-			} else if e, ok := err.(net.Error); ok && e.Timeout() {
-				cLog.Debug().AnErr("error", err).Msg("conn.Read")
-				if bytesRead == 0 {
-					break
-				}
+				// } else if e, ok := err.(net.Error); ok && e.Timeout() {
+				// 	cLog.Debug().AnErr("error", err).Msg("conn.Read")
+				// 	if bytesRead == 0 {
+				// 		break
+				// 	}
 			} else {
 				cLog.Err(err).Msg("conn.Read")
 				break
