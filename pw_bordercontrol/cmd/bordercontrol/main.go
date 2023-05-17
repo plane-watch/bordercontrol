@@ -211,8 +211,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		feedInConn                     net.Conn
 		feedInErr                      error
 		clientApiKey                   uuid.UUID
-		// err                            error
-	)
+\	)
 
 	defer conn.Close()
 
@@ -224,10 +223,6 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 	defer cLog.Debug().Msgf("connection closed")
 
 	buf := make([]byte, sendRecvBufferSize)
-	// err = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-	// if err != nil {
-	// 	panic(err)
-	// }
 	for {
 
 		// read data
@@ -241,12 +236,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 					cLog.Info().Msg("client disconnected")
 				}
 				break
-				// } else if e, ok := err.(net.Error); ok && e.Timeout() {
-				// 	cLog.Debug().AnErr("error", err).Msg("conn.Read")
-				// 	if bytesRead == 0 {
-				// 		break
-				// 	}
-			} else {
+\			} else {
 				cLog.Err(err).Msg("conn.Read")
 				break
 			}
@@ -332,8 +322,14 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				} else {
 					clientFeedInContainerConnected = true
 					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
-				}
 
+					// set write timeout of 1 second
+					wdErr := conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+					if wdErr != nil {
+						cLog.Err(wdErr).Str("dst", dialAddress).Msg("could not set write deadline")
+						break
+					}
+				}
 			}
 		}
 
@@ -347,6 +343,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 					bytesWritten, err := feedInConn.Write(buf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to feed-in container")
+						break
 					} else {
 						cLog.Debug().Int("bytes", bytesWritten).Msg("wrote to feed-in container")
 					}
