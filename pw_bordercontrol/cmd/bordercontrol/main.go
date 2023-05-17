@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 )
 
@@ -100,9 +103,10 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	cLog := log.With().Logger()
 
 	// set up docker client
-	// dockerCtx := context.Background()
+	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
+		cLog.Err(err).Msg("Could not create docker client")
 		panic(err)
 	}
 	defer cli.Close()
@@ -114,6 +118,16 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		cLog.Info().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).Msg("start feed-in container")
 
 		// determine if container is already running
+
+		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
+		if err != nil {
+			cLog.Err(err).Msg("Could not list docker containers")
+		}
+
+		for _, container := range containers {
+			fmt.Println(container.ID)
+
+		}
 
 	}
 }
@@ -318,9 +332,12 @@ func runServer(ctx *cli.Context) error {
 	log.Info().Msg("starting updateFeederDB")
 	go updateFeederDB(ctx, 60*time.Second)
 
+	// prepare channel for container start requests
+	containersToStart := make(chan startContainerRequest)
+	defer close(containersToStart)
+
 	// start goroutine to start feeder containers
 	log.Info().Msg("starting startFeederContainers")
-	containersToStart := make(chan startContainerRequest)
 	go startFeederContainers(ctx, containersToStart)
 
 	// load server cert & key
