@@ -309,7 +309,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		// If the client has been authenticated, then we can do stuff with the data
 		if clientAuthenticated {
 
-			// If the client's feed-in container is connected
+			// If the client's feed-in container is not yet connected
 			if !clientFeedInContainerConnected {
 
 				// attempt to connect to the container
@@ -323,7 +323,13 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
 				}
 
-			} else {
+			}
+		}
+
+		if clientAuthenticated {
+
+			// If the client's feed-in container is not yet connected
+			if clientFeedInContainerConnected {
 
 				// attempt to write data in buf (that was read from client connection earlier)
 				n, err := feedInConn.Write(buf)
