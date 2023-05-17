@@ -20,6 +20,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
 
@@ -155,8 +156,20 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				Image: ctx.String("feedinimage"),
 				Env:   envVars[:],
 			}
+
+			// prepare container host config
+			containerHostConfig := container.HostConfig{
+				AutoRemove: true,
+			}
+
+			endpointsConfig := make(map[string]*network.EndpointSettings)
+			endpointsConfig["bordercontrol_feeder"] = &network.EndpointSettings{}
+			networkingConfig := network.NetworkingConfig{
+				EndpointsConfig: endpointsConfig,
+			}
+
 			// create feed-in container
-			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, nil, nil, nil, feederContainerName)
+			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
 			if err != nil {
 				panic(err)
 			}

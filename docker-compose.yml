@@ -1,5 +1,9 @@
 version: '3.8'
 
+networks:
+  bordercontrol_feeder:
+    name: bordercontrol_feeder
+
 services:
 
   bordercontrol:
@@ -19,6 +23,8 @@ services:
     volumes:
       - /etc/ssl/private:/etc/ssl/private:ro
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - bordercontrol_feeder
     ports:
       - 12345:12345
 
