@@ -292,11 +292,13 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 
 					// attempt to connect to the container
 					dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
+					cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 					feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, time.Second)
 					if feedInErr != nil {
 						cLog.Err(feedInErr)
 					} else {
 						clientFeedInContainerConnected = true
+						cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
 					}
 
 				} else {
