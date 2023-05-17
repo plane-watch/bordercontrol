@@ -298,6 +298,9 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 						srcIP:  remoteIP,
 					}
 
+					// wait for container start
+					time.Sleep(5 * time.Second)
+
 				} else {
 					// if API is not valid, then kill the connection
 					cLog.Warn().Msg("client sent invalid api key")
