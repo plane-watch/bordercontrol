@@ -131,7 +131,7 @@ func checkFeederContainers(ctx *cli.Context) {
 
 		// check containers are running latest feed-in image
 		if container.Image != ctx.String("feedinimage") {
-			cfcLog.Info().Str("container", container.Names[0]).Msg("out of date container being killed for recreation")
+			cfcLog.Info().Str("container", container.Names[0][1:]).Msg("out of date container being killed for recreation")
 			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
 				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
