@@ -241,7 +241,6 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				}
 			} else if err.Timeout() == true {
 				cLog.Debug().AnErr("error", err).Msg("conn.Read")
-			} 
 			} else {
 				cLog.Err(err).Msg("conn.Read")
 			}
