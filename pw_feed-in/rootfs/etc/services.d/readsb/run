@@ -75,13 +75,13 @@ if [[ -n "$READSB_GNSS" ]]; then
 fi
 
 # Handle "--lat=<lat>"
-if [[ -n "$READSB_LAT" ]]; then
+if [[ -n "$FEEDER_LAT" ]]; then
     READSB_CMD+=("--lat=$READSB_LAT")
 fi
 
 # Handle "--lon=<lon>"
 #shellcheck disable=SC2153
-if [[ -n "$READSB_LON" ]]; then
+if [[ -n "$FEEDER_LON" ]]; then
     READSB_CMD+=("--lon=$READSB_LON")
 fi
 

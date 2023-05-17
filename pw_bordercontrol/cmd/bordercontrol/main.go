@@ -116,10 +116,9 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 	for {
 		// read from channel (this blocks until a request comes in)
-		// sfcLog.Debug().Str("func", "startFeederContainers").Msg("waiting for data to arrive on channel")
 		containerToStart := <-containersToStart
-		// sfcLog.Debug().Str("func", "startFeederContainers").Msg("received data from channel")
 
+		// prepare logger
 		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("src", containerToStart.srcIP).Logger()
 
 		// determine if container is already running
@@ -140,19 +139,25 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		}
 		if foundContainer {
 			cLog.Info().Msg("feed-in container already running")
+
 		} else {
+
+			// if container is not running, create it
 			cLog.Debug().Msg("starting feed-in container")
 
 			// prepare environment variables for container
 			envVars := [...]string{
-				fmt.Sprintf("READSB_LAT=%f", containerToStart.refLat),
-				fmt.Sprintf("READSB_LON=%f", containerToStart.refLon),
+				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.refLat),
+				fmt.Sprintf("FEEDER_LON=%f", containerToStart.refLon),
+				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.uuid),
 				"READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
 				"READSB_NET_BEAST_REDUCE_INTERVAL=1",
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
+				"PW_INGEST_PUBLISH=location-updates",
+				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
 			}
 
 			// prepare labels
@@ -193,8 +198,6 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			cLog.Info().Str("container_id", resp.ID).Msg("started feed-in container")
 
 		}
-
-		// sfcLog.Debug().Str("func", "startFeederContainers").Msg("finished loop")
 	}
 }
 
@@ -268,7 +271,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 					// if API is valid, then set clientAuthenticated to TRUE
 					clientAuthenticated = true
 
-					// get feeder lat/long
+					// get feeder info (lat/lon/mux/label)
 					atcUrl, err := url.Parse(ctx.String("atcurl"))
 					if err != nil {
 						log.Error().Msg("--atcurl is invalid")
@@ -318,14 +321,24 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
+
 				if connOutErr != nil {
+
+					// handle connection errors to feed-in container
+
 					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
 					time.Sleep(1 * time.Second)
+
+					// retry up to 5 times then bail
 					connOutAttempts += 1
 					if connOutAttempts > 5 {
 						break
 					}
+
 				} else {
+
+					// connected OK...
+
 					defer connOut.Close()
 					clientFeedInContainerConnected = true
 					connOutAttempts = 0
@@ -335,10 +348,11 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 			}
 		}
 
+		// if we are ready to output data to the feed-in container...
 		if clientAuthenticated {
-
-			// If the client's feed-in container is not yet connected
 			if clientFeedInContainerConnected {
+
+				// if we have data to write...
 				if bytesRead > 0 {
 
 					// set deadline of 5 second
@@ -354,14 +368,11 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 						cLog.Err(err).Msg("error writing to feed-in container")
 						break
 					}
-					// else {
-					// 	// cLog.Debug().Int("bytes", bytesWritten).Msg("wrote to feed-in container")
-					// }
 				}
 			}
 		}
 	}
-	cLog.Debug().Msg("goroutine finishing")
+	cLog.Debug().Msg("clientConnection goroutine finishing")
 }
 
 func main() {
@@ -413,6 +424,12 @@ func main() {
 				Name:  "feedinimage",
 				Usage: "feed-in image name",
 				Value: "feed-in",
+			},
+			&cli.StringFlag{
+				Name:     "pwingestpublish",
+				Usage:    "pw_ingest --sink setting in feed-in containers",
+				Required: true,
+				EnvVars:  []string{"PW_INGEST_SINK"},
 			},
 		},
 		Action: runServer,
