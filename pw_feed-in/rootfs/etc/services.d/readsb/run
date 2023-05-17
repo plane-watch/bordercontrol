@@ -76,13 +76,13 @@ fi
 
 # Handle "--lat=<lat>"
 if [[ -n "$FEEDER_LAT" ]]; then
-    READSB_CMD+=("--lat=$READSB_LAT")
+    READSB_CMD+=("--lat=$FEEDER_LAT")
 fi
 
 # Handle "--lon=<lon>"
 #shellcheck disable=SC2153
 if [[ -n "$FEEDER_LON" ]]; then
-    READSB_CMD+=("--lon=$READSB_LON")
+    READSB_CMD+=("--lon=$FEEDER_LON")
 fi
 
 # Handle "--max-range=<dist>"
