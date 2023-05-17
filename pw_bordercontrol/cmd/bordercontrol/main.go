@@ -235,10 +235,12 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
+				break
 			} else if err.Error() == "EOF" {
 				if clientAuthenticated {
 					cLog.Info().Msg("client disconnected")
 				}
+				break
 			} else if e, ok := err.(net.Error); ok && e.Timeout() {
 				cLog.Debug().AnErr("error", err).Msg("conn.Read")
 			} else {
