@@ -258,7 +258,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 		sendRecvBufferSize             = 256 * 1024 // 256kB
 		clientAuthenticated            = false
 		clientFeedInContainerConnected = false
-		connOut                        net.Conn
+		connOut                        *net.TCPConn
 		connOutErr                     error
 		connOutAttempts                = 0
 		clientApiKey                   uuid.UUID
@@ -374,12 +374,17 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 				if err != nil {
 					cLog.Err(err).Msg("could not perform lookup")
 				}
-				for _, ip := range dstIPs {
-					log.Debug().Str("hostname", fmt.Sprintf("feed-in-%s", clientApiKey)).IPAddr("ip", ip).Msg("lookup results")
+				dstIP := dstIPs[0]
+				dstTCPAddr := net.TCPAddr{
+					IP:   dstIP,
+					Port: 12345,
 				}
 
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-				connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
+				// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
+				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
+				connOut.SetKeepAlive(true)
+				connOut.SetKeepAlivePeriod(1 * time.Second)
 
 				if connOutErr != nil {
 
