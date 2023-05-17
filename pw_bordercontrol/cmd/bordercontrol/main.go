@@ -313,7 +313,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 			// If the client's feed-in container is not yet connected
 			if !clientFeedInContainerConnected {
 
-				// attempt to connect to the container
+				// attempt to connect to the feed-in container
 				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
@@ -325,7 +325,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
 
 					// set deadline of 1 second
-					wdErr := connOut.SetDeadline(time.Now().Add(1 * time.Second))
+					wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
 					if wdErr != nil {
 						cLog.Err(wdErr).Str("dst", dialAddress).Msg("could not set deadline on connection")
 						break
