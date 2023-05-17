@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -102,6 +103,40 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 	}
 }
 
+func muxHostname(mux string) (muxHost string, err error) {
+
+	switch strings.ToUpper(mux) {
+	case "ASIA":
+		muxHost = "mux-asia"
+	case "US":
+		muxHost = "mux-us"
+	case "EU":
+		muxHost = "mux-eu"
+	case "NZ":
+		muxHost = "mux-nz"
+	case "WA":
+		muxHost = "mux-wa"
+	case "VIC":
+		muxHost = "mux-vic"
+	case "TAS":
+		muxHost = "mux-tas"
+	case "SA":
+		muxHost = "mux-sa"
+	case "QLD":
+		muxHost = "mux-qld"
+	case "NT":
+		muxHost = "mux-nt"
+	case "NSW":
+		muxHost = "mux-nsw"
+	case "ACT":
+		muxHost = "mux-act"
+	default:
+		err = errors.New(fmt.Sprintf("no multiplexer for: %s", mux))
+	}
+
+	return muxHost, err
+}
+
 func checkFeederContainers(ctx *cli.Context) {
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Logger()
@@ -192,6 +227,13 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			// if container is not running, create it
 			cLog.Debug().Msg("starting feed-in container")
 
+			mux, err := muxHostname(containerToStart.mux)
+			if err != nil {
+				cLog.Err(err).Msg("could not assign mux")
+				time.Sleep(5 * time.Second)
+				break
+			}
+
 			// prepare environment variables for container
 			envVars := [...]string{
 				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.refLat),
@@ -203,6 +245,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
+				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", mux),
 				"PW_INGEST_PUBLISH=location-updates",
 				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
 			}
