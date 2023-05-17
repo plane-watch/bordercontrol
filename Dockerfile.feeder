@@ -10,6 +10,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x && \
     TEMP_PACKAGES=() && \
     KEPT_PACKAGES=() && \
+    TEMP_PACKAGES+=(curl) && \
     TEMP_PACKAGES+=(git) && \
     KEPT_PACKAGES+=(ca-certificates) && \
     apt-get update && \
