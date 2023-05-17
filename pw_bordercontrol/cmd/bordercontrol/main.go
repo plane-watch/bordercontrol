@@ -375,7 +375,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 					cLog.Err(err).Msg("could not perform lookup")
 				}
 				for _, ip := range dstIPs {
-					cLog.Debug().IPAddr("ip", ip).Msg("lookup results")
+					log.Debug().Str("hostname", fmt.Sprintf("feed-in-%s", clientApiKey)).IPAddr("ip", ip).Msg("lookup results")
 				}
 
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
