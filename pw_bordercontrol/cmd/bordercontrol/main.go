@@ -323,10 +323,10 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 					clientFeedInContainerConnected = true
 					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
 
-					// set write timeout of 1 second
-					wdErr := conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
+					// set deadline of 1 second
+					wdErr := conn.SetDeadline(time.Now().Add(1 * time.Second))
 					if wdErr != nil {
-						cLog.Err(wdErr).Str("dst", dialAddress).Msg("could not set write deadline")
+						cLog.Err(wdErr).Str("dst", dialAddress).Msg("could not set deadline on connection")
 						break
 					}
 				}
