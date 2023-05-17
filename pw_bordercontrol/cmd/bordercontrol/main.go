@@ -115,9 +115,11 @@ func checkFeederContainers(ctx *cli.Context) {
 	}
 	defer cli.Close()
 
+	// prepare filter to find feed-in containers
 	filters := filters.NewArgs()
 	filters.Add("name", "feed-in-*")
 
+	// find containers
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
 	if err != nil {
 		panic(err)
@@ -127,6 +129,7 @@ func checkFeederContainers(ctx *cli.Context) {
 		for _, cn := range container.Names {
 			cfcLog.Debug().Str("cn", cn).Msg("debug")
 		}
+		cfcLog.Debug().Str("image", container.Image).Msg("debug")
 	}
 }
 
