@@ -224,10 +224,14 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 	defer cLog.Debug().Msgf("connection closed")
 
 	buf := make([]byte, sendRecvBufferSize)
+	err = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	if err != nil {
+		panic(err)
+	}
 	for {
 
 		// read data
-		_, err = conn.Read(buf)
+		bytesRead, err := conn.Read(buf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
@@ -330,15 +334,16 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 
 			// If the client's feed-in container is not yet connected
 			if clientFeedInContainerConnected {
+				if bytesRead > 0 {
 
-				// attempt to write data in buf (that was read from client connection earlier)
-				n, err := feedInConn.Write(buf)
-				if err != nil {
-					cLog.Err(err).Msg("error writing to feed-in container")
-				} else {
-					cLog.Debug().Int("bytes", n).Msg("wrote to feed-in container")
+					// attempt to write data in buf (that was read from client connection earlier)
+					bytesWritten, err := feedInConn.Write(buf[:bytesRead])
+					if err != nil {
+						cLog.Err(err).Msg("error writing to feed-in container")
+					} else {
+						cLog.Debug().Int("bytes", bytesWritten).Msg("wrote to feed-in container")
+					}
 				}
-
 			}
 		}
 	}
