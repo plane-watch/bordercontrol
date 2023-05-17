@@ -318,9 +318,11 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 			if clientFeedInContainerConnected {
 
 				// attempt to write data in buf (that was read from client connection earlier)
-				_, err := feedInConn.Write(buf)
+				n, err := feedInConn.Write(buf)
 				if err != nil {
 					cLog.Err(err).Msg("error writing to feed-in container")
+				} else {
+					cLog.Debug().Int("bytes", n).Msg("wrote to feed-in container")
 				}
 
 			}
