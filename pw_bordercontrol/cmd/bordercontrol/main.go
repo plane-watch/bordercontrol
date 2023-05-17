@@ -283,7 +283,6 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 						continue
 					}
 
-					cLog.Debug().Str("func", "clientConnection").Msg("sending req")
 					// start the container
 					containersToStart <- startContainerRequest{
 						uuid:   clientApiKey,
@@ -292,18 +291,6 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 						mux:    mux,
 						label:  label,
 						srcIP:  remoteIP,
-					}
-					cLog.Debug().Str("func", "clientConnection").Msg("req sent")
-
-					// attempt to connect to the container
-					dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
-					cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-					feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
-					if feedInErr != nil {
-						cLog.Err(feedInErr).Str("dst", dialAddress).Msg("could not connect to fee-in container")
-					} else {
-						clientFeedInContainerConnected = true
-						cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
 					}
 
 				} else {
@@ -323,7 +310,20 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		if clientAuthenticated {
 
 			// If the client's feed-in container is connected
-			if clientFeedInContainerConnected {
+			if !clientFeedInContainerConnected {
+
+				// attempt to connect to the container
+				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
+				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+				feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
+				if feedInErr != nil {
+					cLog.Warn().AnErr("error", feedInErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
+				} else {
+					clientFeedInContainerConnected = true
+					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
+				}
+
+			} else {
 
 				// attempt to write data in buf (that was read from client connection earlier)
 				n, err := feedInConn.Write(buf)
