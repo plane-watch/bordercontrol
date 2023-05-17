@@ -116,9 +116,9 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 	for {
 		// read from channel (this blocks until a request comes in)
-		sfcLog.Debug().Str("func", "startFeederContainers").Msg("waiting for data to arrive on channel")
+		// sfcLog.Debug().Str("func", "startFeederContainers").Msg("waiting for data to arrive on channel")
 		containerToStart := <-containersToStart
-		sfcLog.Debug().Str("func", "startFeederContainers").Msg("received data from channel")
+		// sfcLog.Debug().Str("func", "startFeederContainers").Msg("received data from channel")
 
 		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("src", containerToStart.srcIP).Logger()
 
@@ -194,7 +194,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 		}
 
-		sfcLog.Debug().Str("func", "startFeederContainers").Msg("finished loop")
+		// sfcLog.Debug().Str("func", "startFeederContainers").Msg("finished loop")
 	}
 }
 
@@ -283,6 +283,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 						continue
 					}
 
+					cLog.Debug().Str("func", "clientConnection").Msg("sending req")
 					// start the container
 					containersToStart <- startContainerRequest{
 						uuid:   clientApiKey,
@@ -292,13 +293,14 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 						label:  label,
 						srcIP:  remoteIP,
 					}
+					cLog.Debug().Str("func", "clientConnection").Msg("req sent")
 
 					// attempt to connect to the container
 					dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
 					cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-					feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, time.Second)
+					feedInConn, feedInErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
 					if feedInErr != nil {
-						cLog.Err(feedInErr)
+						cLog.Err(feedInErr).Str("dst", dialAddress).Msg("could not connect to fee-in container")
 					} else {
 						clientFeedInContainerConnected = true
 						cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
