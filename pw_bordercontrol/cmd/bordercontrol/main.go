@@ -243,6 +243,9 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				break
 			} else if e, ok := err.(net.Error); ok && e.Timeout() {
 				cLog.Debug().AnErr("error", err).Msg("conn.Read")
+				if bytesRead == 0 {
+					break
+				}
 			} else {
 				cLog.Err(err).Msg("conn.Read")
 				break
