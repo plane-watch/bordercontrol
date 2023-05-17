@@ -15,6 +15,7 @@ RUN set -x && \
     TEMP_PACKAGES+=(file) && \
     KEPT_PACKAGES+=(ca-certificates) && \
     KEPT_PACKAGES+=(procps) && \
+    KEPT_PACKAGES+=(iproute2) && \
     # packages needed to build
     TEMP_PACKAGES+=(build-essential) && \
     TEMP_PACKAGES+=(cmake) && \
