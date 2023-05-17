@@ -233,6 +233,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			// prepare container network config
 			endpointsConfig := make(map[string]*network.EndpointSettings)
 			endpointsConfig["bordercontrol_feeder"] = &network.EndpointSettings{}
+			endpointsConfig["bordercontrol_muxes"] = &network.EndpointSettings{}
 			networkingConfig := network.NetworkingConfig{
 				EndpointsConfig: endpointsConfig,
 			}
