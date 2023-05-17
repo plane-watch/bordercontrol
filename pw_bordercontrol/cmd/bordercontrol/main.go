@@ -29,6 +29,7 @@ type startContainerRequest struct {
 	refLon float64   // feeder lon
 	mux    string    // the multiplexer to upstream the data to
 	label  string    // the label of the feeder
+	srcIP  net.IP    // client IP address
 }
 
 // struct for a list of valid feeder uuids
@@ -115,7 +116,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		// read from channel (this blocks until a request comes in)
 		containerToStart := <-containersToStart
 
-		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).Logger()
+		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("ip", containerToStart.srcIP).Logger()
 
 		// determine if container is already running
 		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
@@ -200,7 +201,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 				if isValidApiKey(clientApiKey) {
 
 					// update log context with client uuid
-					cLog = cLog.With().Str("apikey", clientApiKey.String()).Logger()
+					cLog = cLog.With().Str("uuid", clientApiKey.String()).Logger()
 					cLog.Info().Msg("client connected")
 
 					// if API is valid, then set clientAuthenticated to TRUE
@@ -230,6 +231,7 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 						refLon: refLon,
 						mux:    mux,
 						label:  label,
+						srcIP:  remoteIP,
 					}
 
 				} else {
