@@ -33,8 +33,7 @@ type atcFeeders struct {
 }
 
 var (
-	validFeeders      atcFeeders
-	containersToStart chan startContainerRequest
+	validFeeders atcFeeders
 )
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
@@ -94,7 +93,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 	}
 }
 
-func startFeederContainers(ctx *cli.Context) {
+func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
 	// reads startContainerRequests from channel containersToStart and starts container
 	cLog := log.With().Caller().Logger()
 
@@ -104,7 +103,7 @@ func startFeederContainers(ctx *cli.Context) {
 	}
 }
 
-func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
+func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
 	// handles incoming connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
@@ -304,7 +303,8 @@ func runServer(ctx *cli.Context) error {
 
 	// start goroutine to start feeder containers
 	log.Info().Msg("starting startFeederContainers")
-	go startFeederContainers(ctx)
+	containersToStart := make(chan startContainerRequest)
+	go startFeederContainers(ctx, containersToStart)
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
@@ -338,7 +338,7 @@ func runServer(ctx *cli.Context) error {
 			continue
 		}
 		defer conn.Close()
-		go clientConnection(ctx, conn, &tlsConfig)
+		go clientConnection(ctx, conn, &tlsConfig, containersToStart)
 	}
 	return nil
 }
