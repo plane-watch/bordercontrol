@@ -214,7 +214,6 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 	)
 
 	defer connIn.Close()
-	defer connOut.Close()
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
@@ -321,6 +320,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 				if connOutErr != nil {
 					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
 				} else {
+					defer connOut.Close()
 					clientFeedInContainerConnected = true
 					cLog.Debug().Str("dst", dialAddress).Msg("connected ok")
 
