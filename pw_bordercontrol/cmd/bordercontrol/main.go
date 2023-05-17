@@ -303,9 +303,10 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config, co
 		// If the client has been authenticated, then we can do stuff with the data
 		if clientAuthenticated {
 
+			// attempt to write data in buf (that was read from client connection earlier)
 			_, err := feedInConn.Write(buf)
 			if err != nil {
-				panic(err)
+				cLog.Err(err).Msg("error writing to feed-in container")
 			}
 
 			// dialAddress := fmt.Sprintf("feed-in-%s:30005", clientApiKey)
