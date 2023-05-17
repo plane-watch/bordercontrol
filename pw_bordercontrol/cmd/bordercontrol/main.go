@@ -125,12 +125,26 @@ func checkFeederContainers(ctx *cli.Context) {
 		panic(err)
 	}
 
+	// for each container...
 	for _, container := range containers {
-		for _, cn := range container.Names {
-			cfcLog.Debug().Str("cn", cn).Msg("debug")
+
+		// check containers are running latest feed-in image
+		if container.Image != ctx.String("feedinimage") {
+			cfcLog.Info().Str("container", container.Names[0]).Msg("out of date container being killed for recreation")
+			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
+			if err != nil {
+				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
+			}
 		}
-		cfcLog.Debug().Str("image", container.Image).Msg("debug")
+
+		// avoid killing lots of containers in a short duration
+		time.Sleep(30 * time.Second)
 	}
+
+	// re-launch this goroutine in 5 mins
+	time.Sleep(300 * time.Second)
+	go checkFeederContainers(ctx)
+
 }
 
 func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
