@@ -12,6 +12,7 @@ RUN set -x && \
     KEPT_PACKAGES=() && \
     TEMP_PACKAGES+=(curl) && \
     TEMP_PACKAGES+=(git) && \
+    TEMP_PACKAGES+=(file) && \
     KEPT_PACKAGES+=(ca-certificates) && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
