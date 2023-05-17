@@ -17,13 +17,24 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// struct for requesting that the startFeederContainers goroutine start a container
+type startContainerRequest struct {
+	uuid   uuid.UUID // feeder uuid
+	refLat float64   // feeder lat
+	refLon float64   // feeder lon
+	mux    string    // the multiplexer to upstream the data to
+	label  string    // the label of the feeder
+}
+
+// struct for a list of valid feeder uuids
 type atcFeeders struct {
 	mu      sync.Mutex
 	feeders []uuid.UUID
 }
 
 var (
-	validFeeders atcFeeders
+	validFeeders      atcFeeders
+	containersToStart chan startContainerRequest
 )
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
@@ -81,6 +92,16 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 
 		log.Info().Int("feeders", count).Msg("finish updating api key cache from atc")
 	}
+}
+
+func startFeederContainers(ctx *cli.Context) {
+	cLog := log.With().Logger()
+	cLog.Info().Msg("starting startFeederContainers")
+
+	for containerToStart := range containersToStart {
+		cLog.Info().Any("info", containerToStart).Msg("Start container!")
+	}
+
 }
 
 func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
@@ -178,10 +199,19 @@ func clientConnection(ctx *cli.Context, conn net.Conn, tlsConfig *tls.Config) {
 				Password: ctx.String("atcpass"),
 			}
 			// refLat, refLon, err := atc.GetFeederLatLon(&s, clientApiKey)
-			_, _, err = atc.GetFeederLatLon(&s, clientApiKey)
+			refLat, refLon, mux, label, err := atc.GetFeederInfo(&s, clientApiKey)
 			if err != nil {
 				log.Err(err).Msg("atc.GetFeederLatLon")
 				continue
+			}
+
+			// start the container
+			containersToStart <- startContainerRequest{
+				uuid:   clientApiKey,
+				refLat: refLat,
+				refLon: refLon,
+				mux:    mux,
+				label:  label,
 			}
 
 			// at this point we should have everything we need to set up a producer for pw_ingest...

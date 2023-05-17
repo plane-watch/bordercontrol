@@ -111,18 +111,18 @@ func authenticate(server *Server) (authToken string, err error) {
 
 }
 
-func GetFeederLatLon(server *Server, feederApiKey uuid.UUID) (refLat float64, refLon float64, err error) {
+func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refLon float64, mux string, label string, err error) {
 
 	authToken, err := authenticate(server)
 	if err != nil {
-		return refLat, refLon, err
+		return refLat, refLon, mux, label, err
 	}
 
 	atcUrl := server.Url.JoinPath(fmt.Sprintf("/api/v1/feeders/%s.json", feederApiKey.String()))
 
 	req, err := http.NewRequest("GET", atcUrl.String(), nil)
 	if err != nil {
-		return refLat, refLon, err
+		return refLat, refLon, mux, label, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authToken)
@@ -130,7 +130,7 @@ func GetFeederLatLon(server *Server, feederApiKey uuid.UUID) (refLat float64, re
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		return refLat, refLon, err
+		return refLat, refLon, mux, label, err
 	}
 	defer response.Body.Close()
 
@@ -141,7 +141,7 @@ func GetFeederLatLon(server *Server, feederApiKey uuid.UUID) (refLat float64, re
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return refLat, refLon, err
+		return refLat, refLon, mux, label, err
 	}
 
 	var feeder FeederB
@@ -151,18 +151,20 @@ func GetFeederLatLon(server *Server, feederApiKey uuid.UUID) (refLat float64, re
 		err := json.Unmarshal(body, &feeder)
 		if err != nil {
 			fmt.Println(err)
-			return refLat, refLon, err
+			return refLat, refLon, mux, label, err
 		}
 
 		refLat = feeder.Feeder.Latitude
 		refLon = feeder.Feeder.Longitude
+		mux = feeder.Feeder.Mux
+		label = feeder.Feeder.Label
 
 	} else {
 		errStr := fmt.Sprintf("ATC API response status: %s", response.Status)
-		return refLat, refLon, errors.New(errStr)
+		return refLat, refLon, mux, label, errors.New(errStr)
 	}
 
-	return refLat, refLon, err
+	return refLat, refLon, mux, label, err
 
 }
 
