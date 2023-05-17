@@ -116,7 +116,9 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 	for {
 		// read from channel (this blocks until a request comes in)
+		sfcLog.Debug().Str("func", "startFeederContainers").Msg("waiting for data to arrive on channel")
 		containerToStart := <-containersToStart
+		sfcLog.Debug().Str("func", "startFeederContainers").Msg("received data from channel")
 
 		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("src", containerToStart.srcIP).Logger()
 
@@ -192,6 +194,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 		}
 
+		sfcLog.Debug().Str("func", "startFeederContainers").Msg("finished loop")
 	}
 }
 
