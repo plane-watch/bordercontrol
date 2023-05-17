@@ -81,7 +81,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		count := 0
 		for _, v := range f.Feeders {
 			newValidFeeders = append(newValidFeeders, v.ApiKey)
-			log.Debug().Str("ApiKey", v.ApiKey.String()).Msg("added feeder")
+			// log.Debug().Str("ApiKey", v.ApiKey.String()).Msg("added feeder")
 			count += 1
 		}
 
@@ -98,7 +98,8 @@ func startFeederContainers(ctx *cli.Context) {
 	// reads startContainerRequests from channel containersToStart and starts container
 	cLog := log.With().Caller().Logger()
 
-	for containerToStart := range containersToStart {
+	for {
+		containerToStart := <-containersToStart
 		cLog.Info().Any("info", containerToStart).Msg("Start container!")
 	}
 }
