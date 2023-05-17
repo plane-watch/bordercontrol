@@ -330,7 +330,7 @@ func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, 
 					clientFeedInContainerConnected = true
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Debug().Msg("connected ok")
+					cLog.Info().Msg("connected ok")
 				}
 			}
 		}
