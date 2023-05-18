@@ -745,6 +745,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 								cLog.Info().Msg("mux disconnected")
 							}
 							break
+						} else if err, ok := err.(net.Error); ok && err.Timeout() {
+							cLog.Warn().AnErr("err", err).Msg("mux read error")
 						} else {
 							cLog.Err(err).Msg("mux read error")
 							break
