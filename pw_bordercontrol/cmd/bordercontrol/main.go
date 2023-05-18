@@ -8,8 +8,10 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"pw_bordercontrol/lib/atc"
@@ -45,6 +47,55 @@ type atcFeeders struct {
 var (
 	validFeeders atcFeeders
 )
+
+type keypairReloader struct {
+	certMu   sync.RWMutex
+	cert     *tls.Certificate
+	certPath string
+	keyPath  string
+}
+
+func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
+	result := &keypairReloader{
+		certPath: certPath,
+		keyPath:  keyPath,
+	}
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, err
+	}
+	result.cert = &cert
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP)
+		for range c {
+			log.Info().Str("cert", certPath).Str("key", keyPath).Msg("Received SIGHUP, reloading TLS certificate and key")
+			if err := result.maybeReload(); err != nil {
+				log.Err(err).Msg("Keeping old TLS certificate because the new one could not be loaded")
+			}
+		}
+	}()
+	return result, nil
+}
+
+func (kpr *keypairReloader) maybeReload() error {
+	newCert, err := tls.LoadX509KeyPair(kpr.certPath, kpr.keyPath)
+	if err != nil {
+		return err
+	}
+	kpr.certMu.Lock()
+	defer kpr.certMu.Unlock()
+	kpr.cert = &newCert
+	return nil
+}
+
+func (kpr *keypairReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		kpr.certMu.RLock()
+		defer kpr.certMu.RUnlock()
+		return kpr.cert, nil
+	}
+}
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
 	// return true of api key clientApiKey is a valid feeder in atc
@@ -833,18 +884,25 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
-	log.Info().Str("file", ctx.String("key")).Msg("loading private key")
-	cert, err := tls.LoadX509KeyPair(
-		ctx.String("cert"),
-		ctx.String("key"),
-	)
+	// log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
+	// log.Info().Str("file", ctx.String("key")).Msg("loading private key")
+	// cert, err := tls.LoadX509KeyPair(
+	// 	ctx.String("cert"),
+	// 	ctx.String("key"),
+	// )
+	// if err != nil {
+	// 	log.Err(err).Msg("tls.LoadX509KeyPair")
+	// }
+
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"))
 	if err != nil {
-		log.Err(err).Msg("tls.LoadX509KeyPair")
+		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
+	tlsConfig := tls.Config{}
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// tls configuration
-	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	// tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
 	// tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
