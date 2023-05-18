@@ -638,5 +638,4 @@ func listenBEAST(ctx *cli.Context, wg sync.WaitGroup, containersToStart chan sta
 	}
 
 	wg.Done()
-	return nil
 }
