@@ -20,7 +20,7 @@ mkdir -p /run/mlat-server/workdir
 
 /opt/mlat-server/mlat-server \
     --client-listen 0.0.0.0:12346 \
-    --motd "You are connected to plane.watch backend: ${HOSTNAME}" \
+    --motd "\"You are connected to plane.watch backend: ${HOSTNAME}\"" \
     --work-dir /run/mlat-server/workdir \
     --status-interval 3600 \
     2>&1 | stdbuf -o0 awk '{print "[mlat-server] " $0}'
