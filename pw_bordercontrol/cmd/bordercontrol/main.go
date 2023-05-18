@@ -300,7 +300,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 	// handles incoming BEAST connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
-	cLog := log.With().Logger()
+	cLog := log.With().Str("listener", "BEAST").Logger()
 
 	var (
 		sendRecvBufferSize             = 256 * 1024 // 256kB
@@ -498,7 +498,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	// handles incoming MLAT connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
-	cLog := log.With().Logger()
+	cLog := log.With().Str("listener", "MLAT").Logger()
 
 	var (
 		sendRecvBufferSize    = 256 * 1024 // 256kB
