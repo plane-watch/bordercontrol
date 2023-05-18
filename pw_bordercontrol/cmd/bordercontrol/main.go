@@ -520,11 +520,13 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	cLog.Debug().Msgf("connection established")
 	defer cLog.Debug().Msgf("connection closed")
 
-	buf := make([]byte, sendRecvBufferSize)
+	inBuf := make([]byte, sendRecvBufferSize)
+	outBuf := make([]byte, sendRecvBufferSize)
+
 	for {
 
-		// read data
-		bytesRead, err := connIn.Read(buf)
+		// read data from client
+		bytesRead, err := connIn.Read(inBuf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
@@ -535,7 +537,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 				}
 				break
 			} else {
-				cLog.Err(err).Msg("conn.Read")
+				cLog.Err(err).Msg("client read error")
 				break
 			}
 		}
@@ -677,11 +679,41 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					_, err := connOut.Write(buf[:bytesRead])
+					_, err := connOut.Write(inBuf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to mux container")
 						break
 					}
+
+					// read data from server
+					_, err = connIn.Read(outBuf)
+					if err != nil {
+						if err.Error() == "EOF" {
+							if muxContainerConnected {
+								cLog.Info().Msg("mux disconnected")
+							}
+							break
+						} else {
+							cLog.Err(err).Msg("mux read error")
+							break
+						}
+					}
+
+					// write data from mux to client
+					// set deadline of 5 second
+					wdErr = connIn.SetDeadline(time.Now().Add(5 * time.Second))
+					if wdErr != nil {
+						cLog.Err(wdErr).Msg("could not set deadline on connection")
+						break
+					}
+
+					// attempt to write data in buf (that was read from mux connection earlier)
+					_, err = connIn.Write(outBuf[:bytesRead])
+					if err != nil {
+						cLog.Err(err).Msg("error writing to client")
+						break
+					}
+
 				}
 			}
 		}
