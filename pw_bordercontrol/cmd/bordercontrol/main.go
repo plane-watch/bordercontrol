@@ -714,7 +714,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					cLog.Info().Msg("connected ok")
 
 					// start responder
-					go clientMLATResponder(connOut, &connIn, sendRecvBufferSize, cLog)
+					go clientMLATResponder(connOut, connIn, sendRecvBufferSize, cLog)
 				}
 			}
 		}
@@ -770,7 +770,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
-func clientMLATResponder(connOut *net.TCPConn, connIn *net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
+func clientMLATResponder(connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
 
 	cLog.Debug().Msg("clientMLATResponder started")
 
