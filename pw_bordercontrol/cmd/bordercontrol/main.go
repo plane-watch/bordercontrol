@@ -241,7 +241,6 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.uuid),
 				"READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
-				// "READSB_NET_BEAST_REDUCE_INTERVAL=0.5",
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
@@ -297,7 +296,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	}
 }
 
-func clientConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
+func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
 	// handles incoming connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
@@ -589,6 +588,20 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to check feed-in containers
 	go checkFeederContainers(ctx)
 
+	var wg sync.WaitGroup
+
+	// start listening for incoming beast
+	wg.Add(1)
+	go listenBEAST(ctx, wg, containersToStart)
+
+	wg.Wait()
+
+	return nil
+
+}
+
+func listenBEAST(ctx *cli.Context, wg sync.WaitGroup, containersToStart chan startContainerRequest) {
+
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
@@ -621,7 +634,9 @@ func runServer(ctx *cli.Context) error {
 			continue
 		}
 		defer conn.Close()
-		go clientConnection(ctx, conn, &tlsConfig, containersToStart)
+		go clientBEASTConnection(ctx, conn, &tlsConfig, containersToStart)
 	}
+
+	wg.Done()
 	return nil
 }
