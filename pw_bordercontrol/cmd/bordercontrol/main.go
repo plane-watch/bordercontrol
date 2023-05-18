@@ -772,6 +772,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 func clientMLATResponder(connOut *net.TCPConn, connIn *net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
 
+	cLog.Debug().Msg("clientMLATResponder started")
+
 	outBuf := make([]byte, sendRecvBufferSize)
 
 	for {
@@ -797,6 +799,8 @@ func clientMLATResponder(connOut *net.TCPConn, connIn *net.Conn, sendRecvBufferS
 			break
 		}
 	}
+
+	cLog.Debug().Msg("clientMLATResponder finished")
 }
 
 func main() {
