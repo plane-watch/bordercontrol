@@ -1,0 +1,28 @@
+#!/usr/bin/with-contenv bash
+#shellcheck shell=bash
+
+set -eo pipefail
+
+rm -rf /run/mlat-server > /dev/null 2>&1 || true
+mkdir -p /run/mlat-server/workdir
+
+# # Run python single threaded
+# MKL_NUM_THREADS=1
+# NUMEXPR_NUM_THREADS=1
+# OMP_NUM_THREADS=1
+# PYTHONOPTIMIZE=2
+# export MKL_NUM_THREADS
+# export NUMEXPR_NUM_THREADS
+# export OMP_NUM_THREADS
+# export PYTHONOPTIMIZE
+
+# --basestation-connect 10.0.6.1:30103 \
+
+/opt/mlat-server/mlat-server \
+    --client-listen 0.0.0.0:12346 \
+    --motd "You are connected to plane.watch backend: ${HOSTNAME}" \
+    --work-dir /run/mlat-server/workdir \
+    --status-interval 3600 \
+    2>&1 | stdbuf -o0 awk '{print "[mlat-server] " $0}'
+
+sleep 5
