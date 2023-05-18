@@ -55,12 +55,12 @@ type keypairReloader struct {
 	keyPath  string
 }
 
-func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
+func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
 	result := &keypairReloader{
 		certPath: certPath,
 		keyPath:  keyPath,
 	}
-	log.Info().Str("cert", certPath).Str("key", keyPath).Msg("loading TLS certificate and key")
+	log.Info().Str("cert", certPath).Str("key", keyPath).Str("listener", listener).Msg("loading TLS certificate and key")
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, err
@@ -895,7 +895,7 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 	// 	log.Err(err).Msg("tls.LoadX509KeyPair")
 	// }
 
-	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"))
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "BEAST")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
@@ -932,18 +932,25 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
-	log.Info().Str("file", ctx.String("key")).Msg("loading private key")
-	cert, err := tls.LoadX509KeyPair(
-		ctx.String("cert"),
-		ctx.String("key"),
-	)
+	// log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
+	// log.Info().Str("file", ctx.String("key")).Msg("loading private key")
+	// cert, err := tls.LoadX509KeyPair(
+	// 	ctx.String("cert"),
+	// 	ctx.String("key"),
+	// )
+	// if err != nil {
+	// 	log.Err(err).Msg("tls.LoadX509KeyPair")
+	// }
+
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "MLAT")
 	if err != nil {
-		log.Err(err).Msg("tls.LoadX509KeyPair")
+		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
+	tlsConfig := tls.Config{}
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// tls configuration
-	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	// tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
 	// tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
