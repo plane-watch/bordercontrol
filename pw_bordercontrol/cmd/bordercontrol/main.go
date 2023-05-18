@@ -746,7 +746,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 							}
 							break
 						} else if err, ok := err.(net.Error); ok && err.Timeout() {
-							cLog.Debug().AnErr("err", err).Msg("no data to read")
+							// cLog.Debug().AnErr("err", err).Msg("no data to read")
 						} else {
 							cLog.Err(err).Msg("mux read error")
 							break
