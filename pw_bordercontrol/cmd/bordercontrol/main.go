@@ -686,7 +686,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					}
 
 					// read data from server
-					_, err = connOut.Read(outBuf)
+					bytesRead, err = connOut.Read(outBuf)
 					if err != nil {
 						if err.Error() == "EOF" {
 							if muxContainerConnected {
@@ -698,14 +698,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 							break
 						}
 					}
-
-					// write data from mux to client
-					// set deadline of 5 second
-					// wdErr = connIn.SetDeadline(time.Now().Add(5 * time.Second))
-					// if wdErr != nil {
-					// 	cLog.Err(wdErr).Msg("could not set deadline on connection")
-					// 	break
-					// }
 
 					// attempt to write data in buf (that was read from mux connection earlier)
 					_, err = connIn.Write(outBuf[:bytesRead])
