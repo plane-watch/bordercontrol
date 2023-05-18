@@ -701,11 +701,11 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 					// write data from mux to client
 					// set deadline of 5 second
-					wdErr = connIn.SetDeadline(time.Now().Add(5 * time.Second))
-					if wdErr != nil {
-						cLog.Err(wdErr).Msg("could not set deadline on connection")
-						break
-					}
+					// wdErr = connIn.SetDeadline(time.Now().Add(5 * time.Second))
+					// if wdErr != nil {
+					// 	cLog.Err(wdErr).Msg("could not set deadline on connection")
+					// 	break
+					// }
 
 					// attempt to write data in buf (that was read from mux connection earlier)
 					_, err = connIn.Write(outBuf[:bytesRead])
