@@ -8,14 +8,17 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"pw_bordercontrol/lib/atc"
 	"pw_bordercontrol/lib/logging"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
@@ -45,6 +48,56 @@ type atcFeeders struct {
 var (
 	validFeeders atcFeeders
 )
+
+type keypairReloader struct {
+	certMu   sync.RWMutex
+	cert     *tls.Certificate
+	certPath string
+	keyPath  string
+}
+
+func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
+	result := &keypairReloader{
+		certPath: certPath,
+		keyPath:  keyPath,
+	}
+	log.Info().Str("cert", certPath).Str("key", keyPath).Str("listener", listener).Msg("loading TLS certificate and key")
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, err
+	}
+	result.cert = &cert
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP)
+		for range c {
+			log.Info().Str("cert", certPath).Str("key", keyPath).Msg("Received SIGHUP, reloading TLS certificate and key")
+			if err := result.maybeReload(); err != nil {
+				log.Err(err).Msg("Keeping old TLS certificate because the new one could not be loaded")
+			}
+		}
+	}()
+	return result, nil
+}
+
+func (kpr *keypairReloader) maybeReload() error {
+	newCert, err := tls.LoadX509KeyPair(kpr.certPath, kpr.keyPath)
+	if err != nil {
+		return err
+	}
+	kpr.certMu.Lock()
+	defer kpr.certMu.Unlock()
+	kpr.cert = &newCert
+	return nil
+}
+
+func (kpr *keypairReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		kpr.certMu.RLock()
+		defer kpr.certMu.RUnlock()
+		return kpr.cert, nil
+	}
+}
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
 	// return true of api key clientApiKey is a valid feeder in atc
@@ -520,11 +573,12 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	cLog.Debug().Msgf("connection established")
 	defer cLog.Debug().Msgf("connection closed")
 
-	buf := make([]byte, sendRecvBufferSize)
+	inBuf := make([]byte, sendRecvBufferSize)
+
 	for {
 
-		// read data
-		bytesRead, err := connIn.Read(buf)
+		// read data from client
+		bytesRead, err := connIn.Read(inBuf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
@@ -535,7 +589,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 				}
 				break
 			} else {
-				cLog.Err(err).Msg("conn.Read")
+				cLog.Err(err).Msg("client read error")
 				break
 			}
 		}
@@ -604,11 +658,18 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			// If we aren't yet connected to a mux
 			if !muxContainerConnected {
 
+				muxHost, err := muxHostname(mux)
+				if err != nil {
+					cLog.Err(err).Msg("could not assign mux")
+					time.Sleep(5 * time.Second)
+					break
+				}
+
 				// attempt to connect to the mux container
-				dialAddress := fmt.Sprintf("%s:12346", mux)
+				dialAddress := fmt.Sprintf("%s:12346", muxHost)
 
 				var dstIP net.IP
-				dstIPs, err := net.LookupIP(mux)
+				dstIPs, err := net.LookupIP(muxHost)
 				if err != nil {
 					cLog.Err(err).Msg("could not perform lookup")
 				} else {
@@ -651,6 +712,9 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected ok")
+
+					// start responder
+					go clientMLATResponder(connOut, connIn, sendRecvBufferSize, cLog)
 				}
 			}
 		}
@@ -670,16 +734,73 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					_, err := connOut.Write(buf[:bytesRead])
+					_, err := connOut.Write(inBuf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to mux container")
 						break
 					}
+
+					// // read data from server
+					// bytesRead, err = connOut.Read(outBuf)
+					// if err != nil {
+					// 	if err.Error() == "EOF" {
+					// 		if muxContainerConnected {
+					// 			cLog.Info().Msg("mux disconnected")
+					// 		}
+					// 		break
+					// 	} else if err, ok := err.(net.Error); ok && err.Timeout() {
+					// 		// cLog.Debug().AnErr("err", err).Msg("no data to read")
+					// 	} else {
+					// 		cLog.Err(err).Msg("mux read error")
+					// 		break
+					// 	}
+					// }
+
+					// // attempt to write data in buf (that was read from mux connection earlier)
+					// _, err = connIn.Write(outBuf[:bytesRead])
+					// if err != nil {
+					// 	cLog.Err(err).Msg("error writing to client")
+					// 	break
+					// }
+
 				}
 			}
 		}
 	}
 	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
+}
+
+func clientMLATResponder(connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
+
+	cLog.Debug().Msg("clientMLATResponder started")
+
+	outBuf := make([]byte, sendRecvBufferSize)
+
+	for {
+
+		// read data from server
+		bytesRead, err := connOut.Read(outBuf)
+		if err != nil {
+			if err.Error() == "EOF" {
+				cLog.Info().Msg("mux disconnected")
+				break
+			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+				// cLog.Debug().AnErr("err", err).Msg("no data to read")
+			} else {
+				cLog.Err(err).Msg("mux read error")
+				break
+			}
+		}
+
+		// attempt to write data in buf (that was read from mux connection earlier)
+		_, err = connIn.Write(outBuf[:bytesRead])
+		if err != nil {
+			cLog.Err(err).Msg("error writing to client")
+			break
+		}
+	}
+
+	cLog.Debug().Msg("clientMLATResponder finished")
 }
 
 func main() {
@@ -802,18 +923,25 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
-	log.Info().Str("file", ctx.String("key")).Msg("loading private key")
-	cert, err := tls.LoadX509KeyPair(
-		ctx.String("cert"),
-		ctx.String("key"),
-	)
+	// log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
+	// log.Info().Str("file", ctx.String("key")).Msg("loading private key")
+	// cert, err := tls.LoadX509KeyPair(
+	// 	ctx.String("cert"),
+	// 	ctx.String("key"),
+	// )
+	// if err != nil {
+	// 	log.Err(err).Msg("tls.LoadX509KeyPair")
+	// }
+
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "BEAST")
 	if err != nil {
-		log.Err(err).Msg("tls.LoadX509KeyPair")
+		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
+	tlsConfig := tls.Config{}
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// tls configuration
-	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	// tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
 	// tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
@@ -842,18 +970,25 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 
 	// load server cert & key
 	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
-	log.Info().Str("file", ctx.String("key")).Msg("loading private key")
-	cert, err := tls.LoadX509KeyPair(
-		ctx.String("cert"),
-		ctx.String("key"),
-	)
+	// log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
+	// log.Info().Str("file", ctx.String("key")).Msg("loading private key")
+	// cert, err := tls.LoadX509KeyPair(
+	// 	ctx.String("cert"),
+	// 	ctx.String("key"),
+	// )
+	// if err != nil {
+	// 	log.Err(err).Msg("tls.LoadX509KeyPair")
+	// }
+
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "MLAT")
 	if err != nil {
-		log.Err(err).Msg("tls.LoadX509KeyPair")
+		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
+	tlsConfig := tls.Config{}
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// tls configuration
-	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	// tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
 	// tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
