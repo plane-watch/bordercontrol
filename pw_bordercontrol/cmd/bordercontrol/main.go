@@ -18,6 +18,7 @@ import (
 	"pw_bordercontrol/lib/logging"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 
@@ -573,7 +574,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	defer cLog.Debug().Msgf("connection closed")
 
 	inBuf := make([]byte, sendRecvBufferSize)
-	outBuf := make([]byte, sendRecvBufferSize)
 
 	for {
 
@@ -712,6 +712,9 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected ok")
+
+					// start responder
+					go clientMLATResponder(connOut, &connIn, sendRecvBufferSize, cLog)
 				}
 			}
 		}
@@ -737,34 +740,63 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 						break
 					}
 
-					// read data from server
-					bytesRead, err = connOut.Read(outBuf)
-					if err != nil {
-						if err.Error() == "EOF" {
-							if muxContainerConnected {
-								cLog.Info().Msg("mux disconnected")
-							}
-							break
-						} else if err, ok := err.(net.Error); ok && err.Timeout() {
-							// cLog.Debug().AnErr("err", err).Msg("no data to read")
-						} else {
-							cLog.Err(err).Msg("mux read error")
-							break
-						}
-					}
+					// // read data from server
+					// bytesRead, err = connOut.Read(outBuf)
+					// if err != nil {
+					// 	if err.Error() == "EOF" {
+					// 		if muxContainerConnected {
+					// 			cLog.Info().Msg("mux disconnected")
+					// 		}
+					// 		break
+					// 	} else if err, ok := err.(net.Error); ok && err.Timeout() {
+					// 		// cLog.Debug().AnErr("err", err).Msg("no data to read")
+					// 	} else {
+					// 		cLog.Err(err).Msg("mux read error")
+					// 		break
+					// 	}
+					// }
 
-					// attempt to write data in buf (that was read from mux connection earlier)
-					_, err = connIn.Write(outBuf[:bytesRead])
-					if err != nil {
-						cLog.Err(err).Msg("error writing to client")
-						break
-					}
+					// // attempt to write data in buf (that was read from mux connection earlier)
+					// _, err = connIn.Write(outBuf[:bytesRead])
+					// if err != nil {
+					// 	cLog.Err(err).Msg("error writing to client")
+					// 	break
+					// }
 
 				}
 			}
 		}
 	}
 	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
+}
+
+func clientMLATResponder(connOut *net.TCPConn, connIn *net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
+
+	outBuf := make([]byte, sendRecvBufferSize)
+
+	for {
+
+		// read data from server
+		bytesRead, err := connOut.Read(outBuf)
+		if err != nil {
+			if err.Error() == "EOF" {
+				cLog.Info().Msg("mux disconnected")
+				break
+			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+				// cLog.Debug().AnErr("err", err).Msg("no data to read")
+			} else {
+				cLog.Err(err).Msg("mux read error")
+				break
+			}
+		}
+
+		// attempt to write data in buf (that was read from mux connection earlier)
+		_, err = connIn.Write(outBuf[:bytesRead])
+		if err != nil {
+			cLog.Err(err).Msg("error writing to client")
+			break
+		}
+	}
 }
 
 func main() {
