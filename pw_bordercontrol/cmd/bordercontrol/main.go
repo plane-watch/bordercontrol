@@ -60,6 +60,7 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		certPath: certPath,
 		keyPath:  keyPath,
 	}
+	log.Info().Str("cert", certPath).Str("key", keyPath).Msg("loading TLS certificate and key")
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, err
