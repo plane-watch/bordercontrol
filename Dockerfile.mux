@@ -13,7 +13,7 @@ RUN set -x && \
     TEMP_PACKAGES+=(build-essential) && \
     TEMP_PACKAGES+=(cmake) && \
     TEMP_PACKAGES+=(pkg-config) && \
-    # prerequisites for readsb-protobuf \
+    # prerequisites for readsb-protobuf
     KEPT_PACKAGES+=(protobuf-c-compiler) && \
     KEPT_PACKAGES+=(libprotobuf-c1) && \
     TEMP_PACKAGES+=(libprotobuf-c-dev) && \
@@ -21,11 +21,20 @@ RUN set -x && \
     KEPT_PACKAGES+=(libncurses6) && \
     TEMP_PACKAGES+=(libncurses5-dev) && \
     TEMP_PACKAGES+=(binutils) && \
+    # prerequisites for mlat-server
+    KEPT_PACKAGES+=(python3) && \
+    KEPT_PACKAGES+=(python3-pip) && \
+    KEPT_PACKAGES+=(python3-setuptools) && \
+    KEPT_PACKAGES+=(python3-wheel) && \
+    KEPT_PACKAGES+=(libpython3-dev) && \
+    # install packages
     apt-get update && \
     apt-get install -y --no-install-recommends \
         "${KEPT_PACKAGES[@]}" \
         "${TEMP_PACKAGES[@]}" \
         && \
+    # Upgrade pip
+    python3 -m pip install --no-cache-dir -U pip && \
     # install mictronics readsb
     BRANCH_READSB="dev" && \
     # readsb: clone repo
@@ -45,6 +54,14 @@ RUN set -x && \
     # readsb: simple tests
     readsb --version && \
     viewadsb --version && \
+    # Install mlat-server
+    git clone --single-branch --depth 1 https://github.com/wiedehopf/mlat-server.git /opt/mlat-server && \
+    pushd /opt/mlat-server && \
+    python3 -m pip install --no-cache-dir numpy scipy pykalman python-graph-core uvloop ujson Cython objgraph && \
+    python3 ./setup.py build && \
+    python3 ./setup.py install && \
+    python3 setup.py build_ext --inplace && \
+    popd && \
     # install S6 Overlay
     curl --location --output /tmp/deploy-s6-overlay.sh https://raw.githubusercontent.com/mikenye/deploy-s6-overlay/master/deploy-s6-overlay.sh && \
     sh /tmp/deploy-s6-overlay.sh && \
