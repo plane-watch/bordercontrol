@@ -686,7 +686,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					}
 
 					// read data from server
-					_, err = connIn.Read(outBuf)
+					_, err = connOut.Read(outBuf)
 					if err != nil {
 						if err.Error() == "EOF" {
 							if muxContainerConnected {
