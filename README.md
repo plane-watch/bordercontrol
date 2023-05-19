@@ -64,7 +64,7 @@ BC_KEY_FILE=/etc/ssl/private/push.plane.watch/privkey.pem
 PW_INGEST_SINK=nats://nats-ingest.plane.watch:4222
 ```
 
-Within the `docker-compose.yml` file, under `services:` -> `bordercontrol:`, ensure the path holding SSL certs/keys is mapped as a volume.
+Create a the `docker-compose-local.yml` file (see the example), under `services:` -> `bordercontrol:`, ensure the path holding SSL certs/keys is mapped as a volume.
 
 ### Starting the environment
 

@@ -1,0 +1,4 @@
+services:
+  bordercontrol:
+    volumes:
+      - /etc/ssl/private:/etc/ssl/private:ro
