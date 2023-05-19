@@ -427,6 +427,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 
 					// update stats
 					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "BEAST")
+					defer stats.setClientDisconnected(clientApiKey, "BEAST")
 
 					// get feeder info (lat/lon/mux/label)
 					atcUrl, err := url.Parse(ctx.String("atcurl"))
@@ -735,6 +736,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 					// update stats
 					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "MLAT")
+					defer stats.setClientDisconnected(clientApiKey, "MLAT")
 
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()

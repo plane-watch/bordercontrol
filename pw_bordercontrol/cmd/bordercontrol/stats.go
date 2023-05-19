@@ -209,6 +209,34 @@ func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon
 	stats.mu.Unlock()
 }
 
+func (stats *Statistics) setClientDisconnected(uuid uuid.UUID, proto string) {
+	// updates the connected status of a feeder
+
+	stats.initFeederStats(uuid)
+
+	// copy stats entry
+	stats.mu.Lock()
+	y := stats.Feeders[uuid]
+
+	// update stats entry
+	switch strings.ToUpper(proto) {
+	case "BEAST":
+		y.Connected_beast = false
+	case "MLAT":
+		y.Connected_mlat = false
+	default:
+		panic("unsupported protocol")
+	}
+
+	// update time_last_updated
+	y.Time_last_updated = time.Now()
+
+	// write stats entry
+	stats.Feeders[uuid] = y
+	stats.mu.Unlock()
+
+}
+
 func (stats *Statistics) setClientConnected(uuid uuid.UUID, src_addr net.Addr, proto string) {
 	// updates the connected status of a feeder
 	//   - sets src_beast/src_mlat
