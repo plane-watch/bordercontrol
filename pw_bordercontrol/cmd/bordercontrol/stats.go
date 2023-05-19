@@ -172,6 +172,7 @@ func statsManager() {
 
 	http.HandleFunc("/", httpAllStats)
 
+	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("statistics server started")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Panic().AnErr("err", err).Msg("stats server stopped")
