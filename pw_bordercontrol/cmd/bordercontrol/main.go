@@ -394,7 +394,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 						break
 					}
 
-					defer connOut.Close()
 					muxContainerConnected = true
 
 					// update stats
@@ -478,6 +477,8 @@ func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn ne
 		// update stats
 		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
 	}
+
+	defer connOut.Close()
 
 	// cLog.Debug().Msg("clientMLATResponder finished")
 }
