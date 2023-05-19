@@ -30,7 +30,8 @@ table, th, td {
 	<tr>
 		<th>Feeder</th>
 		<th>Proto</th>
-		<th>Src</th>
+		<th colspan="2">Src</th>
+		
 	</tr>
 {{range $index, $element := .}}
 	<tr>
@@ -40,14 +41,16 @@ table, th, td {
 			<p>{{.Lat}} {{.Lon}}</p>
 		</td>
 		<td>BEAST</td>
-		<td>{{.Src_beast}}</td>
+		<td>{{.Src_beast}}</br>Since: {{.Time_connected_beast}}</td>
+		<td>Rx: {{.Bytes_rx_in_beast}}B</br>Tx: {{.Bytes_tx_in_beast}}</br></td>
 	</tr>
 	<tr>
 		<td>MLAT</td>
-		<td>{{.Src_mlat}}</td>
+		<td>{{.Src_mlat}}</br>Since: {{.Time_connected_beast}}</td>
+		<td>Rx: {{.Bytes_rx_in_mlat}}B</br>Tx: {{.Bytes_tx_in_mlat}}B</br></td>
 	</tr>
 {{end}}
-	`
+`
 )
 
 // struct for per-feeder statistics
