@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -315,6 +316,10 @@ func statsEvictor() {
 		}
 
 		stats.mu.Unlock()
+
+		// periodically log number of goroutines
+		// todo: move this to the web ui
+		log.Info().Int("goroutines", runtime.NumGoroutine())
 
 		time.Sleep(time.Minute * 1)
 	}
