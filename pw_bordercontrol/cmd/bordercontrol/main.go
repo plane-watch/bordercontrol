@@ -357,13 +357,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			// If we aren't yet connected to a mux
 			if !muxContainerConnected {
 
-				// muxHost, err := muxHostname(mux)
-				// if err != nil {
-				// 	cLog.Err(err).Msg("could not assign mux")
-				// 	time.Sleep(5 * time.Second)
-				// 	break
-				// }
-
 				// attempt to connect to the mux container
 				dialAddress := fmt.Sprintf("%s:12346", mux)
 
@@ -435,53 +428,41 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					// update stats
 					stats.setOutputConnected(clientApiKey, "MUX", connOut.RemoteAddr())
 
-					// start responder
-					go clientMLATResponder(clientApiKey, connOut, connIn, sendRecvBufferSize, cLog)
 				}
 			}
 		}
-
 		// if we are ready to output data to the feed-in container...
 		if clientAuthenticated {
 			if muxContainerConnected {
+				break
+			}
+		}
+	}
 
-				// if we have data to write...
-				if bytesRead > 0 {
+	// if we are ready to output data to the feed-in container...
+	if clientAuthenticated {
+		if muxContainerConnected {
 
-					// set deadline of 5 second
-					wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
-					if wdErr != nil {
-						cLog.Err(wdErr).Msg("could not set deadline on connection")
-						e := connIn.Close()
-						if e != nil {
-							log.Err(e).Caller().Msg("could not close connIn")
-						}
-						break
-					}
+			wg := sync.WaitGroup{}
 
-					// attempt to write data in buf (that was read from client connection earlier)
-					bytesWritten, err := connOut.Write(inBuf[:bytesRead])
-					if err != nil {
-						cLog.Err(err).Msg("error writing to mux container")
-						e := connIn.Close()
-						if e != nil {
-							log.Err(e).Caller().Msg("could not close connIn")
-						}
-						break
-					}
+			// start responder
+			wg.Add(1)
+			go clientMLATResponderNTC2NC(clientApiKey, connOut, connIn, sendRecvBufferSize, cLog, &wg)
+			wg.Add(1)
+			go clientMLATResponderNC2NTC(clientApiKey, connIn, connOut, sendRecvBufferSize, cLog, &wg)
+			wg.Wait()
 
-					// update stats
-					stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
-				}
+
+
 			}
 		}
 	}
 	// cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
-func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
+func clientMLATResponderNTC2NC(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
-	// Designed to be run as gorouting
+	// Designed to be run as goroutine
 
 	// cLog.Debug().Msg("clientMLATResponder started")
 
@@ -514,14 +495,65 @@ func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn ne
 		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
 	}
 
-	e := connOut.Close()
-	if e != nil {
-		log.Err(e).Caller().Msg("could not close connOut")
+	wg.Done()
+
+	// e := connOut.Close()
+	// if e != nil {
+	// 	log.Err(e).Caller().Msg("could not close connOut")
+	// }
+	// e = connIn.Close()
+	// if e != nil {
+	// 	log.Err(e).Caller().Msg("could not close connIn")
+	// }
+
+	// cLog.Debug().Msg("clientMLATResponder finished")
+}
+
+func clientMLATResponderNC2NTC(clientApiKey uuid.UUID, connOut net.Conn, connIn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
+	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
+	// Designed to be run as goroutine
+
+	// cLog.Debug().Msg("clientMLATResponder started")
+
+	outBuf := make([]byte, sendRecvBufferSize)
+
+	for {
+
+		// read data from server
+		bytesRead, err := connOut.Read(outBuf)
+		if err != nil {
+			if err.Error() == "EOF" {
+				cLog.Info().Msg("mux disconnected")
+				break
+			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+				// cLog.Debug().AnErr("err", err).Msg("no data to read")
+			} else {
+				cLog.Err(err).Msg("mux read error")
+				break
+			}
+		}
+
+		// attempt to write data in buf (that was read from mux connection earlier)
+		bytesWritten, err := connIn.Write(outBuf[:bytesRead])
+		if err != nil {
+			cLog.Err(err).Msg("error writing to client")
+			break
+		}
+
+		// update stats
+		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
 	}
-	e = connIn.Close()
-	if e != nil {
-		log.Err(e).Caller().Msg("could not close connIn")
-	}
+
+	wg.Done()
+
+	// e := connOut.Close()
+	// if e != nil {
+	// 	log.Err(e).Caller().Msg("could not close connOut")
+	// }
+	// e = connIn.Close()
+	// if e != nil {
+	// 	log.Err(e).Caller().Msg("could not close connIn")
+	// }
 
 	// cLog.Debug().Msg("clientMLATResponder finished")
 }
