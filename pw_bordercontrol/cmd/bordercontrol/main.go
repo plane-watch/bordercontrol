@@ -41,22 +41,24 @@ type startContainerRequest struct {
 	srcIP  net.IP    // client IP address
 }
 
-// struct for a list of valid feeder uuids
+// struct for a list of valid feeder uuids (+ mutex to prevent races)
 type atcFeeders struct {
 	mu      sync.Mutex
 	feeders []uuid.UUID
 }
 
-var (
-	validFeeders atcFeeders
-)
-
+// struct for SSL cert/key (+ mutex to prevent races)
 type keypairReloader struct {
 	certMu   sync.RWMutex
 	cert     *tls.Certificate
 	certPath string
 	keyPath  string
 }
+
+var (
+	// variable to hold list of valid feeders
+	validFeeders atcFeeders
+)
 
 func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
