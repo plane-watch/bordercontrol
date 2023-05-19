@@ -16,10 +16,27 @@ import (
 
 const (
 	statsTemplate = `
-	{{range $index, $element := .}}
-		{{$index}}
-		{{.Label}}
-	{{end}}
+<table>
+	<tr>
+		<th>Feeder</th>
+		<th>Proto</th>
+		<th>Src</th>
+	</tr>
+{{range $index, $element := .}}
+	<tr>
+		<td rowspan="2">
+			<p>{{.Label}}</p>
+			<p>UUID: {{$index}}</p>
+			<p>{{.Lat}} {{.Lon}}</p>
+		</td>
+		<td>BEAST</td>
+		<td>{{.Src_beast}}</td>
+	</tr>
+	<tr>
+		<td>MLAT</td>
+		<td>{{.Src_mlat}}</td>
+	</tr>
+{{end}}
 	`
 )
 
