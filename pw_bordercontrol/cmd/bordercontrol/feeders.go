@@ -80,6 +80,10 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 			Password: ctx.String("atcpass"),
 		}
 		f, err := atc.GetFeeders(&s)
+		if err != nil {
+			log.Err(err).Msg("error updating feeder cache from atc")
+			continue
+		}
 		var newValidFeeders []uuid.UUID
 		count := 0
 		for _, v := range f.Feeders {
