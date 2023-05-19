@@ -260,7 +260,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	for {
 
 		// read data from client
-		bytesRead, err := connIn.Read(inBuf)
+		_, err := connIn.Read(inBuf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
