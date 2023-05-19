@@ -429,7 +429,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "MLAT")
 					defer stats.setClientDisconnected(clientApiKey, "MLAT")
 
-					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected to mux")
 
