@@ -24,6 +24,7 @@ table, th, td {
   border-collapse: collapse;
 }
 </style>
+<meta http-equiv="Refresh" content="5"> 
 </head>
 <body>
 <table style="width:100%">
