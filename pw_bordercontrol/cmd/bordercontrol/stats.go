@@ -51,19 +51,19 @@ func (stats *statistics) setConnectedBEAST(uuid uuid.UUID, src_beast net.Addr) {
 
 	// does stats var have an entry for uuid?
 	stats.mu.RLock()
-	_, ok := stats.feeders[x.uuid]
+	_, ok := stats.feeders[uuid]
 	stats.mu.RUnlock()
 
 	// if not, create it
 	if !ok {
 		stats.mu.Lock()
-		stats.feeders[x.uuid] = feederStats{}
+		stats.feeders[uuid] = feederStats{}
 		stats.mu.Unlock()
 	}
 
 	// copy stats entry
 	stats.mu.Lock()
-	y := stats.feeders[x.uuid]
+	y := stats.feeders[uuid]
 
 	// update stats entry
 	y.time_connected_beast = time.Now()
@@ -79,12 +79,6 @@ func statsManager() {
 
 	// init stats variable
 	stats.feeders = make(map[uuid.UUID]feederStats)
-
-	// init channels
-	statsUpdateReq = make(chan feederStatusUpdate, 10)
-
-	// start updater goroutines
-	go statsUpdater()
 
 	for {
 		time.Sleep(10 * time.Second)
