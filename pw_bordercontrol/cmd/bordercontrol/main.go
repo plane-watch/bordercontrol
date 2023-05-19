@@ -119,7 +119,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 
 				} else {
 					// if API is not valid, then kill the connection
-					cLog.Warn().Msg("client sent invalid api key")
+					cLog.Warn().Str("sni", clientApiKey.String()).Msg("client sent invalid api key")
 					break
 				}
 
@@ -332,7 +332,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 				} else {
 					// if API is not valid, then kill the connection
-					cLog.Warn().Msg("client sent invalid api key")
+					cLog.Warn().Str("sni", clientApiKey.String()).Msg("client sent invalid api key")
 					e := connIn.Close()
 					if e != nil {
 						log.Err(e).Caller().Msg("could not close connIn")
