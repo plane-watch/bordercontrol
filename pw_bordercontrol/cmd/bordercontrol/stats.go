@@ -37,9 +37,7 @@ table, th, td {
 {{range $index, $element := .}}
 	<tr>
 		<td rowspan="2">
-			<p>{{.Label}}</p>
-			<p>UUID: {{$index}}</p>
-			<p>{{.Lat}} {{.Lon}}</p>
+			{{.Label}}</br>UUID: {{$index}}</br>{{.Lat}} {{.Lon}}
 		</td>
 		<td>BEAST</td>
 	{{if .Connected_beast}}
