@@ -101,6 +101,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					}
 
 					// start the container
+					// used a chan here so it blocks while waiting for the request to be popped off the chan
 					containersToStart <- startContainerRequest{
 						uuid:   clientApiKey,
 						refLat: refLat,
