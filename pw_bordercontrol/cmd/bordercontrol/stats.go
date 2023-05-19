@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -207,6 +208,7 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	// Render the data
 	err = t.Execute(w, stats.Feeders)
 	if err != nil {
+		fmt.Println(err)
 		log.Panic().AnErr("err", err).Msg("could not execute statsTemplate")
 	}
 
