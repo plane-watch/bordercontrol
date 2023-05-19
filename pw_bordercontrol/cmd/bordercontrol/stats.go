@@ -72,6 +72,9 @@ func statsUpdaterConnected() {
 
 func statsManager() {
 
+	// init stats variable
+	stats.feeders = make(map[uuid.UUID]feederStats)
+
 	// init channels
 	statsConnectedBEAST = make(chan declareConnectedBEAST, 10)
 
