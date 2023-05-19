@@ -41,13 +41,13 @@ type startContainerRequest struct {
 	srcIP  net.IP    // client IP address
 }
 
-// struct for a list of valid feeder uuids (+ mutex to prevent races)
+// struct for a list of valid feeder uuids (+ mutex for sync)
 type atcFeeders struct {
 	mu      sync.Mutex
 	feeders []uuid.UUID
 }
 
-// struct for SSL cert/key (+ mutex to prevent races)
+// struct for SSL cert/key (+ mutex for sync)
 type keypairReloader struct {
 	certMu   sync.RWMutex
 	cert     *tls.Certificate
@@ -56,8 +56,7 @@ type keypairReloader struct {
 }
 
 var (
-	// variable to hold list of valid feeders
-	validFeeders atcFeeders
+	validFeeders atcFeeders // list of valid feeders
 )
 
 func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
@@ -425,6 +424,12 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 
 					// if API is valid, then set clientAuthenticated to TRUE
 					clientAuthenticated = true
+
+					// update stats
+					statsConnectedBEAST <- declareConnectedBEAST{
+						uuid:      clientApiKey,
+						src_beast: connIn.RemoteAddr(),
+					}
 
 					// get feeder info (lat/lon/mux/label)
 					atcUrl, err := url.Parse(ctx.String("atcurl"))
@@ -872,6 +877,10 @@ func main() {
 }
 
 func runServer(ctx *cli.Context) error {
+
+	// start statistics manager
+	log.Info().Msg("starting statsManager")
+	go statsManager()
 
 	// start goroutine to regularly pull feeders from atc
 	log.Info().Msg("starting updateFeederDB")
