@@ -31,7 +31,8 @@ table, th, td {
 		<th>Feeder</th>
 		<th>Proto</th>
 		<th colspan="2">Src</th>
-		
+		<th colspan="2">Dst</th>
+		<th>Since</th>
 	</tr>
 {{range $index, $element := .}}
 	<tr>
@@ -41,13 +42,27 @@ table, th, td {
 			<p>{{.Lat}} {{.Lon}}</p>
 		</td>
 		<td>BEAST</td>
-		<td>{{.Src_beast}}</br>Since: {{.Time_connected_beast}}</td>
-		<td>Rx: {{.Bytes_rx_in_beast}}B</br>Tx: {{.Bytes_tx_in_beast}}</br></td>
+	{{if .Connected_beast}}
+		<td>{{.Src_beast}}</td>
+		<td>Rx: {{.Bytes_rx_in_beast}}B</br>Tx: {{.Bytes_tx_in_beast}}B</br></td>
+		<td>{{.Dst_feedin}}</td>
+		<td>Rx: {{.Bytes_rx_out_beast}}B</br>Tx: {{.Bytes_tx_out_beast}}B</br></td>
+		<td>{{.Time_connected_beast}}</td>
+	{{else}}
+		<td rowspan="5">No connection</td>
+	{{end}}
 	</tr>
 	<tr>
 		<td>MLAT</td>
-		<td>{{.Src_mlat}}</br>Since: {{.Time_connected_beast}}</td>
+	{{if .Connected_mlat}}
+		<td>{{.Src_mlat}}</td>
 		<td>Rx: {{.Bytes_rx_in_mlat}}B</br>Tx: {{.Bytes_tx_in_mlat}}B</br></td>
+		<td>{{.Dst_mux}}</td>
+		<td>Rx: {{.Bytes_rx_out_mlat}}B</br>Tx: {{.Bytes_tx_out_mlat}}B</br></td>
+		<td>{{.Time_connected_mlat}}</td>
+	{{else}}
+		<td rowspan="5">No connection</td>
+	{{end}}
 	</tr>
 {{end}}
 `
@@ -59,6 +74,9 @@ type FeederStats struct {
 	Label string  // feeder label
 	Lat   float64 // feeder lat
 	Lon   float64 // feeder lon
+	// connection bools
+	Connected_beast bool
+	Connected_mlat  bool
 	// source connection info
 	Src_beast net.Addr // source ip:port of client for BEAST connection
 	Src_mlat  net.Addr // source ip:port of client for MLAT connection
@@ -209,9 +227,11 @@ func (stats *Statistics) setClientConnected(uuid uuid.UUID, src_addr net.Addr, p
 	switch strings.ToUpper(proto) {
 	case "BEAST":
 		y.Time_connected_beast = time.Now()
+		y.Connected_beast = true
 		y.Src_beast = src_addr
 	case "MLAT":
 		y.Time_connected_mlat = time.Now()
+		y.Connected_mlat = true
 		y.Src_mlat = src_addr
 	default:
 		panic("unsupported protocol")
@@ -234,12 +254,13 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render the data
+	stats.mu.RLock()
 	err = t.Execute(w, stats.Feeders)
+	stats.mu.RUnlock()
 	if err != nil {
 		fmt.Println(err)
 		log.Panic().AnErr("err", err).Msg("could not execute statsTemplate")
 	}
-
 }
 
 func statsManager() {
