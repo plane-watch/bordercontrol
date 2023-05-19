@@ -983,7 +983,6 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		defer conn.Close()
 		go clientBEASTConnection(ctx, conn, &tlsConfig, containersToStart)
 	}
 
@@ -1016,7 +1015,6 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		defer conn.Close()
 		go clientMLATConnection(ctx, conn, &tlsConfig)
 	}
 
