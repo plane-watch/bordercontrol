@@ -482,7 +482,7 @@ func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientCon
 		bytesRead, err := muxConn.Read(outBuf)
 		if err != nil {
 			if err.Error() == "EOF" {
-				cLog.Info().Msg("mux disconnected")
+				cLog.Info().Caller().Msg("mux disconnected")
 				break
 			} else if err, ok := err.(net.Error); ok && err.Timeout() {
 				// cLog.Debug().AnErr("err", err).Msg("no data to read")
@@ -521,7 +521,7 @@ func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *n
 		bytesRead, err := clientConn.Read(outBuf)
 		if err != nil {
 			if err.Error() == "EOF" {
-				cLog.Info().Msg("mux disconnected")
+				cLog.Info().Caller().Msg("mux disconnected")
 				break
 			} else if err, ok := err.(net.Error); ok && err.Timeout() {
 				// cLog.Debug().AnErr("err", err).Msg("no data to read")
