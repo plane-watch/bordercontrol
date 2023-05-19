@@ -75,7 +75,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 				// check valid uuid was returned as ServerName (sni)
 				clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
 				if err != nil {
-					cLog.Warn().Msg("client sent invalid uuid")
+					cLog.Warn().Msg("client sent invalid SNI")
 					break
 				}
 
@@ -290,7 +290,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 				// check valid uuid was returned as ServerName (sni)
 				clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
 				if err != nil {
-					cLog.Warn().Msg("client sent invalid uuid")
+					cLog.Warn().Msg("client sent invalid SNI")
 					break
 				}
 
