@@ -230,7 +230,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 	// cLog.Debug().Msg("clientBEASTConnection goroutine finishing")
 }
 
-func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config) {
+func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config) {
 	// handles incoming MLAT connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 
@@ -240,8 +240,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 		sendRecvBufferSize    = 256 * 1024 // 256kB
 		clientAuthenticated   = false
 		muxContainerConnected = false
-		connOut               *net.TCPConn
-		connOutErr            error
+		muxConn               *net.TCPConn
+		muxConnErr            error
 		clientApiKey          uuid.UUID
 		mux                   string
 		refLat, refLon        float64
@@ -251,7 +251,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	)
 
 	// update log context with client IP
-	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
+	remoteIP := net.ParseIP(strings.Split(clientConn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
 	// cLog.Debug().Msgf("connection established")
@@ -262,29 +262,29 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	for {
 
 		// read data from client
-		bytesRead, err = connIn.Read(inBuf)
+		bytesRead, err = clientConn.Read(inBuf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
-				e := connIn.Close()
+				e := clientConn.Close()
 				if e != nil {
-					log.Err(e).Caller().Msg("could not close connIn")
+					log.Err(e).Caller().Msg("could not close clientConn")
 				}
 				break
 			} else if err.Error() == "EOF" {
 				if clientAuthenticated {
 					cLog.Info().Msg("client disconnected")
 				}
-				e := connIn.Close()
+				e := clientConn.Close()
 				if e != nil {
-					log.Err(e).Caller().Msg("could not close connIn")
+					log.Err(e).Caller().Msg("could not close clientConn")
 				}
 				break
 			} else {
 				cLog.Err(err).Msg("client read error")
-				e := connIn.Close()
+				e := clientConn.Close()
 				if e != nil {
-					log.Err(e).Caller().Msg("could not close connIn")
+					log.Err(e).Caller().Msg("could not close clientConn")
 				}
 				break
 			}
@@ -295,16 +295,16 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 		if !clientAuthenticated {
 
 			// check TLS handshake
-			tlscon := connIn.(*tls.Conn)
+			tlscon := clientConn.(*tls.Conn)
 			if tlscon.ConnectionState().HandshakeComplete {
 
 				// check valid uuid was returned as ServerName (sni)
 				clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
 				if err != nil {
 					cLog.Warn().Str("sni", tlscon.ConnectionState().ServerName).Msg("client sent invalid SNI")
-					e := connIn.Close()
+					e := clientConn.Close()
 					if e != nil {
-						log.Err(e).Caller().Msg("could not close connIn")
+						log.Err(e).Caller().Msg("could not close clientConn")
 					}
 					break
 				}
@@ -335,9 +335,9 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 				} else {
 					// if API is not valid, then kill the connection
 					cLog.Warn().Str("sni", clientApiKey.String()).Msg("client sent invalid api key")
-					e := connIn.Close()
+					e := clientConn.Close()
 					if e != nil {
-						log.Err(e).Caller().Msg("could not close connIn")
+						log.Err(e).Caller().Msg("could not close clientConn")
 					}
 					break
 				}
@@ -345,9 +345,9 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			} else {
 				// if TLS handshake is not complete, then kill the connection
 				cLog.Warn().Msg("data received before tls handshake")
-				e := connIn.Close()
+				e := clientConn.Close()
 				if e != nil {
-					log.Err(e).Caller().Msg("could not close connIn")
+					log.Err(e).Caller().Msg("could not close clientConn")
 				}
 				break
 			}
@@ -380,18 +380,18 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 				}
 
 				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
+				muxConn, muxConnErr = net.DialTCP("tcp", nil, &dstTCPAddr)
 
-				if connOutErr != nil {
+				if muxConnErr != nil {
 
 					// handle connection errors to feed-in container
 
-					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to mux container")
+					cLog.Warn().AnErr("error", muxConnErr).Str("dst", dialAddress).Msg("could not connect to mux container")
 					time.Sleep(1 * time.Second)
 
-					e := connIn.Close()
+					e := clientConn.Close()
 					if e != nil {
-						log.Err(e).Caller().Msg("could not close connIn")
+						log.Err(e).Caller().Msg("could not close clientConn")
 					}
 					break
 
@@ -399,21 +399,21 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 					// connected OK...
 
-					err := connOut.SetKeepAlive(true)
+					err := muxConn.SetKeepAlive(true)
 					if err != nil {
 						cLog.Err(err).Msg("could not set keep alive")
-						e := connIn.Close()
+						e := clientConn.Close()
 						if e != nil {
-							log.Err(e).Caller().Msg("could not close connIn")
+							log.Err(e).Caller().Msg("could not close clientConn")
 						}
 						break
 					}
-					err = connOut.SetKeepAlivePeriod(1 * time.Second)
+					err = muxConn.SetKeepAlivePeriod(1 * time.Second)
 					if err != nil {
 						cLog.Err(err).Msg("could not set keep alive period")
-						e := connIn.Close()
+						e := clientConn.Close()
 						if e != nil {
-							log.Err(e).Caller().Msg("could not close connIn")
+							log.Err(e).Caller().Msg("could not close clientConn")
 						}
 						break
 					}
@@ -421,14 +421,14 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					muxContainerConnected = true
 
 					// update stats
-					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "MLAT")
+					stats.setClientConnected(clientApiKey, clientConn.RemoteAddr(), "MLAT")
 					defer stats.setClientDisconnected(clientApiKey, "MLAT")
 
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected to mux")
 
 					// update stats
-					stats.setOutputConnected(clientApiKey, "MUX", connOut.RemoteAddr())
+					stats.setOutputConnected(clientApiKey, "MUX", muxConn.RemoteAddr())
 
 				}
 			}
@@ -448,27 +448,27 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			wg := sync.WaitGroup{}
 
 			// write outstanding data
-			_, err := connOut.Write(inBuf[:bytesRead])
+			_, err := muxConn.Write(inBuf[:bytesRead])
 			if err != nil {
 				cLog.Err(err).Msg("error writing to client")
 			}
 
 			// start responder
 			wg.Add(1)
-			go clientMLATResponderNTC2NC(clientApiKey, connOut, connIn, sendRecvBufferSize, cLog, &wg)
+			go mlatTcpForwarderM2C(clientApiKey, muxConn, clientConn, sendRecvBufferSize, cLog, &wg)
 			wg.Add(1)
-			go clientMLATResponderNC2NTC(clientApiKey, connIn, connOut, sendRecvBufferSize, cLog, &wg)
+			go mlatTcpForwarderC2M(clientApiKey, clientConn, muxConn, sendRecvBufferSize, cLog, &wg)
 			wg.Wait()
 
-			defer connOut.Close()
-			defer connIn.Close()
+			defer muxConn.Close()
+			defer clientConn.Close()
 
 		}
 	}
 	// cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
-func clientMLATResponderNTC2NC(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
+func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as goroutine
 
@@ -479,7 +479,7 @@ func clientMLATResponderNTC2NC(clientApiKey uuid.UUID, connOut *net.TCPConn, con
 	for {
 
 		// read data from server
-		bytesRead, err := connOut.Read(outBuf)
+		bytesRead, err := muxConn.Read(outBuf)
 		if err != nil {
 			if err.Error() == "EOF" {
 				cLog.Info().Msg("mux disconnected")
@@ -493,7 +493,7 @@ func clientMLATResponderNTC2NC(clientApiKey uuid.UUID, connOut *net.TCPConn, con
 		}
 
 		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := connIn.Write(outBuf[:bytesRead])
+		bytesWritten, err := clientConn.Write(outBuf[:bytesRead])
 		if err != nil {
 			cLog.Err(err).Msg("error writing to client")
 			break
@@ -505,19 +505,9 @@ func clientMLATResponderNTC2NC(clientApiKey uuid.UUID, connOut *net.TCPConn, con
 
 	wg.Done()
 
-	// e := connOut.Close()
-	// if e != nil {
-	// 	log.Err(e).Caller().Msg("could not close connOut")
-	// }
-	// e = connIn.Close()
-	// if e != nil {
-	// 	log.Err(e).Caller().Msg("could not close connIn")
-	// }
-
-	// cLog.Debug().Msg("clientMLATResponder finished")
 }
 
-func clientMLATResponderNC2NTC(clientApiKey uuid.UUID, connOut net.Conn, connIn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
+func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as goroutine
 
@@ -528,7 +518,7 @@ func clientMLATResponderNC2NTC(clientApiKey uuid.UUID, connOut net.Conn, connIn 
 	for {
 
 		// read data from server
-		bytesRead, err := connOut.Read(outBuf)
+		bytesRead, err := clientConn.Read(outBuf)
 		if err != nil {
 			if err.Error() == "EOF" {
 				cLog.Info().Msg("mux disconnected")
@@ -542,28 +532,18 @@ func clientMLATResponderNC2NTC(clientApiKey uuid.UUID, connOut net.Conn, connIn 
 		}
 
 		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := connIn.Write(outBuf[:bytesRead])
+		bytesWritten, err := muxConn.Write(outBuf[:bytesRead])
 		if err != nil {
 			cLog.Err(err).Msg("error writing to client")
 			break
 		}
 
 		// update stats
-		stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesRead), "MLAT")
+		stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
 	}
 
 	wg.Done()
 
-	// e := connOut.Close()
-	// if e != nil {
-	// 	log.Err(e).Caller().Msg("could not close connOut")
-	// }
-	// e = connIn.Close()
-	// if e != nil {
-	// 	log.Err(e).Caller().Msg("could not close connIn")
-	// }
-
-	// cLog.Debug().Msg("clientMLATResponder finished")
 }
 
 func main() {
