@@ -83,6 +83,9 @@ func statsManager() {
 
 	for {
 		time.Sleep(10 * time.Second)
+
+		stats.mu.RLock()
 		fmt.Println(&stats)
+		stats.mu.RUnlock()
 	}
 }
