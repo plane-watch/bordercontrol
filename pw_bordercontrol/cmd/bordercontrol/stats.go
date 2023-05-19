@@ -323,7 +323,6 @@ func statsEvictor() {
 
 		time.Sleep(time.Minute * 1)
 	}
-
 }
 
 func statsManager() {
