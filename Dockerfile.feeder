@@ -77,3 +77,5 @@ COPY pw_feed-in/rootfs/ /
 
 # Set s6 init as entrypoint
 ENTRYPOINT [ "/init" ]
+
+HEALTHCHECK --interval=60s --timeout=10s --start-period=300s --retries=5 CMD /scripts/healthcheck.sh

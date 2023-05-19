@@ -34,7 +34,7 @@ fi
 
 # if container has been unhealthy for 10mins+ then stop container
 if [ "$(cat /run/healthcheck)" != "0" ]; then
-    if test "$(find /blort -mmin +10)"; then
+    if test "$(find /run/healthcheck -mmin +10)"; then
         s6-svscanctl -t /var/run/s6/services
     fi
 fi
