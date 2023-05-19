@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/rs/zerolog/log"
 )
 
 // struct for per-feeder statistics
@@ -158,16 +161,19 @@ func (stats *statistics) setClientConnected(uuid uuid.UUID, src_addr net.Addr, p
 	stats.mu.Unlock()
 }
 
+func httpAllStats(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
+}
+
 func statsManager() {
 
 	// init stats variable
 	stats.feeders = make(map[uuid.UUID]feederStats)
 
-	for {
-		time.Sleep(10 * time.Second)
+	http.HandleFunc("/", httpAllStats)
 
-		stats.mu.RLock()
-		fmt.Printf("%+v\n", &stats)
-		stats.mu.RUnlock()
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Panic().AnErr("err", err).Msg("stats server stopped")
 	}
 }
