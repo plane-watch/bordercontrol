@@ -504,8 +504,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
 				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
-				connOut.SetKeepAlive(true)
-				connOut.SetKeepAlivePeriod(1 * time.Second)
 
 				if connOutErr != nil {
 
@@ -523,6 +521,17 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 				} else {
 
 					// connected OK...
+
+					err := connOut.SetKeepAlive(true)
+					if err != nil {
+						cLog.Err(err).Msg("could not set keep alive")
+						break
+					}
+					err = connOut.SetKeepAlivePeriod(1 * time.Second)
+					if err != nil {
+						cLog.Err(err).Msg("could not set keep alive period")
+						break
+					}
 
 					defer connOut.Close()
 					clientFeedInContainerConnected = true
@@ -711,8 +720,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
-				connOut.SetKeepAlive(true)
-				connOut.SetKeepAlivePeriod(1 * time.Second)
 
 				if connOutErr != nil {
 
@@ -730,6 +737,17 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 				} else {
 
 					// connected OK...
+
+					err := connOut.SetKeepAlive(true)
+					if err != nil {
+						cLog.Err(err).Msg("could not set keep alive")
+						break
+					}
+					err = connOut.SetKeepAlivePeriod(1 * time.Second)
+					if err != nil {
+						cLog.Err(err).Msg("could not set keep alive period")
+						break
+					}
 
 					defer connOut.Close()
 					muxContainerConnected = true
