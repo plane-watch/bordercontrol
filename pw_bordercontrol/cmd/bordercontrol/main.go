@@ -242,7 +242,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 		muxContainerConnected = false
 		connOut               *net.TCPConn
 		connOutErr            error
-		connOutAttempts       = 0
 		clientApiKey          uuid.UUID
 		mux                   string
 		refLat, refLon        float64
