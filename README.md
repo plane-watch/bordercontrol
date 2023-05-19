@@ -22,6 +22,10 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
 
 ## Operations
 
+### Viewing Statistics
+
+Bordercontrol listens on TCP port `8080` for http requests, and will display a simple table of feeders with statistics.
+
 ### Configuring the environment
 
 In the root of the repository, create a `.env` file containing the following:

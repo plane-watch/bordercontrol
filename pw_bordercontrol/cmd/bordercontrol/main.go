@@ -41,13 +41,13 @@ type startContainerRequest struct {
 	srcIP  net.IP    // client IP address
 }
 
-// struct for a list of valid feeder uuids (+ mutex to prevent races)
+// struct for a list of valid feeder uuids (+ mutex for sync)
 type atcFeeders struct {
 	mu      sync.Mutex
 	feeders []uuid.UUID
 }
 
-// struct for SSL cert/key (+ mutex to prevent races)
+// struct for SSL cert/key (+ mutex for sync)
 type keypairReloader struct {
 	certMu   sync.RWMutex
 	cert     *tls.Certificate
@@ -56,8 +56,7 @@ type keypairReloader struct {
 }
 
 var (
-	// variable to hold list of valid feeders
-	validFeeders atcFeeders
+	validFeeders atcFeeders // list of valid feeders
 )
 
 func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
@@ -426,6 +425,10 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					// if API is valid, then set clientAuthenticated to TRUE
 					clientAuthenticated = true
 
+					// update stats
+					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "BEAST")
+					defer stats.setClientDisconnected(clientApiKey, "BEAST")
+
 					// get feeder info (lat/lon/mux/label)
 					atcUrl, err := url.Parse(ctx.String("atcurl"))
 					if err != nil {
@@ -452,6 +455,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 						label:  label,
 						srcIP:  remoteIP,
 					}
+
+					// update stats
+					stats.setFeederDetails(clientApiKey, label, refLat, refLon)
 
 					// wait for container start
 					time.Sleep(5 * time.Second)
@@ -523,6 +529,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected ok")
+
+					// update stats
+					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
 				}
 			}
 		}
@@ -542,11 +551,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					_, err := connOut.Write(buf[:bytesRead])
+					bytesWritten, err := connOut.Write(buf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to feed-in container")
 						break
 					}
+
+					// update stats
+					stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "BEAST")
 				}
 			}
 		}
@@ -569,6 +581,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 		connOutAttempts       = 0
 		clientApiKey          uuid.UUID
 		mux                   string
+		refLat, refLon        float64
+		label                 string
 	)
 
 	defer connIn.Close()
@@ -637,11 +651,14 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 						Username: ctx.String("atcuser"),
 						Password: ctx.String("atcpass"),
 					}
-					_, _, mux, _, err = atc.GetFeederInfo(&s, clientApiKey)
+					refLat, refLon, mux, label, err = atc.GetFeederInfo(&s, clientApiKey)
 					if err != nil {
 						log.Err(err).Msg("atc.GetFeederLatLon")
 						continue
 					}
+
+					// update stats
+					stats.setFeederDetails(clientApiKey, label, refLat, refLon)
 
 					// wait for container start
 					time.Sleep(5 * time.Second)
@@ -716,12 +733,20 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 					defer connOut.Close()
 					muxContainerConnected = true
+
+					// update stats
+					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "MLAT")
+					defer stats.setClientDisconnected(clientApiKey, "MLAT")
+
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected ok")
 
+					// update stats
+					stats.setOutputConnected(clientApiKey, "MUX", connOut.RemoteAddr())
+
 					// start responder
-					go clientMLATResponder(connOut, connIn, sendRecvBufferSize, cLog)
+					go clientMLATResponder(clientApiKey, connOut, connIn, sendRecvBufferSize, cLog)
 				}
 			}
 		}
@@ -741,11 +766,14 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					_, err := connOut.Write(inBuf[:bytesRead])
+					bytesWritten, err := connOut.Write(inBuf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to mux container")
 						break
 					}
+
+					// update stats
+					stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
 				}
 			}
 		}
@@ -753,7 +781,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
-func clientMLATResponder(connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
+func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as gorouting
 
@@ -778,11 +806,14 @@ func clientMLATResponder(connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSi
 		}
 
 		// attempt to write data in buf (that was read from mux connection earlier)
-		_, err = connIn.Write(outBuf[:bytesRead])
+		bytesWritten, err := connIn.Write(outBuf[:bytesRead])
 		if err != nil {
 			cLog.Err(err).Msg("error writing to client")
 			break
 		}
+
+		// update stats
+		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
 	}
 
 	cLog.Debug().Msg("clientMLATResponder finished")
@@ -872,6 +903,10 @@ func main() {
 }
 
 func runServer(ctx *cli.Context) error {
+
+	// start statistics manager
+	log.Info().Msg("starting statsManager")
+	go statsManager()
 
 	// start goroutine to regularly pull feeders from atc
 	log.Info().Msg("starting updateFeederDB")
