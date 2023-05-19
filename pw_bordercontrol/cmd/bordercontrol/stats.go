@@ -18,9 +18,7 @@ const (
 	statsTemplate = `
 	{{range $index, $element := .}}
 		{{$index}}
-		{{range $element}}
-			{{.Label}}
-		{{end}}
+		{{.Label}}
 	{{end}}
 	`
 )
