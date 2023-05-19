@@ -15,18 +15,21 @@ import (
 
 const (
 	statsTemplate = `
-	<h1>{{.PageTitle}}</h1>
-	<ul>
-		{{range .Feeders}}
-			<li>{{.Uuid}}</li>
+	{{range $index, $element := .}}
+		{{$index}}
+		{{range $element}}
+			{{.Label}}
 		{{end}}
-	</ul>
+	{{end}}
 	`
 )
 
 // struct for per-feeder statistics
 type FeederStats struct {
-	Uuid uuid.UUID // client api key / uuid
+	// feeder details
+	Label string  // feeder label
+	Lat   float64 // feeder lat
+	Lon   float64 // feeder lon
 	// source connection info
 	Src_beast net.Addr // source ip:port of client for BEAST connection
 	Src_mlat  net.Addr // source ip:port of client for MLAT connection
@@ -108,9 +111,7 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	// if not, create it
 	if !ok {
 		stats.mu.Lock()
-		stats.Feeders[uuid] = FeederStats{
-			Uuid: uuid,
-		}
+		stats.Feeders[uuid] = FeederStats{}
 		stats.mu.Unlock()
 	}
 }
@@ -141,6 +142,26 @@ func (stats *Statistics) setOutputConnected(uuid uuid.UUID, outputType string, o
 	stats.Feeders[uuid] = y
 	stats.mu.Unlock()
 
+}
+
+func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon float64) {
+	// updates the details of a feeder
+
+	stats.initFeederStats(uuid)
+
+	// copy stats entry
+	stats.mu.Lock()
+	y := stats.Feeders[uuid]
+
+	// update time_last_updated
+	y.Label = label
+	y.Lat = lat
+	y.Lon = lon
+	y.Time_last_updated = time.Now()
+
+	// write stats entry
+	stats.Feeders[uuid] = y
+	stats.mu.Unlock()
 }
 
 func (stats *Statistics) setClientConnected(uuid uuid.UUID, src_addr net.Addr, proto string) {

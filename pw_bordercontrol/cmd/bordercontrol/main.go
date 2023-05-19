@@ -455,6 +455,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 						srcIP:  remoteIP,
 					}
 
+					// update stats
+					stats.setFeederDetails(clientApiKey, label, refLat, refLon)
+
 					// wait for container start
 					time.Sleep(5 * time.Second)
 
@@ -577,6 +580,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 		connOutAttempts       = 0
 		clientApiKey          uuid.UUID
 		mux                   string
+		refLat, refLon        float64
+		label                 string
 	)
 
 	defer connIn.Close()
@@ -645,11 +650,14 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 						Username: ctx.String("atcuser"),
 						Password: ctx.String("atcpass"),
 					}
-					_, _, mux, _, err = atc.GetFeederInfo(&s, clientApiKey)
+					refLat, refLon, mux, label, err = atc.GetFeederInfo(&s, clientApiKey)
 					if err != nil {
 						log.Err(err).Msg("atc.GetFeederLatLon")
 						continue
 					}
+
+					// update stats
+					stats.setFeederDetails(clientApiKey, label, refLat, refLon)
 
 					// wait for container start
 					time.Sleep(5 * time.Second)
