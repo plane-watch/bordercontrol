@@ -394,16 +394,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					defer stats.setClientDisconnected(clientApiKey, "BEAST")
 
 					// get feeder info (lat/lon/mux/label)
-					atcUrl, err := url.Parse(ctx.String("atcurl"))
-					if err != nil {
-						log.Error().Msg("--atcurl is invalid")
-						continue
-					}
-					s := atc.Server{
-						Url:      *atcUrl,
-						Username: ctx.String("atcuser"),
-						Password: ctx.String("atcpass"),
-					}
 					refLat, refLon, mux, label, err := getFeederInfo(clientApiKey)
 					if err != nil {
 						log.Err(err).Msg("getFeederInfo")
@@ -614,16 +604,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					clientAuthenticated = true
 
 					// get feeder info (lat/lon/mux/label)
-					atcUrl, err := url.Parse(ctx.String("atcurl"))
-					if err != nil {
-						log.Error().Msg("--atcurl is invalid")
-						continue
-					}
-					s := atc.Server{
-						Url:      *atcUrl,
-						Username: ctx.String("atcuser"),
-						Password: ctx.String("atcpass"),
-					}
 					refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
 					if err != nil {
 						log.Err(err).Msg("getFeederInfo")
