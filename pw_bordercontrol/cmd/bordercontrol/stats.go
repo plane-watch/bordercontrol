@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,9 +24,9 @@ type feederStats struct {
 	bytes_tx_in_beast  int64 // bytes send to client (in) for BEAST protocol
 	bytes_rx_out_beast int64 // bytes received from mux (out) for BEAST protocol
 	bytes_tx_out_beast int64 // bytes send to mux (out) for BEAST protocol
-	// which multiplexer
-	out_mux  string // connected multiplexer
-	out_sink string // output sink
+	// output details
+	dst_feedin net.Addr // connected feed-in container
+	dst_mux    net.Addr // connected multiplexer
 }
 
 type feederStatusUpdate struct {
@@ -43,12 +44,7 @@ var (
 	stats statistics // feeder statistics
 )
 
-func (stats *statistics) setConnectedBEAST(uuid uuid.UUID, src_beast net.Addr) {
-	// updates the connected status of a feeder
-	//   - sets src_beast
-	//   - sets connected_time to now
-	//   - sets time_last_updated to now
-
+func (stats *statistics) initFeederStats(uuid uuid.UUID) {
 	// does stats var have an entry for uuid?
 	stats.mu.RLock()
 	_, ok := stats.feeders[uuid]
@@ -60,14 +56,64 @@ func (stats *statistics) setConnectedBEAST(uuid uuid.UUID, src_beast net.Addr) {
 		stats.feeders[uuid] = feederStats{}
 		stats.mu.Unlock()
 	}
+}
+
+func (stats *statistics) setOutputConnected(uuid uuid.UUID, outputType string, outputAddr net.Addr) {
+	// updates the connected status of a feeder
+	//   - sets src_beast/src_mlat
+	//   - sets time_connected_beast/time_connected_mlat to now
+	//   - sets time_last_updated to now
+
+	stats.initFeederStats(uuid)
 
 	// copy stats entry
 	stats.mu.Lock()
 	y := stats.feeders[uuid]
 
 	// update stats entry
-	y.time_connected_beast = time.Now()
-	y.src_beast = src_beast
+	switch strings.ToUpper(outputType) {
+	case "FEEDIN":
+		y.dst_feedin = outputAddr
+	case "MUX":
+		y.dst_mux = outputAddr
+	default:
+		panic("unsupported output type")
+	}
+
+	// update time_last_updated
+	y.time_last_updated = time.Now()
+
+	// write stats entry
+	stats.feeders[uuid] = y
+	stats.mu.Unlock()
+
+}
+
+func (stats *statistics) setClientConnected(uuid uuid.UUID, src_addr net.Addr, proto string) {
+	// updates the connected status of a feeder
+	//   - sets src_beast/src_mlat
+	//   - sets time_connected_beast/time_connected_mlat to now
+	//   - sets time_last_updated to now
+
+	stats.initFeederStats(uuid)
+
+	// copy stats entry
+	stats.mu.Lock()
+	y := stats.feeders[uuid]
+
+	// update stats entry
+	switch strings.ToUpper(proto) {
+	case "BEAST":
+		y.time_connected_beast = time.Now()
+		y.src_beast = src_addr
+	case "MLAT":
+		y.time_connected_mlat = time.Now()
+		y.src_mlat = src_addr
+	default:
+		panic("unsupported protocol")
+	}
+
+	// update time_last_updated
 	y.time_last_updated = time.Now()
 
 	// write stats entry

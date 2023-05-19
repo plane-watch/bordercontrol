@@ -426,7 +426,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					clientAuthenticated = true
 
 					// update stats
-					stats.setConnectedBEAST(clientApiKey, connIn.RemoteAddr())
+					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "BEAST")
 
 					// get feeder info (lat/lon/mux/label)
 					atcUrl, err := url.Parse(ctx.String("atcurl"))
@@ -525,6 +525,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected ok")
+
+					// update stats
+					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
 				}
 			}
 		}
@@ -718,9 +721,16 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 					defer connOut.Close()
 					muxContainerConnected = true
+
+					// update stats
+					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "MLAT")
+
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
 					cLog.Info().Msg("connected ok")
+
+					// update stats
+					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
 
 					// start responder
 					go clientMLATResponder(connOut, connIn, sendRecvBufferSize, cLog)
