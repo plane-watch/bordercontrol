@@ -18,8 +18,10 @@ import (
 	"pw_bordercontrol/lib/logging"
 
 	"github.com/google/uuid"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/urfave/cli/v2"
 
 	"github.com/docker/docker/api/types"
@@ -39,16 +41,13 @@ type startContainerRequest struct {
 	srcIP  net.IP    // client IP address
 }
 
-// struct for a list of valid feeder uuids
+// struct for a list of valid feeder uuids (+ mutex to prevent races)
 type atcFeeders struct {
 	mu      sync.Mutex
 	feeders []uuid.UUID
 }
 
-var (
-	validFeeders atcFeeders
-)
-
+// struct for SSL cert/key (+ mutex to prevent races)
 type keypairReloader struct {
 	certMu   sync.RWMutex
 	cert     *tls.Certificate
@@ -56,7 +55,13 @@ type keypairReloader struct {
 	keyPath  string
 }
 
+var (
+	// variable to hold list of valid feeders
+	validFeeders atcFeeders
+)
+
 func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
+	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	result := &keypairReloader{
 		certPath: certPath,
 		keyPath:  keyPath,
@@ -81,6 +86,7 @@ func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, e
 }
 
 func (kpr *keypairReloader) maybeReload() error {
+	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	newCert, err := tls.LoadX509KeyPair(kpr.certPath, kpr.keyPath)
 	if err != nil {
 		return err
@@ -92,6 +98,7 @@ func (kpr *keypairReloader) maybeReload() error {
 }
 
 func (kpr *keypairReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		kpr.certMu.RLock()
 		defer kpr.certMu.RUnlock()
@@ -157,7 +164,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 }
 
 func muxHostname(mux string) (muxHost string, err error) {
-
+	// return a mux hostname based on mux returned from ATC
 	switch strings.ToUpper(mux) {
 	case "ASIA":
 		muxHost = "mux-asia"
@@ -739,30 +746,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 						cLog.Err(err).Msg("error writing to mux container")
 						break
 					}
-
-					// // read data from server
-					// bytesRead, err = connOut.Read(outBuf)
-					// if err != nil {
-					// 	if err.Error() == "EOF" {
-					// 		if muxContainerConnected {
-					// 			cLog.Info().Msg("mux disconnected")
-					// 		}
-					// 		break
-					// 	} else if err, ok := err.(net.Error); ok && err.Timeout() {
-					// 		// cLog.Debug().AnErr("err", err).Msg("no data to read")
-					// 	} else {
-					// 		cLog.Err(err).Msg("mux read error")
-					// 		break
-					// 	}
-					// }
-
-					// // attempt to write data in buf (that was read from mux connection earlier)
-					// _, err = connIn.Write(outBuf[:bytesRead])
-					// if err != nil {
-					// 	cLog.Err(err).Msg("error writing to client")
-					// 	break
-					// }
-
 				}
 			}
 		}
@@ -771,6 +754,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 }
 
 func clientMLATResponder(connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
+	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
+	// Designed to be run as gorouting
 
 	cLog.Debug().Msg("clientMLATResponder started")
 
@@ -920,29 +905,15 @@ func runServer(ctx *cli.Context) error {
 }
 
 func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
+	// BEAST listener
 
-	// load server cert & key
-	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	// log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
-	// log.Info().Str("file", ctx.String("key")).Msg("loading private key")
-	// cert, err := tls.LoadX509KeyPair(
-	// 	ctx.String("cert"),
-	// 	ctx.String("key"),
-	// )
-	// if err != nil {
-	// 	log.Err(err).Msg("tls.LoadX509KeyPair")
-	// }
-
+	// load SSL cert/key
 	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "BEAST")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
 	tlsConfig := tls.Config{}
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
-	// tls configuration
-	// tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
-	// tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
 	log.Info().Msgf("Starting BEAST listener on %s", ctx.String("listenbeast"))
@@ -967,29 +938,15 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 }
 
 func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
+	// MLAT listener
 
-	// load server cert & key
-	// TODO: reload certificate on sighup: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	// log.Info().Str("file", ctx.String("cert")).Msg("loading certificate")
-	// log.Info().Str("file", ctx.String("key")).Msg("loading private key")
-	// cert, err := tls.LoadX509KeyPair(
-	// 	ctx.String("cert"),
-	// 	ctx.String("key"),
-	// )
-	// if err != nil {
-	// 	log.Err(err).Msg("tls.LoadX509KeyPair")
-	// }
-
+	// load SSL cert/key
 	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "MLAT")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
 	tlsConfig := tls.Config{}
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
-	// tls configuration
-	// tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
-	// tlsConfig.ServerName = "bordercontrol.plane.watch"
 
 	// start TLS server
 	log.Info().Msgf("Starting MLAT listener on %s", ctx.String("listenmlat"))
