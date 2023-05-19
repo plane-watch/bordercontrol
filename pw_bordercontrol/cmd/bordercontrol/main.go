@@ -455,7 +455,6 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			defer connOut.Close()
 			defer connIn.Close()
 
-			}
 		}
 	}
 	// cLog.Debug().Msg("clientMLATConnection goroutine finishing")
