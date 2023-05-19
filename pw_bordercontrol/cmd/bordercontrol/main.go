@@ -250,12 +250,12 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			// if container is not running, create it
 			// cLog.Debug().Msg("starting feed-in container")
 
-			mux, err := muxHostname(containerToStart.mux)
-			if err != nil {
-				cLog.Err(err).Msg("could not assign mux")
-				time.Sleep(5 * time.Second)
-				break
-			}
+			// mux, err := muxHostname(containerToStart.mux)
+			// if err != nil {
+			// 	cLog.Err(err).Msg("could not assign mux")
+			// 	time.Sleep(5 * time.Second)
+			// 	break
+			// }
 
 			// prepare environment variables for container
 			envVars := [...]string{
@@ -267,7 +267,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
-				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", mux),
+				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", containerToStart.mux),
 				"PW_INGEST_PUBLISH=location-updates",
 				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
 			}
