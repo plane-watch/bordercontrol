@@ -199,7 +199,7 @@ func muxHostname(mux string) (muxHost string, err error) {
 func checkFeederContainers(ctx *cli.Context) {
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Logger()
-	cfcLog.Debug().Msg("Running checkFeederContainers")
+	// cfcLog.Debug().Msg("Running checkFeederContainers")
 
 	// set up docker client
 	dockerCtx := context.Background()
@@ -284,7 +284,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		} else {
 
 			// if container is not running, create it
-			cLog.Debug().Msg("starting feed-in container")
+			// cLog.Debug().Msg("starting feed-in container")
 
 			mux, err := muxHostname(containerToStart.mux)
 			if err != nil {
@@ -377,8 +377,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
-	cLog.Debug().Msgf("connection established")
-	defer cLog.Debug().Msgf("connection closed")
+	// cLog.Debug().Msgf("connection established")
+	// defer cLog.Debug().Msgf("connection closed")
 
 	buf := make([]byte, sendRecvBufferSize)
 	for {
@@ -501,7 +501,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					Port: 12345,
 				}
 
-				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
 				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
 
@@ -572,7 +572,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 			}
 		}
 	}
-	cLog.Debug().Msg("clientBEASTConnection goroutine finishing")
+	// cLog.Debug().Msg("clientBEASTConnection goroutine finishing")
 }
 
 func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config) {
@@ -600,8 +600,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
-	cLog.Debug().Msgf("connection established")
-	defer cLog.Debug().Msgf("connection closed")
+	// cLog.Debug().Msgf("connection established")
+	// defer cLog.Debug().Msgf("connection closed")
 
 	inBuf := make([]byte, sendRecvBufferSize)
 
@@ -718,7 +718,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					Port: 12346,
 				}
 
-				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
 
 				if connOutErr != nil {
@@ -796,14 +796,14 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			}
 		}
 	}
-	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
+	// cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
 func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as gorouting
 
-	cLog.Debug().Msg("clientMLATResponder started")
+	// cLog.Debug().Msg("clientMLATResponder started")
 
 	outBuf := make([]byte, sendRecvBufferSize)
 
@@ -834,7 +834,7 @@ func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn ne
 		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
 	}
 
-	cLog.Debug().Msg("clientMLATResponder finished")
+	// cLog.Debug().Msg("clientMLATResponder finished")
 }
 
 func main() {

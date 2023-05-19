@@ -303,7 +303,7 @@ func statsEvictor() {
 			if !stats.Feeders[u].Connected_beast {
 				if !stats.Feeders[u].Connected_mlat {
 					if time.Now().Sub(stats.Feeders[u].Time_last_updated) > (time.Second * 60) {
-						log.Debug().Str("uuid", u.String()).Msg("evicting stale stats data")
+						// log.Debug().Str("uuid", u.String()).Msg("evicting stale stats data")
 						toEvict = append(toEvict, u)
 					}
 				}
