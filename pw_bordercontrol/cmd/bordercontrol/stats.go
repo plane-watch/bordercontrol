@@ -167,7 +167,7 @@ func statsManager() {
 		time.Sleep(10 * time.Second)
 
 		stats.mu.RLock()
-		fmt.Println(&stats)
+		fmt.Printf("%+v\n", &stats)
 		stats.mu.RUnlock()
 	}
 }
