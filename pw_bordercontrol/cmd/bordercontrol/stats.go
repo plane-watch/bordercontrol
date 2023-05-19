@@ -19,6 +19,7 @@ const (
 	<ul>
 		{{range .Feeders}}
 			<li>{{.Uuid}}</li>
+		{{end}}
 	</ul>
 	`
 )
