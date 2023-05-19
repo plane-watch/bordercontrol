@@ -547,11 +547,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					_, err := connOut.Write(buf[:bytesRead])
+					bytesWritten, err := connOut.Write(buf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to feed-in container")
 						break
 					}
+
+					// update stats
+					stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "BEAST")
 				}
 			}
 		}
@@ -733,7 +736,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
 
 					// start responder
-					go clientMLATResponder(connOut, connIn, sendRecvBufferSize, cLog)
+					go clientMLATResponder(clientApiKey, connOut, connIn, sendRecvBufferSize, cLog)
 				}
 			}
 		}
@@ -753,11 +756,14 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					}
 
 					// attempt to write data in buf (that was read from client connection earlier)
-					_, err := connOut.Write(inBuf[:bytesRead])
+					bytesWritten, err := connOut.Write(inBuf[:bytesRead])
 					if err != nil {
 						cLog.Err(err).Msg("error writing to mux container")
 						break
 					}
+
+					// update stats
+					stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
 				}
 			}
 		}
@@ -765,7 +771,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
-func clientMLATResponder(connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
+func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as gorouting
 
@@ -790,11 +796,14 @@ func clientMLATResponder(connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSi
 		}
 
 		// attempt to write data in buf (that was read from mux connection earlier)
-		_, err = connIn.Write(outBuf[:bytesRead])
+		bytesWritten, err := connIn.Write(outBuf[:bytesRead])
 		if err != nil {
 			cLog.Err(err).Msg("error writing to client")
 			break
 		}
+
+		// update stats
+		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
 	}
 
 	cLog.Debug().Msg("clientMLATResponder finished")
