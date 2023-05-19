@@ -49,7 +49,7 @@ table, th, td {
 		<td>Rx: {{.Bytes_rx_out_beast}}B</br>Tx: {{.Bytes_tx_out_beast}}B</br></td>
 		<td>{{.Time_connected_beast}}</td>
 	{{else}}
-		<td rowspan="5">No connection</td>
+		<td colspan="5">No connection</td>
 	{{end}}
 	</tr>
 	<tr>
@@ -61,7 +61,7 @@ table, th, td {
 		<td>Rx: {{.Bytes_rx_out_mlat}}B</br>Tx: {{.Bytes_tx_out_mlat}}B</br></td>
 		<td>{{.Time_connected_mlat}}</td>
 	{{else}}
-		<td rowspan="5">No connection</td>
+		<td colspan="5">No connection</td>
 	{{end}}
 	</tr>
 {{end}}
