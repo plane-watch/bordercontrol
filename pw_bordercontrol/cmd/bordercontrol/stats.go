@@ -319,7 +319,7 @@ func statsEvictor() {
 
 		// periodically log number of goroutines
 		// todo: move this to the web ui
-		log.Info().Int("goroutines", runtime.NumGoroutine()).Msg("number of goroutines")
+		log.Debug().Int("goroutines", runtime.NumGoroutine()).Msg("number of goroutines")
 
 		time.Sleep(time.Minute * 1)
 	}
