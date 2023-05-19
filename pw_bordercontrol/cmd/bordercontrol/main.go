@@ -41,8 +41,8 @@ type startContainerRequest struct {
 
 // struct for a list of valid feeder uuids (+ mutex for sync)
 type atcFeeders struct {
-	mu      sync.Mutex
-	feeders []uuid.UUID
+	mu      sync.RWMutex
+	Feeders []atc.Feeder
 }
 
 var (
@@ -51,14 +51,34 @@ var (
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
 	// return true of api key clientApiKey is a valid feeder in atc
-	validFeeders.mu.Lock()
-	defer validFeeders.mu.Unlock()
-	for _, v := range validFeeders.feeders {
-		if v == clientApiKey {
+	validFeeders.mu.RLock()
+	defer validFeeders.mu.RUnlock()
+	for _, v := range validFeeders.Feeders {
+		if v.ApiKey == clientApiKey {
 			return true
 		}
 	}
 	return false
+}
+
+func getFeederInfo(feederApiKey uuid.UUID) (refLat float64, refLon float64, mux string, label string, err error) {
+	found := false
+	validFeeders.mu.RLock()
+	defer validFeeders.mu.RUnlock()
+	for _, v := range validFeeders.Feeders {
+		if v.ApiKey == feederApiKey {
+			refLat = v.Latitude
+			refLon = v.Longitude
+			mux = v.Mux
+			label = v.Label
+			found = true
+			break
+		}
+	}
+	if !found {
+		err = errors.New("could not find feeder")
+	}
+	return refLat, refLon, mux, label, err
 }
 
 func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
@@ -99,7 +119,7 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 
 		// update validFeeders
 		validFeeders.mu.Lock()
-		validFeeders.feeders = newValidFeeders
+		validFeeders.Feeders = f.Feeders
 		validFeeders.mu.Unlock()
 
 		log.Info().Int("feeders", count).Msg("updated feeder uuid cache from atc")
@@ -384,9 +404,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 						Username: ctx.String("atcuser"),
 						Password: ctx.String("atcpass"),
 					}
-					refLat, refLon, mux, label, err := atc.GetFeederInfo(&s, clientApiKey)
+					refLat, refLon, mux, label, err := getFeederInfo(clientApiKey)
 					if err != nil {
-						log.Err(err).Msg("atc.GetFeederLatLon")
+						log.Err(err).Msg("getFeederInfo")
 						continue
 					}
 
@@ -604,9 +624,9 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 						Username: ctx.String("atcuser"),
 						Password: ctx.String("atcpass"),
 					}
-					refLat, refLon, mux, label, err = atc.GetFeederInfo(&s, clientApiKey)
+					refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
 					if err != nil {
-						log.Err(err).Msg("atc.GetFeederLatLon")
+						log.Err(err).Msg("getFeederInfo")
 						continue
 					}
 
