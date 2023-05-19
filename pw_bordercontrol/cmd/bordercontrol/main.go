@@ -537,7 +537,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					clientFeedInContainerConnected = true
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected ok")
+					cLog.Info().Msg("connected to feed-in")
 
 					// update stats
 					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
@@ -758,7 +758,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected ok")
+					cLog.Info().Msg("connected to mux")
 
 					// update stats
 					stats.setOutputConnected(clientApiKey, "MUX", connOut.RemoteAddr())
