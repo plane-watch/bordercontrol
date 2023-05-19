@@ -452,7 +452,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			go clientMLATResponderNC2NTC(clientApiKey, connIn, connOut, sendRecvBufferSize, cLog, &wg)
 			wg.Wait()
 
-
+			defer connOut.Close()
+			defer connIn.Close()
 
 			}
 		}
