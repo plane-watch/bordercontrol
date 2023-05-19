@@ -8,10 +8,8 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"pw_bordercontrol/lib/atc"
@@ -47,63 +45,9 @@ type atcFeeders struct {
 	feeders []uuid.UUID
 }
 
-// struct for SSL cert/key (+ mutex for sync)
-type keypairReloader struct {
-	certMu   sync.RWMutex
-	cert     *tls.Certificate
-	certPath string
-	keyPath  string
-}
-
 var (
 	validFeeders atcFeeders // list of valid feeders
 )
-
-func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
-	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	result := &keypairReloader{
-		certPath: certPath,
-		keyPath:  keyPath,
-	}
-	log.Info().Str("cert", certPath).Str("key", keyPath).Str("listener", listener).Msg("loading TLS certificate and key")
-	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
-	if err != nil {
-		return nil, err
-	}
-	result.cert = &cert
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGHUP)
-		for range c {
-			log.Info().Str("cert", certPath).Str("key", keyPath).Msg("Received SIGHUP, reloading TLS certificate and key")
-			if err := result.maybeReload(); err != nil {
-				log.Err(err).Msg("Keeping old TLS certificate because the new one could not be loaded")
-			}
-		}
-	}()
-	return result, nil
-}
-
-func (kpr *keypairReloader) maybeReload() error {
-	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	newCert, err := tls.LoadX509KeyPair(kpr.certPath, kpr.keyPath)
-	if err != nil {
-		return err
-	}
-	kpr.certMu.Lock()
-	defer kpr.certMu.Unlock()
-	kpr.cert = &newCert
-	return nil
-}
-
-func (kpr *keypairReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		kpr.certMu.RLock()
-		defer kpr.certMu.RUnlock()
-		return kpr.cert, nil
-	}
-}
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
 	// return true of api key clientApiKey is a valid feeder in atc
@@ -199,7 +143,7 @@ func muxHostname(mux string) (muxHost string, err error) {
 func checkFeederContainers(ctx *cli.Context) {
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Logger()
-	cfcLog.Debug().Msg("Running checkFeederContainers")
+	// cfcLog.Debug().Msg("Running checkFeederContainers")
 
 	// set up docker client
 	dockerCtx := context.Background()
@@ -284,7 +228,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		} else {
 
 			// if container is not running, create it
-			cLog.Debug().Msg("starting feed-in container")
+			// cLog.Debug().Msg("starting feed-in container")
 
 			mux, err := muxHostname(containerToStart.mux)
 			if err != nil {
@@ -377,8 +321,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
-	cLog.Debug().Msgf("connection established")
-	defer cLog.Debug().Msgf("connection closed")
+	// cLog.Debug().Msgf("connection established")
+	// defer cLog.Debug().Msgf("connection closed")
 
 	buf := make([]byte, sendRecvBufferSize)
 	for {
@@ -501,7 +445,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					Port: 12345,
 				}
 
-				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
 				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
 
@@ -537,7 +481,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					clientFeedInContainerConnected = true
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected ok")
+					cLog.Info().Msg("connected to feed-in")
 
 					// update stats
 					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
@@ -572,7 +516,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 			}
 		}
 	}
-	cLog.Debug().Msg("clientBEASTConnection goroutine finishing")
+	// cLog.Debug().Msg("clientBEASTConnection goroutine finishing")
 }
 
 func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config) {
@@ -600,8 +544,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
-	cLog.Debug().Msgf("connection established")
-	defer cLog.Debug().Msgf("connection closed")
+	// cLog.Debug().Msgf("connection established")
+	// defer cLog.Debug().Msgf("connection closed")
 
 	inBuf := make([]byte, sendRecvBufferSize)
 
@@ -718,7 +662,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					Port: 12346,
 				}
 
-				cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
 				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
 
 				if connOutErr != nil {
@@ -758,7 +702,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 
 					connOutAttempts = 0
 					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected ok")
+					cLog.Info().Msg("connected to mux")
 
 					// update stats
 					stats.setOutputConnected(clientApiKey, "MUX", connOut.RemoteAddr())
@@ -796,14 +740,14 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			}
 		}
 	}
-	cLog.Debug().Msg("clientMLATConnection goroutine finishing")
+	// cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
 func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as gorouting
 
-	cLog.Debug().Msg("clientMLATResponder started")
+	// cLog.Debug().Msg("clientMLATResponder started")
 
 	outBuf := make([]byte, sendRecvBufferSize)
 
@@ -834,7 +778,7 @@ func clientMLATResponder(clientApiKey uuid.UUID, connOut *net.TCPConn, connIn ne
 		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
 	}
 
-	cLog.Debug().Msg("clientMLATResponder finished")
+	// cLog.Debug().Msg("clientMLATResponder finished")
 }
 
 func main() {
@@ -983,7 +927,6 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		defer conn.Close()
 		go clientBEASTConnection(ctx, conn, &tlsConfig, containersToStart)
 	}
 
@@ -1016,7 +959,6 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		defer conn.Close()
 		go clientMLATConnection(ctx, conn, &tlsConfig)
 	}
 

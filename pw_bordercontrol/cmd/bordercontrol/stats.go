@@ -303,7 +303,7 @@ func statsEvictor() {
 			if !stats.Feeders[u].Connected_beast {
 				if !stats.Feeders[u].Connected_mlat {
 					if time.Now().Sub(stats.Feeders[u].Time_last_updated) > (time.Second * 60) {
-						log.Debug().Str("uuid", u.String()).Msg("evicting stale stats data")
+						// log.Debug().Str("uuid", u.String()).Msg("evicting stale stats data")
 						toEvict = append(toEvict, u)
 					}
 				}
@@ -319,11 +319,10 @@ func statsEvictor() {
 
 		// periodically log number of goroutines
 		// todo: move this to the web ui
-		log.Info().Int("goroutines", runtime.NumGoroutine())
+		log.Debug().Int("goroutines", runtime.NumGoroutine()).Msg("number of goroutines")
 
 		time.Sleep(time.Minute * 1)
 	}
-
 }
 
 func statsManager() {
