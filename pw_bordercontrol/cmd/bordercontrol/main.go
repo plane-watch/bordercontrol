@@ -549,7 +549,7 @@ func clientMLATResponderNC2NTC(clientApiKey uuid.UUID, connOut net.Conn, connIn 
 		}
 
 		// update stats
-		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
+		stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesRead), "MLAT")
 	}
 
 	wg.Done()
