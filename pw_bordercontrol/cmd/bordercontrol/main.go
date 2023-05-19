@@ -246,6 +246,8 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 		mux                   string
 		refLat, refLon        float64
 		label                 string
+		bytesRead             int
+		err                   error
 	)
 
 	// update log context with client IP
@@ -260,7 +262,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 	for {
 
 		// read data from client
-		_, err := connIn.Read(inBuf)
+		bytesRead, err = connIn.Read(inBuf)
 		if err != nil {
 			if err.Error() == "tls: first record does not look like a TLS handshake" {
 				cLog.Warn().Msg(err.Error())
@@ -444,6 +446,12 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 		if muxContainerConnected {
 
 			wg := sync.WaitGroup{}
+
+			// write outstanding data
+			_, err := connOut.Write(inBuf[:bytesRead])
+			if err != nil {
+				cLog.Err(err).Msg("error writing to client")
+			}
 
 			// start responder
 			wg.Add(1)
