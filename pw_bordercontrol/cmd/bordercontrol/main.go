@@ -426,10 +426,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					clientAuthenticated = true
 
 					// update stats
-					statsConnectedBEAST <- declareConnectedBEAST{
-						uuid:      clientApiKey,
-						src_beast: connIn.RemoteAddr(),
-					}
+					stats.setConnectedBEAST(clientApiKey, connIn.RemoteAddr())
 
 					// get feeder info (lat/lon/mux/label)
 					atcUrl, err := url.Parse(ctx.String("atcurl"))

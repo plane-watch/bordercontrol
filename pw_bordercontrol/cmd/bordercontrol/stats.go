@@ -28,46 +28,51 @@ type feederStats struct {
 	out_sink string // output sink
 }
 
+type feederStatusUpdate struct {
+	uuid   uuid.UUID
+	update feederStats
+}
+
 // struct for list of feeder stats (+ mutex for sync)
 type statistics struct {
 	mu      sync.RWMutex
 	feeders map[uuid.UUID]feederStats
 }
 
-type declareConnectedBEAST struct {
-	uuid      uuid.UUID
-	src_beast net.Addr
-}
-
 var (
-	stats               statistics                 // feeder statistics
-	statsConnectedBEAST chan declareConnectedBEAST // add declareConnectedBEAST into channel on client BEAST connection
+	stats statistics // feeder statistics
 )
 
-func statsUpdaterConnected() {
-	for {
-		// wait for data incoming from the channel
-		x := <-statsConnectedBEAST
+func (stats *statistics) setConnectedBEAST(uuid uuid.UUID, src_beast net.Addr) {
+	// updates the connected status of a feeder
+	//   - sets src_beast
+	//   - sets connected_time to now
+	//   - sets time_last_updated to now
 
-		// write lock on stats var
+	// does stats var have an entry for uuid?
+	stats.mu.RLock()
+	_, ok := stats.feeders[x.uuid]
+	stats.mu.RUnlock()
+
+	// if not, create it
+	if !ok {
 		stats.mu.Lock()
-
-		// does stats var have an entry for uuid?
-		_, ok := stats.feeders[x.uuid]
-		if !ok {
-			// if not, create it
-			stats.feeders[x.uuid] = feederStats{}
-		}
-
-		// update stats entry
-		y := stats.feeders[x.uuid]
-		y.time_last_updated = time.Now()
-		y.src_beast = x.src_beast
-		stats.feeders[x.uuid] = y
-
-		// unlock stats var
+		stats.feeders[x.uuid] = feederStats{}
 		stats.mu.Unlock()
 	}
+
+	// copy stats entry
+	stats.mu.Lock()
+	y := stats.feeders[x.uuid]
+
+	// update stats entry
+	y.time_connected_beast = time.Now()
+	y.src_beast = src_beast
+	y.time_last_updated = time.Now()
+
+	// write stats entry
+	stats.feeders[uuid] = y
+	stats.mu.Unlock()
 }
 
 func statsManager() {
@@ -76,10 +81,10 @@ func statsManager() {
 	stats.feeders = make(map[uuid.UUID]feederStats)
 
 	// init channels
-	statsConnectedBEAST = make(chan declareConnectedBEAST, 10)
+	statsUpdateReq = make(chan feederStatusUpdate, 10)
 
 	// start updater goroutines
-	go statsUpdaterConnected()
+	go statsUpdater()
 
 	for {
 		time.Sleep(10 * time.Second)
