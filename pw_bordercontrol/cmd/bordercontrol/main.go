@@ -635,18 +635,18 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			// If we aren't yet connected to a mux
 			if !muxContainerConnected {
 
-				muxHost, err := muxHostname(mux)
-				if err != nil {
-					cLog.Err(err).Msg("could not assign mux")
-					time.Sleep(5 * time.Second)
-					break
-				}
+				// muxHost, err := muxHostname(mux)
+				// if err != nil {
+				// 	cLog.Err(err).Msg("could not assign mux")
+				// 	time.Sleep(5 * time.Second)
+				// 	break
+				// }
 
 				// attempt to connect to the mux container
-				dialAddress := fmt.Sprintf("%s:12346", muxHost)
+				dialAddress := fmt.Sprintf("%s:12346", mux)
 
 				var dstIP net.IP
-				dstIPs, err := net.LookupIP(muxHost)
+				dstIPs, err := net.LookupIP(mux)
 				if err != nil {
 					cLog.Err(err).Msg("could not perform lookup")
 				} else {
