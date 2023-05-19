@@ -337,7 +337,7 @@ func statsManager() {
 	http.HandleFunc("/", httpRenderStats)
 
 	// start stats http server
-	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("statistics server started")
+	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Panic().AnErr("err", err).Msg("stats server stopped")

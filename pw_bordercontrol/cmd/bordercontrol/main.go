@@ -913,7 +913,7 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start TLS server
-	log.Info().Msgf("Starting BEAST listener on %s", ctx.String("listenbeast"))
+	log.Info().Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).Msg("starting BEAST listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
 	if err != nil {
 		log.Err(err).Msg("tls.Listen")
@@ -945,7 +945,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start TLS server
-	log.Info().Msgf("Starting MLAT listener on %s", ctx.String("listenmlat"))
+	log.Info().Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).Msg("starting MLAT listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenmlat"), &tlsConfig)
 	if err != nil {
 		log.Err(err).Msg("tls.Listen")
