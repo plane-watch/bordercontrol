@@ -4,6 +4,17 @@ How plane.watch receives data from feeders.
 
 Designed to be horizontally scalable, sat behind TCP load balancer(s).
 
+* [plane.watch Border Control](#planewatch-border-control)
+  * [Overview](#overview)
+  * [Operations](#operations)
+    * [Viewing Statistics](#viewing-statistics)
+    * [Configuring the environment](#configuring-the-environment)
+    * [Starting the environment](#starting-the-environment)
+    * [Stopping the environment](#stopping-the-environment)
+    * [Updating the environment](#updating-the-environment)
+    * [Re-reading SSL certificates](#re-reading-ssl-certificates)
+  * [Feed-In Container Health](#feed-in-container-health)
+
 ## Overview
 
 * Terminates incoming stunnel'd BEAST and MLAT connections from feeders
