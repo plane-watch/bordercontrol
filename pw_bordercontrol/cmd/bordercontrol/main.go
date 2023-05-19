@@ -1,18 +1,14 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"pw_bordercontrol/lib/atc"
 	"pw_bordercontrol/lib/logging"
 
 	"github.com/google/uuid"
@@ -21,283 +17,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
-
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
 )
-
-// struct for requesting that the startFeederContainers goroutine start a container
-type startContainerRequest struct {
-	uuid   uuid.UUID // feeder uuid
-	refLat float64   // feeder lat
-	refLon float64   // feeder lon
-	mux    string    // the multiplexer to upstream the data to
-	label  string    // the label of the feeder
-	srcIP  net.IP    // client IP address
-}
-
-// struct for a list of valid feeder uuids (+ mutex for sync)
-type atcFeeders struct {
-	mu      sync.Mutex
-	feeders []uuid.UUID
-}
-
-var (
-	validFeeders atcFeeders // list of valid feeders
-)
-
-func isValidApiKey(clientApiKey uuid.UUID) bool {
-	// return true of api key clientApiKey is a valid feeder in atc
-	validFeeders.mu.Lock()
-	defer validFeeders.mu.Unlock()
-	for _, v := range validFeeders.feeders {
-		if v == clientApiKey {
-			return true
-		}
-	}
-	return false
-}
-
-func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
-	// updates validFeeders with data from atc
-
-	firstRun := true
-
-	for {
-
-		// sleep for updateFreq
-		if !firstRun {
-			time.Sleep(updateFreq)
-		} else {
-			firstRun = false
-		}
-
-		// log.Debug().Msg("started updating api key cache from atc")
-
-		// get data from atc
-		atcUrl, err := url.Parse(ctx.String("atcurl"))
-		if err != nil {
-			log.Error().Msg("--atcurl is invalid")
-			continue
-		}
-		s := atc.Server{
-			Url:      *atcUrl,
-			Username: ctx.String("atcuser"),
-			Password: ctx.String("atcpass"),
-		}
-		f, err := atc.GetFeeders(&s)
-		var newValidFeeders []uuid.UUID
-		count := 0
-		for _, v := range f.Feeders {
-			newValidFeeders = append(newValidFeeders, v.ApiKey)
-			// log.Debug().Str("ApiKey", v.ApiKey.String()).Msg("added feeder")
-			count += 1
-		}
-
-		// update validFeeders
-		validFeeders.mu.Lock()
-		validFeeders.feeders = newValidFeeders
-		validFeeders.mu.Unlock()
-
-		log.Info().Int("feeders", count).Msg("updated feeder uuid cache from atc")
-	}
-}
-
-func muxHostname(mux string) (muxHost string, err error) {
-	// return a mux hostname based on mux returned from ATC
-	switch strings.ToUpper(mux) {
-	case "ASIA":
-		muxHost = "mux-asia"
-	case "US":
-		muxHost = "mux-us"
-	case "EU":
-		muxHost = "mux-eu"
-	case "NZ":
-		muxHost = "mux-nz"
-	case "WA":
-		muxHost = "mux-wa"
-	case "VIC":
-		muxHost = "mux-vic"
-	case "TAS":
-		muxHost = "mux-tas"
-	case "SA":
-		muxHost = "mux-sa"
-	case "QLD":
-		muxHost = "mux-qld"
-	case "NT":
-		muxHost = "mux-nt"
-	case "NSW":
-		muxHost = "mux-nsw"
-	case "ACT":
-		muxHost = "mux-act"
-	default:
-		err = errors.New(fmt.Sprintf("no multiplexer for: %s", mux))
-	}
-
-	return muxHost, err
-}
-
-func checkFeederContainers(ctx *cli.Context) {
-	// cycles through feed-in containers and recreates if needed
-	cfcLog := log.With().Logger()
-	// cfcLog.Debug().Msg("Running checkFeederContainers")
-
-	// set up docker client
-	dockerCtx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		cfcLog.Err(err).Msg("Could not create docker client")
-		panic(err)
-	}
-	defer cli.Close()
-
-	// prepare filter to find feed-in containers
-	filters := filters.NewArgs()
-	filters.Add("name", "feed-in-*")
-
-	// find containers
-	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
-	if err != nil {
-		panic(err)
-	}
-
-	// for each container...
-	for _, container := range containers {
-
-		// check containers are running latest feed-in image
-		if container.Image != ctx.String("feedinimage") {
-			cfcLog.Info().Str("container", container.Names[0][1:]).Msg("out of date container being killed for recreation")
-			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
-			if err != nil {
-				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
-			}
-		}
-
-		// avoid killing lots of containers in a short duration
-		time.Sleep(30 * time.Second)
-	}
-
-	// re-launch this goroutine in 5 mins
-	time.Sleep(300 * time.Second)
-	go checkFeederContainers(ctx)
-
-}
-
-func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
-	// reads startContainerRequests from channel containersToStart and starts container
-	sfcLog := log.With().Logger()
-
-	// set up docker client
-	dockerCtx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		sfcLog.Err(err).Msg("Could not create docker client")
-		panic(err)
-	}
-	defer cli.Close()
-
-	for {
-		// read from channel (this blocks until a request comes in)
-		containerToStart := <-containersToStart
-
-		// prepare logger
-		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("src", containerToStart.srcIP).Logger()
-
-		// determine if container is already running
-		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
-		if err != nil {
-			sfcLog.Err(err).Msg("Could not list docker containers")
-		}
-		foundContainer := false
-		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
-		for _, container := range containers {
-			for _, cn := range container.Names {
-				log.Info().Str("looking", fmt.Sprintf("/%s", feederContainerName)).Str("cn", cn)
-				if cn == fmt.Sprintf("/%s", feederContainerName) {
-					foundContainer = true
-					break
-				}
-			}
-		}
-		if foundContainer {
-			cLog.Info().Msg("feed-in container already running")
-
-		} else {
-
-			// if container is not running, create it
-			// cLog.Debug().Msg("starting feed-in container")
-
-			mux, err := muxHostname(containerToStart.mux)
-			if err != nil {
-				cLog.Err(err).Msg("could not assign mux")
-				time.Sleep(5 * time.Second)
-				break
-			}
-
-			// prepare environment variables for container
-			envVars := [...]string{
-				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.refLat),
-				fmt.Sprintf("FEEDER_LON=%f", containerToStart.refLon),
-				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.uuid),
-				"READSB_STATS_EVERY=300",
-				"READSB_NET_ENABLE=true",
-				"READSB_NET_BEAST_INPUT_PORT=12345",
-				"READSB_NET_BEAST_OUTPUT_PORT=30005",
-				"READSB_NET_ONLY=true",
-				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", mux),
-				"PW_INGEST_PUBLISH=location-updates",
-				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
-			}
-
-			// prepare labels
-			containerLabels := make(map[string]string)
-			containerLabels["plane.watch.label"] = containerToStart.label
-			containerLabels["plane.watch.mux"] = containerToStart.mux
-
-			// prepare container config
-			containerConfig := container.Config{
-				Image:  ctx.String("feedinimage"),
-				Env:    envVars[:],
-				Labels: containerLabels,
-			}
-
-			// prepare tmpfs config
-			tmpFSConfig := make(map[string]string)
-			tmpFSConfig["/run"] = "exec,size=64M"
-			tmpFSConfig["/var/log"] = ""
-
-			// prepare container host config
-			containerHostConfig := container.HostConfig{
-				AutoRemove: true,
-				Tmpfs:      tmpFSConfig,
-			}
-
-			// prepare container network config
-			endpointsConfig := make(map[string]*network.EndpointSettings)
-			endpointsConfig["bordercontrol_feeder"] = &network.EndpointSettings{}
-			networkingConfig := network.NetworkingConfig{
-				EndpointsConfig: endpointsConfig,
-			}
-
-			// create feed-in container
-			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
-			if err != nil {
-				panic(err)
-			}
-
-			// start container
-			if err := cli.ContainerStart(dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
-				panic(err)
-			}
-
-			cLog.Info().Str("container_id", resp.ID).Msg("started feed-in container")
-
-		}
-	}
-}
 
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
 	// handles incoming BEAST connections
@@ -374,23 +94,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Con
 					defer stats.setClientDisconnected(clientApiKey, "BEAST")
 
 					// get feeder info (lat/lon/mux/label)
-					atcUrl, err := url.Parse(ctx.String("atcurl"))
+					refLat, refLon, mux, label, err := getFeederInfo(clientApiKey)
 					if err != nil {
-						log.Error().Msg("--atcurl is invalid")
-						continue
-					}
-					s := atc.Server{
-						Url:      *atcUrl,
-						Username: ctx.String("atcuser"),
-						Password: ctx.String("atcpass"),
-					}
-					refLat, refLon, mux, label, err := atc.GetFeederInfo(&s, clientApiKey)
-					if err != nil {
-						log.Err(err).Msg("atc.GetFeederLatLon")
+						log.Err(err).Msg("getFeederInfo")
 						continue
 					}
 
 					// start the container
+					// used a chan here so it blocks while waiting for the request to be popped off the chan
 					containersToStart <- startContainerRequest{
 						uuid:   clientApiKey,
 						refLat: refLat,
@@ -594,19 +305,9 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					clientAuthenticated = true
 
 					// get feeder info (lat/lon/mux/label)
-					atcUrl, err := url.Parse(ctx.String("atcurl"))
+					refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
 					if err != nil {
-						log.Error().Msg("--atcurl is invalid")
-						continue
-					}
-					s := atc.Server{
-						Url:      *atcUrl,
-						Username: ctx.String("atcuser"),
-						Password: ctx.String("atcpass"),
-					}
-					refLat, refLon, mux, label, err = atc.GetFeederInfo(&s, clientApiKey)
-					if err != nil {
-						log.Err(err).Msg("atc.GetFeederLatLon")
+						log.Err(err).Msg("getFeederInfo")
 						continue
 					}
 
@@ -635,18 +336,18 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 			// If we aren't yet connected to a mux
 			if !muxContainerConnected {
 
-				muxHost, err := muxHostname(mux)
-				if err != nil {
-					cLog.Err(err).Msg("could not assign mux")
-					time.Sleep(5 * time.Second)
-					break
-				}
+				// muxHost, err := muxHostname(mux)
+				// if err != nil {
+				// 	cLog.Err(err).Msg("could not assign mux")
+				// 	time.Sleep(5 * time.Second)
+				// 	break
+				// }
 
 				// attempt to connect to the mux container
-				dialAddress := fmt.Sprintf("%s:12346", muxHost)
+				dialAddress := fmt.Sprintf("%s:12346", mux)
 
 				var dstIP net.IP
-				dstIPs, err := net.LookupIP(muxHost)
+				dstIPs, err := net.LookupIP(mux)
 				if err != nil {
 					cLog.Err(err).Msg("could not perform lookup")
 				} else {
@@ -913,7 +614,7 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start TLS server
-	log.Info().Msgf("Starting BEAST listener on %s", ctx.String("listenbeast"))
+	log.Info().Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).Msg("starting BEAST listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
 	if err != nil {
 		log.Err(err).Msg("tls.Listen")
@@ -945,7 +646,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start TLS server
-	log.Info().Msgf("Starting MLAT listener on %s", ctx.String("listenmlat"))
+	log.Info().Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).Msg("starting MLAT listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenmlat"), &tlsConfig)
 	if err != nil {
 		log.Err(err).Msg("tls.Listen")

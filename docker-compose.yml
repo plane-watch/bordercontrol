@@ -34,6 +34,9 @@ x-mux-common: &mux-common
 services:
 
   bordercontrol:
+    extends:
+      file: docker-compose-local.yml
+      service: bordercontrol
     container_name: bordercontrol
     build:
       context: .
@@ -50,7 +53,6 @@ services:
       - PW_INGEST_SINK=${PW_INGEST_SINK}
       - DEBUG=true
     volumes:
-      - /etc/ssl/private:/etc/ssl/private:ro
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - bordercontrol_feeder
