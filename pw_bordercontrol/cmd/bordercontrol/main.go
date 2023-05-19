@@ -741,7 +741,7 @@ func clientMLATConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Conf
 					cLog.Info().Msg("connected ok")
 
 					// update stats
-					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
+					stats.setOutputConnected(clientApiKey, "MUX", connOut.RemoteAddr())
 
 					// start responder
 					go clientMLATResponder(clientApiKey, connOut, connIn, sendRecvBufferSize, cLog)
