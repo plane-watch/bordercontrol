@@ -290,13 +290,49 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func statsEvictor() {
+
+	for {
+		var toEvict []uuid.UUID
+
+		stats.mu.Lock()
+
+		// find stale data
+		for u, _ := range stats.Feeders {
+			if !stats.Feeders[u].Connected_beast {
+				if !stats.Feeders[u].Connected_mlat {
+					if time.Now().Sub(stats.Feeders[u].Time_last_updated) > (time.Second * 60) {
+						log.Debug().Str("uuid", u.String()).Msg("evicting stale stats data")
+						toEvict = append(toEvict, u)
+					}
+				}
+			}
+		}
+
+		// dump stale data
+		for _, u := range toEvict {
+			delete(stats.Feeders, u)
+		}
+
+		stats.mu.Unlock()
+
+		time.Sleep(time.Minute * 1)
+	}
+
+}
+
 func statsManager() {
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
+	// start up stats evictor
+	go statsEvictor()
+
+	// stats http server routes
 	http.HandleFunc("/", httpRenderStats)
 
+	// start stats http server
 	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("statistics server started")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
