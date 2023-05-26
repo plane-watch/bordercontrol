@@ -349,6 +349,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		clientApiKey, err := uuid.FromBytes(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))
 		if err != nil {
 			log.Error().Str("url", r.URL.Path).Msg("could not get uuid from url")
+			w.WriteHeader(400)
 			return
 		}
 
@@ -366,13 +367,18 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		output, err := json.Marshal(resp)
 		if err != nil {
 			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+			w.WriteHeader(400)
 			return
-		} else {
-			w.Write(output)
 		}
+
+		// write response
+		w.Header().Add("Content-Type", "application/json")
+		w.Write(output)
+		return
 
 	} else {
 		log.Error().Str("url", r.URL.Path).Msg("path did not match single feeder")
+		w.WriteHeader(400)
 		return
 	}
 
