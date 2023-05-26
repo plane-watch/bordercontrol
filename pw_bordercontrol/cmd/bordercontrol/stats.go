@@ -397,6 +397,9 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// write response
+		if resp.Error != "" {
+			w.WriteHeader(http.StatusBadRequest)
+		}
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(output)
 		return
