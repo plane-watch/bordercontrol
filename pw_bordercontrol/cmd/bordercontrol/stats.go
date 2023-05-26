@@ -371,10 +371,9 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 	if matchUrlSingleFeeder.Match([]byte(strings.ToLower(r.URL.Path))) {
 
 		// try to extract uuid from path
-		fmt.Println(string(matchUUID.Find([]byte(strings.ToLower(r.URL.Path)))))
-		clientApiKey, err := uuid.FromBytes(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))
+		clientApiKey, err := uuid.Parse((string(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))))
 		if err != nil {
-			log.Error().Str("url", r.URL.Path).Msg("could not get uuid from url")
+			log.Err(err).Str("url", r.URL.Path).Msg("could not get uuid from url")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
