@@ -367,7 +367,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 	var resp APIResponse
 
 	// try to match the path for the api query for single feeder by uuid, eg:
-	// /api/v1/feeder/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxxxxx
+	// /api/v1/feeder/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 	if matchUrlSingleFeeder.Match([]byte(strings.ToLower(r.URL.Path))) {
 
 		// try to extract uuid from path
