@@ -7,7 +7,9 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
 * [plane.watch Border Control](#planewatch-border-control)
   * [Overview](#overview)
   * [Operations](#operations)
-    * [Viewing Statistics](#viewing-statistics)
+    * [Statistics](#statistics)
+      * [Human Readable](#human-readable)
+      * [API](#api)
     * [Configuring the environment](#configuring-the-environment)
     * [Starting the environment](#starting-the-environment)
     * [Stopping the environment](#stopping-the-environment)
@@ -33,9 +35,22 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
 
 ## Operations
 
-### Viewing Statistics
+### Statistics
 
-Bordercontrol listens on TCP port `8080` for http requests, and will display a simple table of feeders with statistics.
+#### Human Readable
+
+Bordercontrol listens on TCP port `8080` for http requests, and will display a simple HTML table of feeders with statistics.
+
+#### API
+
+Bordercontrol supports the following API calls:
+
+| Query Type | URL Path | Returns |
+| ---------- | -------- | ------- |
+| `GET` | `/api/v1/feeder/<UUID>` | Statistics for single feeder by UUID |
+| `GET` | `/api/v1/feeders/` | Statistics for all feeders |
+
+These queries return JSON.
 
 ### Configuring the environment
 
