@@ -336,6 +336,31 @@ func statsEvictor() {
 	}
 }
 
+func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
+
+	// prepare response variable
+	var resp APIResponse
+
+	// get data
+	stats.mu.RLock()
+	resp.Data = stats.Feeders
+	stats.mu.RUnlock()
+
+	// prepare response
+	output, err := json.Marshal(resp)
+	if err != nil {
+		log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+		w.WriteHeader(500)
+		return
+	}
+
+	// write response
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(output)
+	return
+
+}
+
 func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
 	// prepare response variable
@@ -367,7 +392,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		output, err := json.Marshal(resp)
 		if err != nil {
 			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
-			w.WriteHeader(400)
+			w.WriteHeader(500)
 			return
 		}
 
@@ -399,6 +424,7 @@ func statsManager() {
 	// stats http server routes
 	http.HandleFunc("/", httpRenderStats)
 	http.HandleFunc("/api/v1/feeder/", apiReturnSingleFeeder)
+	http.HandleFunc("/api/v1/feeders/", apiReturnAllFeeders)
 
 	// start stats http server
 	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
