@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net"
 	"net/http"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -109,9 +111,18 @@ type Statistics struct {
 	Feeders map[uuid.UUID]FeederStats
 }
 
+// struct for http api responses
+type APIResponse struct {
+	Data  interface{}
+	Error string
+}
+
 // variable for stats
 var (
 	stats Statistics // feeder statistics
+
+	matchUrlSingleFeeder *regexp.Regexp // regex to match api request for single feeder stats
+	matchUUID            *regexp.Regexp // regex to match UUID
 )
 
 func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, rxin, txin, rxout, txout uint64, proto string) {
@@ -327,13 +338,43 @@ func statsEvictor() {
 
 func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Println(r.URL.Path)
+	// prepare response variable
+	var resp APIResponse
 
-	// clientApiKey
+	// try to match the path for the api query for single feeder by uuid, eg:
+	// /api/v1/feeder/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxxxxxx
+	if matchUrlSingleFeeder.Match([]byte(strings.ToLower(r.URL.Path))) {
 
-	// stats.mu.RLock()
+		// try to extract uuid from path
+		clientApiKey, err := uuid.FromBytes(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))
+		if err != nil {
+			log.Error().Str("url", r.URL.Path).Msg("could not get uuid from url")
+			return
+		}
 
-	// val, ok := stats.Feeders[]
+		// look up feeder by uuid
+		stats.mu.RLock()
+		val, ok := stats.Feeders[clientApiKey]
+		if !ok {
+			resp.Error = "feeder not found"
+		} else {
+			resp.Data = val
+		}
+		stats.mu.RUnlock()
+
+		// prepare response
+		output, err := json.Marshal(resp)
+		if err != nil {
+			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+			return
+		} else {
+			w.Write(output)
+		}
+
+	} else {
+		log.Error().Str("url", r.URL.Path).Msg("path did not match single feeder")
+		return
+	}
 
 }
 
@@ -341,6 +382,10 @@ func statsManager() {
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
+
+	// init regexps
+	matchUrlSingleFeeder = regexp.MustCompile(`^/api/v1/feeder/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/?$`)
+	matchUUID = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
 	// start up stats evictor
 	go statsEvictor()
