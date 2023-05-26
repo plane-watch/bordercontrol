@@ -6,6 +6,7 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
 
 * [plane.watch Border Control](#planewatch-border-control)
   * [Overview](#overview)
+  * [TODO](#todo)
   * [Operations](#operations)
     * [Statistics](#statistics)
       * [Human Readable](#human-readable)
@@ -32,6 +33,10 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
     * For the old environment, forwards BEAST data into the regional mux
   * BEAST data is sent to the "feed-in" container
   * MLAT connections are proxied to `mlat-server` running on the regional mux
+
+## TODO
+
+* Update online status of feeders
 
 ## Operations
 
