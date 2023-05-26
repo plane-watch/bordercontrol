@@ -77,27 +77,27 @@ type FeederStats struct {
 	Lat   float64 // feeder lat
 	Lon   float64 // feeder lon
 	// connection bools
-	Connected_beast bool
-	Connected_mlat  bool
+	Connected_beast bool `json:"ConnectedBeast"` // is the feeder sending BEAST
+	Connected_mlat  bool `json:"ConnectedMLAT"`  // is the feeder sending MLAT
 	// source connection info
-	Src_beast net.Addr // source ip:port of client for BEAST connection
-	Src_mlat  net.Addr // source ip:port of client for MLAT connection
+	Src_beast net.Addr `json:"SrcBeast"` // source ip:port of client for BEAST connection
+	Src_mlat  net.Addr `json:"SrcMLAT"`  // source ip:port of client for MLAT connection
 	// connection time
-	Time_connected_beast time.Time // connection time for BEAST connection
-	Time_connected_mlat  time.Time // connection time for MLAT connection
-	Time_last_updated    time.Time // time stats were last updated
+	Time_connected_beast time.Time `json:"TimeConnectedBeast"` // connection time for BEAST connection
+	Time_connected_mlat  time.Time `json:"TimeConnectedMLAT"`  // connection time for MLAT connection
+	Time_last_updated    time.Time `json:"TimeLastUpdated"`    // time stats were last updated
 	// byte counters
-	Bytes_rx_in_beast  uint64 // bytes received from client (in) for BEAST protocol
-	Bytes_tx_in_beast  uint64 // bytes send to client (in) for BEAST protocol
-	Bytes_rx_out_beast uint64 // bytes received from mux (out) for BEAST protocol
-	Bytes_tx_out_beast uint64 // bytes send to mux (out) for BEAST protocol
-	Bytes_rx_in_mlat   uint64 // bytes received from client (in) for MLAT protocol
-	Bytes_tx_in_mlat   uint64 // bytes send to client (in) for MLAT protocol
-	Bytes_rx_out_mlat  uint64 // bytes received from mux (out) for MLAT protocol
-	Bytes_tx_out_mlat  uint64 // bytes send to mux (out) for MLAT protocol
+	Bytes_rx_in_beast  uint64 `json:"BytesRxInBeast"`  // bytes received from client (in) for BEAST protocol
+	Bytes_tx_in_beast  uint64 `json:"BytesTxInBeast"`  // bytes send to client (in) for BEAST protocol
+	Bytes_rx_out_beast uint64 `json:"BytesRxOutBeast"` // bytes received from mux (out) for BEAST protocol
+	Bytes_tx_out_beast uint64 `json:"BytesTxOutBeast"` // bytes send to mux (out) for BEAST protocol
+	Bytes_rx_in_mlat   uint64 `json:"BytesRxInMLAT"`   // bytes received from client (in) for MLAT protocol
+	Bytes_tx_in_mlat   uint64 `json:"BytesTxInMLAT"`   // bytes send to client (in) for MLAT protocol
+	Bytes_rx_out_mlat  uint64 `json:"BytesRxOutMLAT"`  // bytes received from mux (out) for MLAT protocol
+	Bytes_tx_out_mlat  uint64 `json:"BytesTxOutMLAT"`  // bytes send to mux (out) for MLAT protocol
 	// output details
-	Dst_feedin net.Addr // connected feed-in container
-	Dst_mux    net.Addr // connected multiplexer
+	Dst_feedin net.Addr `json:"DstFeedIn"` // connected feed-in container
+	Dst_mux    net.Addr `json:"DstMux"`    // connected multiplexer
 }
 
 type feederStatusUpdate struct {
