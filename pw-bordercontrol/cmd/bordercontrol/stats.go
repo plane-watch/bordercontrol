@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net"
 	"net/http"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -75,27 +77,27 @@ type FeederStats struct {
 	Lat   float64 // feeder lat
 	Lon   float64 // feeder lon
 	// connection bools
-	Connected_beast bool
-	Connected_mlat  bool
+	Connected_beast bool `json:"ConnectedBeast"` // is the feeder sending BEAST
+	Connected_mlat  bool `json:"ConnectedMLAT"`  // is the feeder sending MLAT
 	// source connection info
-	Src_beast net.Addr // source ip:port of client for BEAST connection
-	Src_mlat  net.Addr // source ip:port of client for MLAT connection
+	Src_beast net.Addr `json:"SrcBeast"` // source ip:port of client for BEAST connection
+	Src_mlat  net.Addr `json:"SrcMLAT"`  // source ip:port of client for MLAT connection
 	// connection time
-	Time_connected_beast time.Time // connection time for BEAST connection
-	Time_connected_mlat  time.Time // connection time for MLAT connection
-	Time_last_updated    time.Time // time stats were last updated
+	Time_connected_beast time.Time `json:"TimeConnectedBeast"` // connection time for BEAST connection
+	Time_connected_mlat  time.Time `json:"TimeConnectedMLAT"`  // connection time for MLAT connection
+	Time_last_updated    time.Time `json:"TimeLastUpdated"`    // time stats were last updated
 	// byte counters
-	Bytes_rx_in_beast  uint64 // bytes received from client (in) for BEAST protocol
-	Bytes_tx_in_beast  uint64 // bytes send to client (in) for BEAST protocol
-	Bytes_rx_out_beast uint64 // bytes received from mux (out) for BEAST protocol
-	Bytes_tx_out_beast uint64 // bytes send to mux (out) for BEAST protocol
-	Bytes_rx_in_mlat   uint64 // bytes received from client (in) for MLAT protocol
-	Bytes_tx_in_mlat   uint64 // bytes send to client (in) for MLAT protocol
-	Bytes_rx_out_mlat  uint64 // bytes received from mux (out) for MLAT protocol
-	Bytes_tx_out_mlat  uint64 // bytes send to mux (out) for MLAT protocol
+	Bytes_rx_in_beast  uint64 `json:"BytesRxInBeast"`  // bytes received from client (in) for BEAST protocol
+	Bytes_tx_in_beast  uint64 `json:"BytesTxInBeast"`  // bytes send to client (in) for BEAST protocol
+	Bytes_rx_out_beast uint64 `json:"BytesRxOutBeast"` // bytes received from mux (out) for BEAST protocol
+	Bytes_tx_out_beast uint64 `json:"BytesTxOutBeast"` // bytes send to mux (out) for BEAST protocol
+	Bytes_rx_in_mlat   uint64 `json:"BytesRxInMLAT"`   // bytes received from client (in) for MLAT protocol
+	Bytes_tx_in_mlat   uint64 `json:"BytesTxInMLAT"`   // bytes send to client (in) for MLAT protocol
+	Bytes_rx_out_mlat  uint64 `json:"BytesRxOutMLAT"`  // bytes received from mux (out) for MLAT protocol
+	Bytes_tx_out_mlat  uint64 `json:"BytesTxOutMLAT"`  // bytes send to mux (out) for MLAT protocol
 	// output details
-	Dst_feedin net.Addr // connected feed-in container
-	Dst_mux    net.Addr // connected multiplexer
+	Dst_feedin net.Addr `json:"DstFeedIn"` // connected feed-in container
+	Dst_mux    net.Addr `json:"DstMux"`    // connected multiplexer
 }
 
 type feederStatusUpdate struct {
@@ -109,9 +111,18 @@ type Statistics struct {
 	Feeders map[uuid.UUID]FeederStats
 }
 
+// struct for http api responses
+type APIResponse struct {
+	Data  interface{}
+	Error string
+}
+
 // variable for stats
 var (
 	stats Statistics // feeder statistics
+
+	matchUrlSingleFeeder *regexp.Regexp // regex to match api request for single feeder stats
+	matchUUID            *regexp.Regexp // regex to match UUID
 )
 
 func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, rxin, txin, rxout, txout uint64, proto string) {
@@ -325,16 +336,98 @@ func statsEvictor() {
 	}
 }
 
+func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
+
+	// prepare response variable
+	var resp APIResponse
+
+	// get data
+	stats.mu.RLock()
+	resp.Data = stats.Feeders
+	stats.mu.RUnlock()
+
+	// prepare response
+	output, err := json.Marshal(resp)
+	if err != nil {
+		log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// write response
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(output)
+	return
+
+}
+
+func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
+
+	// prepare response variable
+	var resp APIResponse
+
+	// try to match the path for the api query for single feeder by uuid, eg:
+	// /api/v1/feeder/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+	if matchUrlSingleFeeder.Match([]byte(strings.ToLower(r.URL.Path))) {
+
+		// try to extract uuid from path
+		clientApiKey, err := uuid.Parse((string(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))))
+		if err != nil {
+			log.Err(err).Str("url", r.URL.Path).Msg("could not get uuid from url")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// look up feeder by uuid
+		stats.mu.RLock()
+		val, ok := stats.Feeders[clientApiKey]
+		if !ok {
+			resp.Error = "feeder not found"
+		} else {
+			resp.Data = val
+		}
+		stats.mu.RUnlock()
+
+		// prepare response
+		output, err := json.Marshal(resp)
+		if err != nil {
+			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// write response
+		if resp.Error != "" {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		w.Header().Add("Content-Type", "application/json")
+		w.Write(output)
+		return
+
+	} else {
+		log.Error().Str("url", r.URL.Path).Msg("path did not match single feeder")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+}
+
 func statsManager() {
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
+
+	// init regexps
+	matchUrlSingleFeeder = regexp.MustCompile(`^/api/v1/feeder/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/?$`)
+	matchUUID = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
 	// start up stats evictor
 	go statsEvictor()
 
 	// stats http server routes
 	http.HandleFunc("/", httpRenderStats)
+	http.HandleFunc("/api/v1/feeder/", apiReturnSingleFeeder)
+	http.HandleFunc("/api/v1/feeders/", apiReturnAllFeeders)
 
 	// start stats http server
 	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
