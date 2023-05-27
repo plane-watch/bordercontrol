@@ -6,8 +6,11 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
 
 * [plane.watch Border Control](#planewatch-border-control)
   * [Overview](#overview)
+  * [TODO](#todo)
   * [Operations](#operations)
-    * [Viewing Statistics](#viewing-statistics)
+    * [Statistics](#statistics)
+      * [Human Readable](#human-readable)
+      * [API](#api)
     * [Configuring the environment](#configuring-the-environment)
     * [Starting the environment](#starting-the-environment)
     * [Stopping the environment](#stopping-the-environment)
@@ -31,11 +34,28 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
   * BEAST data is sent to the "feed-in" container
   * MLAT connections are proxied to `mlat-server` running on the regional mux
 
+## TODO
+
+* Update online status of feeders
+
 ## Operations
 
-### Viewing Statistics
+### Statistics
 
-Bordercontrol listens on TCP port `8080` for http requests, and will display a simple table of feeders with statistics.
+#### Human Readable
+
+Bordercontrol listens on TCP port `8080` for http requests, and will display a simple HTML table of feeders with statistics.
+
+#### API
+
+Bordercontrol supports the following API calls:
+
+| Query Type | URL Path | Returns |
+| ---------- | -------- | ------- |
+| `GET` | `/api/v1/feeder/<UUID>` | Statistics for single feeder by UUID |
+| `GET` | `/api/v1/feeders/` | Statistics for all feeders |
+
+These queries return a JSON object with keys `Data` and `Error`. If `Error == ""`, then the `Data` key should contain the requested data. If `Error != ""`, then the error details are contained within `Error` and any data in `Data` should be discarded.
 
 ### Configuring the environment
 
