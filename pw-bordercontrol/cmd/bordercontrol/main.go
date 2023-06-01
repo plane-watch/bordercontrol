@@ -481,7 +481,7 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		go clientBEASTConnection(ctx, conn, &tlsConfig, containersToStart)
+		go clientBEASTConnection(ctx, conn, containersToStart)
 	}
 
 	wg.Done()
