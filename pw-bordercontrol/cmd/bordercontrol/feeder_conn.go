@@ -76,7 +76,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		muxConn               *net.TCPConn
 		muxConnErr            error
 		clientApiKey          uuid.UUID
-		mux                   string
+		mux, label            string
 		bytesRead             int
 		err                   error
 	)
@@ -124,12 +124,13 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
 		if !clientAuthenticated {
-			clientApiKey, _, _, mux, _, err = authenticateFeeder(ctx, clientConn, cLog)
+			clientApiKey, _, _, mux, label, err = authenticateFeeder(ctx, clientConn, cLog)
 			if err != nil {
 				cLog.Err(err)
 				break
 			}
 			clientAuthenticated = true
+			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 		}
 
 		// If the client has been authenticated, then we can do stuff with the data
@@ -300,6 +301,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				break
 			}
 			clientAuthenticated = true
+			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// start the container
 			// used a chan here so it blocks while waiting for the request to be popped off the chan
