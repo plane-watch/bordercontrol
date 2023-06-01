@@ -32,24 +32,24 @@ const (
 	stateMLATMuxContainerConnected
 )
 
-func dialFeedInContainer(clientApiKey uuid.UUID) (c *net.TCPConn, err error) {
+func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
 	// perform DNS lookup
 	var dstIP net.IP
-	dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey.String()))
+	dstIPs, err := net.LookupIP(container)
 	if err != nil {
 		return c, err
 	}
 	if len(dstIPs) > 0 {
 		dstIP = dstIPs[0]
 	} else {
-		return c, errors.New("feed-in container DNS lookup returned no IPs")
+		return c, errors.New("container DNS lookup returned no IPs")
 	}
 
 	// prep address to connect to
 	dstTCPAddr := net.TCPAddr{
 		IP:   dstIP,
-		Port: 12345,
+		Port: port,
 	}
 
 	// dial feed-in container
@@ -252,34 +252,16 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// If the client has been authenticated, then we can do stuff with the data
 		if connectionState == stateMLATAuthenticated {
 
+			// update log context
+			cLog.With().Str("dst", fmt.Sprintf("%s:12346", mux))
+
 			// attempt to connect to the mux container
-			dialAddress := fmt.Sprintf("%s:12346", mux)
-
-			var dstIP net.IP
-			dstIPs, err := net.LookupIP(mux)
-			if err != nil {
-				cLog.Err(err).Msg("could not perform lookup")
-			} else {
-				if len(dstIPs) > 0 {
-					dstIP = dstIPs[0]
-				} else {
-					continue
-				}
-			}
-
-			dstTCPAddr := net.TCPAddr{
-				IP:   dstIP,
-				Port: 12346,
-			}
-
-			// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-			muxConn, muxConnErr = net.DialTCP("tcp", nil, &dstTCPAddr)
-
+			muxConn, muxConnErr = dialContainerTCP(mux, 12346)
 			if muxConnErr != nil {
 
 				// handle connection errors to feed-in container
 
-				cLog.Warn().AnErr("error", muxConnErr).Str("dst", dialAddress).Msg("could not connect to mux container")
+				cLog.Warn().AnErr("error", muxConnErr).Msg("could not connect to mux container")
 				time.Sleep(1 * time.Second)
 
 				e := clientConn.Close()
@@ -317,7 +299,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				stats.setClientConnected(clientApiKey, clientConn.RemoteAddr(), "MLAT")
 				defer stats.setClientDisconnected(clientApiKey, "MLAT")
 
-				cLog = cLog.With().Str("dst", dialAddress).Logger()
 				cLog.Info().Msg("connected to mux")
 
 				// update stats
@@ -420,7 +401,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		if connectionState == stateBeastAuthenticated {
 
 			cLog = cLog.With().Str("dst", fmt.Sprintf("feed-in-%s", clientApiKey.String())).Logger()
-			connOut, connOutErr = dialFeedInContainer(clientApiKey)
+			connOut, connOutErr = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientApiKey.String()), 12345)
 			if connOutErr != nil {
 
 				// handle connection errors to feed-in container
