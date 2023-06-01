@@ -426,7 +426,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// handle connection errors to feed-in container
 
-				cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
+				cLog.Warn().AnErr("error", connOutErr).Msg("could not connect to feed-in container")
 				time.Sleep(1 * time.Second)
 
 				// retry up to 5 times then bail
