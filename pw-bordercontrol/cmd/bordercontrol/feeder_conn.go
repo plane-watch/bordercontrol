@@ -336,16 +336,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	cLog := log.With().Str("listener", "BEAST").Logger()
 
 	var (
-		connectionState                = stateBeastNotAuthenticated
-		sendRecvBufferSize             = 256 * 1024 // 256kB
-		clientAuthenticated            = false
-		clientFeedInContainerConnected = false
-		connOut                        *net.TCPConn
-		connOutErr                     error
-		connOutAttempts                = 0
-		clientApiKey                   uuid.UUID
-		refLat, refLon                 float64
-		mux, label                     string
+		connectionState    = stateBeastNotAuthenticated
+		sendRecvBufferSize = 256 * 1024 // 256kB
+		connOut            *net.TCPConn
+		connOutErr         error
+		connOutAttempts    = 0
+		clientApiKey       uuid.UUID
+		refLat, refLon     float64
+		mux, label         string
 	)
 
 	defer connIn.Close()
