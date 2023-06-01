@@ -15,12 +15,21 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type stateBeast int64
+type (
+	stateBeast int64
+	stateMLAT  int64
+)
 
 const (
 	stateBeastNotAuthenticated stateBeast = iota
 	stateBeastAuthenticated
 	stateBeastFeedInContainerConnected
+)
+
+const (
+	stateMLATNotAuthenticated stateMLAT = iota
+	stateMLATAuthenticated
+	stateMLATMuxContainerConnected
 )
 
 func dialFeedInContainer(clientApiKey uuid.UUID) (c *net.TCPConn, err error) {
@@ -200,15 +209,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	cLog := log.With().Str("listener", "MLAT").Logger()
 
 	var (
-		sendRecvBufferSize    = 256 * 1024 // 256kB
-		clientAuthenticated   = false
-		muxContainerConnected = false
-		muxConn               *net.TCPConn
-		muxConnErr            error
-		clientApiKey          uuid.UUID
-		mux, label            string
-		bytesRead             int
-		err                   error
+		connectionState    = stateMLATNotAuthenticated
+		sendRecvBufferSize = 256 * 1024 // 256kB
+		muxConn            *net.TCPConn
+		muxConnErr         error
+		clientApiKey       uuid.UUID
+		mux, label         string
+		bytesRead          int
+		err                error
 	)
 
 	// update log context with client IP
@@ -231,129 +239,120 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
-		if !clientAuthenticated {
+		if connectionState == stateMLATNotAuthenticated {
 			clientApiKey, _, _, mux, label, err = authenticateFeeder(ctx, clientConn, cLog)
 			if err != nil {
 				cLog.Err(err)
 				break
 			}
-			clientAuthenticated = true
+			connectionState = stateMLATAuthenticated
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 		}
 
 		// If the client has been authenticated, then we can do stuff with the data
-		if clientAuthenticated {
+		if connectionState == stateMLATAuthenticated {
 
-			// If we aren't yet connected to a mux
-			if !muxContainerConnected {
+			// attempt to connect to the mux container
+			dialAddress := fmt.Sprintf("%s:12346", mux)
 
-				// attempt to connect to the mux container
-				dialAddress := fmt.Sprintf("%s:12346", mux)
-
-				var dstIP net.IP
-				dstIPs, err := net.LookupIP(mux)
-				if err != nil {
-					cLog.Err(err).Msg("could not perform lookup")
+			var dstIP net.IP
+			dstIPs, err := net.LookupIP(mux)
+			if err != nil {
+				cLog.Err(err).Msg("could not perform lookup")
+			} else {
+				if len(dstIPs) > 0 {
+					dstIP = dstIPs[0]
 				} else {
-					if len(dstIPs) > 0 {
-						dstIP = dstIPs[0]
-					} else {
-						continue
-					}
+					continue
 				}
+			}
 
-				dstTCPAddr := net.TCPAddr{
-					IP:   dstIP,
-					Port: 12346,
+			dstTCPAddr := net.TCPAddr{
+				IP:   dstIP,
+				Port: 12346,
+			}
+
+			// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+			muxConn, muxConnErr = net.DialTCP("tcp", nil, &dstTCPAddr)
+
+			if muxConnErr != nil {
+
+				// handle connection errors to feed-in container
+
+				cLog.Warn().AnErr("error", muxConnErr).Str("dst", dialAddress).Msg("could not connect to mux container")
+				time.Sleep(1 * time.Second)
+
+				e := clientConn.Close()
+				if e != nil {
+					log.Err(e).Caller().Msg("could not close clientConn")
 				}
+				break
 
-				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-				muxConn, muxConnErr = net.DialTCP("tcp", nil, &dstTCPAddr)
+			} else {
 
-				if muxConnErr != nil {
+				// connected OK...
 
-					// handle connection errors to feed-in container
-
-					cLog.Warn().AnErr("error", muxConnErr).Str("dst", dialAddress).Msg("could not connect to mux container")
-					time.Sleep(1 * time.Second)
-
+				err := muxConn.SetKeepAlive(true)
+				if err != nil {
+					cLog.Err(err).Msg("could not set keep alive")
 					e := clientConn.Close()
 					if e != nil {
 						log.Err(e).Caller().Msg("could not close clientConn")
 					}
 					break
-
-				} else {
-
-					// connected OK...
-
-					err := muxConn.SetKeepAlive(true)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive")
-						e := clientConn.Close()
-						if e != nil {
-							log.Err(e).Caller().Msg("could not close clientConn")
-						}
-						break
-					}
-					err = muxConn.SetKeepAlivePeriod(1 * time.Second)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive period")
-						e := clientConn.Close()
-						if e != nil {
-							log.Err(e).Caller().Msg("could not close clientConn")
-						}
-						break
-					}
-
-					muxContainerConnected = true
-
-					// update stats
-					stats.setClientConnected(clientApiKey, clientConn.RemoteAddr(), "MLAT")
-					defer stats.setClientDisconnected(clientApiKey, "MLAT")
-
-					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected to mux")
-
-					// update stats
-					stats.setOutputConnected(clientApiKey, "MUX", muxConn.RemoteAddr())
-
 				}
+				err = muxConn.SetKeepAlivePeriod(1 * time.Second)
+				if err != nil {
+					cLog.Err(err).Msg("could not set keep alive period")
+					e := clientConn.Close()
+					if e != nil {
+						log.Err(e).Caller().Msg("could not close clientConn")
+					}
+					break
+				}
+
+				connectionState = stateMLATMuxContainerConnected
+
+				// update stats
+				stats.setClientConnected(clientApiKey, clientConn.RemoteAddr(), "MLAT")
+				defer stats.setClientDisconnected(clientApiKey, "MLAT")
+
+				cLog = cLog.With().Str("dst", dialAddress).Logger()
+				cLog.Info().Msg("connected to mux")
+
+				// update stats
+				stats.setOutputConnected(clientApiKey, "MUX", muxConn.RemoteAddr())
+
 			}
 		}
 		// if we are ready to output data to the feed-in container...
-		if clientAuthenticated {
-			if muxContainerConnected {
-				break
-			}
+		if connectionState == stateMLATMuxContainerConnected {
+			break
 		}
 	}
 
 	// if we are ready to output data to the feed-in container...
-	if clientAuthenticated {
-		if muxContainerConnected {
+	if connectionState == stateMLATMuxContainerConnected {
 
-			wg := sync.WaitGroup{}
+		wg := sync.WaitGroup{}
 
-			// write outstanding data
-			_, err := muxConn.Write(inBuf[:bytesRead])
-			if err != nil {
-				cLog.Err(err).Msg("error writing to client")
-			}
-
-			// start responder
-			wg.Add(1)
-			go mlatTcpForwarderM2C(clientApiKey, muxConn, clientConn, sendRecvBufferSize, cLog, &wg)
-			wg.Add(1)
-			go mlatTcpForwarderC2M(clientApiKey, clientConn, muxConn, sendRecvBufferSize, cLog, &wg)
-			wg.Wait()
-
-			defer muxConn.Close()
-			defer clientConn.Close()
-
+		// write outstanding data
+		_, err := muxConn.Write(inBuf[:bytesRead])
+		if err != nil {
+			cLog.Err(err).Msg("error writing to client")
 		}
+
+		// start responder
+		wg.Add(1)
+		go mlatTcpForwarderM2C(clientApiKey, muxConn, clientConn, sendRecvBufferSize, cLog, &wg)
+		wg.Add(1)
+		go mlatTcpForwarderC2M(clientApiKey, clientConn, muxConn, sendRecvBufferSize, cLog, &wg)
+		wg.Wait()
+
+		defer muxConn.Close()
+		defer clientConn.Close()
+
 	}
-	// cLog.Debug().Msg("clientMLATConnection goroutine finishing")
 }
 
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest) {
