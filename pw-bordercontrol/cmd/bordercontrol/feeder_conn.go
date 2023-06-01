@@ -15,6 +15,14 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+type stateBeast int64
+
+const (
+	stateBeastNotAuthenticated stateBeast = iota
+	stateBeastAuthenticated
+	stateBeastFeedInContainerConnected
+)
+
 func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as goroutine
@@ -328,6 +336,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	cLog := log.With().Str("listener", "BEAST").Logger()
 
 	var (
+		connectionState                = stateBeastNotAuthenticated
 		sendRecvBufferSize             = 256 * 1024 // 256kB
 		clientAuthenticated            = false
 		clientFeedInContainerConnected = false
@@ -357,13 +366,15 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
-		if !clientAuthenticated {
+		if connectionState == stateBeastNotAuthenticated {
 			clientApiKey, refLat, refLon, mux, label, err = authenticateFeeder(ctx, connIn, cLog)
 			if err != nil {
 				cLog.Err(err)
 				break
 			}
-			clientAuthenticated = true
+
+			connectionState = stateBeastAuthenticated
+
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// start the container
@@ -382,99 +393,94 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		}
 
 		// If the client has been authenticated, then we can do stuff with the data
-		if clientAuthenticated {
+		if connectionState == stateBeastAuthenticated {
 
-			// If the client's feed-in container is not yet connected
-			if !clientFeedInContainerConnected {
+			// attempt to connect to the feed-in container
+			dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
 
-				// attempt to connect to the feed-in container
-				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
+			var dstIP net.IP
+			dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey))
+			if err != nil {
+				cLog.Err(err).Msg("could not perform lookup")
+			} else {
+				if len(dstIPs) > 0 {
+					dstIP = dstIPs[0]
+				} else {
+					continue
+				}
+			}
 
-				var dstIP net.IP
-				dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey))
+			dstTCPAddr := net.TCPAddr{
+				IP:   dstIP,
+				Port: 12345,
+			}
+
+			// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
+			// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
+			connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
+
+			if connOutErr != nil {
+
+				// handle connection errors to feed-in container
+
+				cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
+				time.Sleep(1 * time.Second)
+
+				// retry up to 5 times then bail
+				connOutAttempts += 1
+				if connOutAttempts > 5 {
+					break
+				}
+
+			} else {
+
+				// connected OK...
+
+				err := connOut.SetKeepAlive(true)
 				if err != nil {
-					cLog.Err(err).Msg("could not perform lookup")
-				} else {
-					if len(dstIPs) > 0 {
-						dstIP = dstIPs[0]
-					} else {
-						continue
-					}
+					cLog.Err(err).Msg("could not set keep alive")
+					break
+				}
+				err = connOut.SetKeepAlivePeriod(1 * time.Second)
+				if err != nil {
+					cLog.Err(err).Msg("could not set keep alive period")
+					break
 				}
 
-				dstTCPAddr := net.TCPAddr{
-					IP:   dstIP,
-					Port: 12345,
-				}
+				defer connOut.Close()
+				connOutAttempts = 0
+				cLog = cLog.With().Str("dst", dialAddress).Logger()
+				cLog.Info().Msg("connected to feed-in")
 
-				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-				// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
-				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
+				connectionState = stateBeastFeedInContainerConnected
 
-				if connOutErr != nil {
-
-					// handle connection errors to feed-in container
-
-					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
-					time.Sleep(1 * time.Second)
-
-					// retry up to 5 times then bail
-					connOutAttempts += 1
-					if connOutAttempts > 5 {
-						break
-					}
-
-				} else {
-
-					// connected OK...
-
-					err := connOut.SetKeepAlive(true)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive")
-						break
-					}
-					err = connOut.SetKeepAlivePeriod(1 * time.Second)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive period")
-						break
-					}
-
-					defer connOut.Close()
-					clientFeedInContainerConnected = true
-					connOutAttempts = 0
-					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected to feed-in")
-
-					// update stats
-					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
-				}
+				// update stats
+				stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
 			}
 		}
 
 		// if we are ready to output data to the feed-in container...
-		if clientAuthenticated {
-			if clientFeedInContainerConnected {
+		if connectionState == stateBeastFeedInContainerConnected {
 
-				// if we have data to write...
-				if bytesRead > 0 {
+			// if we have data to write...
+			if bytesRead > 0 {
 
-					// set deadline of 5 second
-					wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
-					if wdErr != nil {
-						cLog.Err(wdErr).Msg("could not set deadline on connection")
-						break
-					}
-
-					// attempt to write data in buf (that was read from client connection earlier)
-					bytesWritten, err := connOut.Write(buf[:bytesRead])
-					if err != nil {
-						cLog.Err(err).Msg("error writing to feed-in container")
-						break
-					}
-
-					// update stats
-					stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "BEAST")
+				// set deadline of 5 second
+				wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
+				if wdErr != nil {
+					cLog.Err(wdErr).Msg("could not set deadline on connection")
+					break
 				}
+
+				// attempt to write data in buf (that was read from client connection earlier)
+				bytesWritten, err := connOut.Write(buf[:bytesRead])
+				if err != nil {
+					cLog.Err(err).Msg("error writing to feed-in container")
+					break
+				}
+
+				// update stats
+				stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "BEAST")
 			}
 		}
 	}
