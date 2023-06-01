@@ -23,6 +23,33 @@ const (
 	stateBeastFeedInContainerConnected
 )
 
+func dialFeedInContainer(clientApiKey uuid.UUID) (c *net.TCPConn, err error) {
+
+	// perform DNS lookup
+	var dstIP net.IP
+	dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey.String()))
+	if err != nil {
+		return c, err
+	}
+	if len(dstIPs) > 0 {
+		dstIP = dstIPs[0]
+	} else {
+		return c, errors.New("feed-in container DNS lookup returned no IPs")
+	}
+
+	// prep address to connect to
+	dstTCPAddr := net.TCPAddr{
+		IP:   dstIP,
+		Port: 12345,
+	}
+
+	// dial feed-in container
+	c, err = net.DialTCP("tcp", nil, &dstTCPAddr)
+
+	return c, err
+
+}
+
 func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as goroutine
@@ -393,30 +420,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		// If the client has been authenticated, then we can do stuff with the data
 		if connectionState == stateBeastAuthenticated {
 
-			// attempt to connect to the feed-in container
-			dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
-
-			var dstIP net.IP
-			dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey))
-			if err != nil {
-				cLog.Err(err).Msg("could not perform lookup")
-			} else {
-				if len(dstIPs) > 0 {
-					dstIP = dstIPs[0]
-				} else {
-					continue
-				}
-			}
-
-			dstTCPAddr := net.TCPAddr{
-				IP:   dstIP,
-				Port: 12345,
-			}
-
-			// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-			// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
-			connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
-
+			cLog = cLog.With().Str("dst", fmt.Sprintf("feed-in-%s", clientApiKey.String())).Logger()
+			connOut, connOutErr = dialFeedInContainer(clientApiKey)
 			if connOutErr != nil {
 
 				// handle connection errors to feed-in container
@@ -447,7 +452,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				defer connOut.Close()
 				connOutAttempts = 0
-				cLog = cLog.With().Str("dst", dialAddress).Logger()
 				cLog.Info().Msg("connected to feed-in")
 
 				connectionState = stateBeastFeedInContainerConnected
