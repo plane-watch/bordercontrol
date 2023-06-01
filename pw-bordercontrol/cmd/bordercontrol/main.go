@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"net"
 	"os"
 	"strings"
 	"sync"
@@ -10,91 +9,10 @@ import (
 
 	"pw_bordercontrol/lib/logging"
 
-	"github.com/google/uuid"
-
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
 )
-
-func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
-	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
-	// Designed to be run as goroutine
-
-	// cLog.Debug().Msg("clientMLATResponder started")
-
-	outBuf := make([]byte, sendRecvBufferSize)
-
-	for {
-
-		// read data from server
-		bytesRead, err := muxConn.Read(outBuf)
-		if err != nil {
-			if err.Error() == "EOF" {
-				cLog.Info().Caller().Msg("mux disconnected from client")
-				break
-			} else if err, ok := err.(net.Error); ok && err.Timeout() {
-				// cLog.Debug().AnErr("err", err).Msg("no data to read")
-			} else {
-				cLog.Err(err).Msg("mux read error")
-				break
-			}
-		}
-
-		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := clientConn.Write(outBuf[:bytesRead])
-		if err != nil {
-			cLog.Err(err).Msg("error writing to client")
-			break
-		}
-
-		// update stats
-		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
-	}
-
-	wg.Done()
-
-}
-
-func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
-	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
-	// Designed to be run as goroutine
-
-	// cLog.Debug().Msg("clientMLATResponder started")
-
-	outBuf := make([]byte, sendRecvBufferSize)
-
-	for {
-
-		// read data from server
-		bytesRead, err := clientConn.Read(outBuf)
-		if err != nil {
-			if err.Error() == "EOF" {
-				cLog.Info().Caller().Msg("client disconnected from mux")
-				break
-			} else if err, ok := err.(net.Error); ok && err.Timeout() {
-				// cLog.Debug().AnErr("err", err).Msg("no data to read")
-			} else {
-				cLog.Err(err).Msg("mux read error")
-				break
-			}
-		}
-
-		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := muxConn.Write(outBuf[:bytesRead])
-		if err != nil {
-			cLog.Err(err).Msg("error writing to client")
-			break
-		}
-
-		// update stats
-		stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
-	}
-
-	wg.Done()
-
-}
 
 func main() {
 
