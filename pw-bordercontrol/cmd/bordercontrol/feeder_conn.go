@@ -15,6 +15,84 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
+	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
+	// Designed to be run as goroutine
+
+	// cLog.Debug().Msg("clientMLATResponder started")
+
+	outBuf := make([]byte, sendRecvBufferSize)
+
+	for {
+
+		// read data from server
+		bytesRead, err := muxConn.Read(outBuf)
+		if err != nil {
+			if err.Error() == "EOF" {
+				cLog.Info().Caller().Msg("mux disconnected from client")
+				break
+			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+				// cLog.Debug().AnErr("err", err).Msg("no data to read")
+			} else {
+				cLog.Err(err).Msg("mux read error")
+				break
+			}
+		}
+
+		// attempt to write data in buf (that was read from mux connection earlier)
+		bytesWritten, err := clientConn.Write(outBuf[:bytesRead])
+		if err != nil {
+			cLog.Err(err).Msg("error writing to client")
+			break
+		}
+
+		// update stats
+		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
+	}
+
+	wg.Done()
+
+}
+
+func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
+	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
+	// Designed to be run as goroutine
+
+	// cLog.Debug().Msg("clientMLATResponder started")
+
+	outBuf := make([]byte, sendRecvBufferSize)
+
+	for {
+
+		// read data from server
+		bytesRead, err := clientConn.Read(outBuf)
+		if err != nil {
+			if err.Error() == "EOF" {
+				cLog.Info().Caller().Msg("client disconnected from mux")
+				break
+			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+				// cLog.Debug().AnErr("err", err).Msg("no data to read")
+			} else {
+				cLog.Err(err).Msg("mux read error")
+				break
+			}
+		}
+
+		// attempt to write data in buf (that was read from mux connection earlier)
+		bytesWritten, err := muxConn.Write(outBuf[:bytesRead])
+		if err != nil {
+			cLog.Err(err).Msg("error writing to client")
+			break
+		}
+
+		// update stats
+		stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
+	}
+
+	wg.Done()
+
+}
+
 func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (clientApiKey uuid.UUID, refLat, refLon float64, mux, label string, err error) {
 	// authenticates a feeder
 
@@ -63,6 +141,23 @@ func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (
 	return clientApiKey, refLat, refLon, mux, label, err
 }
 
+func readFromClient(c net.Conn, buf []byte) (n int, err error) {
+	n, err = c.Read(buf)
+	if err != nil {
+		if err.Error() == "tls: first record does not look like a TLS handshake" {
+			defer c.Close()
+			return n, err
+		} else if err.Error() == "EOF" {
+			defer c.Close()
+			return n, err
+		} else {
+			defer c.Close()
+			return n, err
+		}
+	}
+	return n, err
+}
+
 func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config) {
 	// handles incoming MLAT connections
 	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
@@ -93,32 +188,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	for {
 
 		// read data from client
-		bytesRead, err = clientConn.Read(inBuf)
+		bytesRead, err = readFromClient(clientConn, inBuf)
 		if err != nil {
-			if err.Error() == "tls: first record does not look like a TLS handshake" {
-				cLog.Warn().Msg(err.Error())
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
-				}
-				break
-			} else if err.Error() == "EOF" {
-				if clientAuthenticated {
-					cLog.Info().Msg("client disconnected")
-				}
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
-				}
-				break
-			} else {
-				cLog.Err(err).Msg("client read error")
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
-				}
-				break
-			}
+			cLog.Err(err).Msg("could not read from client")
+			break
 		}
 
 		// When the first data is sent, the TLS handshake should take place.
@@ -275,21 +348,11 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
-		// read data
-		bytesRead, err := connIn.Read(buf)
+		// read data from client
+		bytesRead, err := readFromClient(connIn, buf)
 		if err != nil {
-			if err.Error() == "tls: first record does not look like a TLS handshake" {
-				cLog.Warn().Msg(err.Error())
-				break
-			} else if err.Error() == "EOF" {
-				if clientAuthenticated {
-					cLog.Info().Msg("client disconnected")
-				}
-				break
-			} else {
-				cLog.Err(err).Msg("conn.Read")
-				break
-			}
+			cLog.Err(err).Msg("could not read from client")
+			break
 		}
 
 		// When the first data is sent, the TLS handshake should take place.
