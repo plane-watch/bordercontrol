@@ -101,8 +101,6 @@ services:
       - READSB_NET_ONLY=true
       - READSB_NET_CONNECTOR=crawled.mapwithlove.com,3004,beast_in
       - PW_INGEST_PUBLISH=location-updates
-      - FEEDER_LAT=0
-      - FEEDER_LON=0
       - FEEDER_UUID=mapwithlove
       - PW_INGEST_SINK=${PW_INGEST_SINK}
     networks:
