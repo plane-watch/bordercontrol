@@ -274,6 +274,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 				// connected OK...
 
+				// attempt to set tcp keepalive with 1 sec interval
 				err := muxConn.SetKeepAlive(true)
 				if err != nil {
 					cLog.Err(err).Msg("could not set keep alive")
@@ -421,6 +422,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// connected OK...
 
+				// attempt to set tcp keepalive with 1 sec interval
 				err := connOut.SetKeepAlive(true)
 				if err != nil {
 					cLog.Err(err).Msg("could not set keep alive")
