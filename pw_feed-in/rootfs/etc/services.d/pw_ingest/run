@@ -7,8 +7,11 @@ PW_INGEST_BIN="/usr/local/bin/pw_ingest"
 # Set feeder tag/uuid
 PW_INGEST_CMD=("--tag" "${FEEDER_UUID}")
 
-# Set sink
+# Set input
 PW_INGEST_CMD+=("--fetch" "beast://127.0.0.1:30005")
+
+# Set output
+PW_INGEST_CMD+=("--sink" "${PW_INGEST_SINK}")
 
 # Set LAT if given
 if [[ -n "${FEEDER_LAT}" ]]; then
