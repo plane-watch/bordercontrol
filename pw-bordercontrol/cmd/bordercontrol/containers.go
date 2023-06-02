@@ -74,6 +74,7 @@ func checkFeederContainers(ctx *cli.Context) {
 
 func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
 	// reads startContainerRequests from channel containersToStart and starts container
+
 	sfcLog := log.With().Logger()
 
 	// set up docker client
