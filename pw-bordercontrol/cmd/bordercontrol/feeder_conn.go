@@ -63,8 +63,6 @@ func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientCon
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as goroutine
 
-	// cLog.Debug().Msg("clientMLATResponder started")
-
 	outBuf := make([]byte, sendRecvBufferSize)
 
 	for {
@@ -101,8 +99,6 @@ func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientCon
 func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
 	// Designed to be run as goroutine
-
-	// cLog.Debug().Msg("clientMLATResponder started")
 
 	outBuf := make([]byte, sendRecvBufferSize)
 
@@ -186,6 +182,8 @@ func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (
 }
 
 func readFromClient(c net.Conn, buf []byte) (n int, err error) {
+	// reads data from incoming client connection
+
 	n, err = c.Read(buf)
 	if err != nil {
 		if err.Error() == "tls: first record does not look like a TLS handshake" {
@@ -223,9 +221,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	remoteIP := net.ParseIP(strings.Split(clientConn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
 
-	// cLog.Debug().Msgf("connection established")
-	// defer cLog.Debug().Msgf("connection closed")
-
+	// make buffer to hold data read from client
 	inBuf := make([]byte, sendRecvBufferSize)
 
 	for {
