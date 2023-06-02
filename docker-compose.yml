@@ -105,6 +105,8 @@ services:
       - PW_INGEST_SINK=${PW_INGEST_SINK}
     networks:
       - bordercontrol_feeder
+    healthcheck:
+      test: ['CMD','true'] # disable the healthcheck
     
   # Multiplexer: Australia ACT
   mux-act:
