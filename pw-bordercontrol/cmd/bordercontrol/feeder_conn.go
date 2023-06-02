@@ -351,7 +351,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		sendRecvBufferSize = 256 * 1024 // 256kB
 		connOut            *net.TCPConn
 		connOutErr         error
-		connOutAttempts    = 0
 		clientApiKey       uuid.UUID
 		refLat, refLon     float64
 		mux, label         string
@@ -412,11 +411,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				cLog.Warn().AnErr("error", connOutErr).Msg("could not connect to feed-in container")
 				time.Sleep(1 * time.Second)
 
-				// retry up to 5 times then bail
-				connOutAttempts += 1
-				if connOutAttempts > 5 {
-					break
-				}
+				break
 
 			} else {
 
@@ -435,7 +430,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				}
 
 				defer connOut.Close()
-				connOutAttempts = 0
 				cLog.Info().Msg("connected to feed-in")
 
 				// update state
