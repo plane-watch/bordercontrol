@@ -241,6 +241,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				cLog.Err(err)
 				break
 			}
+
+			// update state and log
 			connectionState = stateMLATAuthenticated
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 		}
@@ -289,6 +291,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					break
 				}
 
+				// update state
 				connectionState = stateMLATMuxContainerConnected
 
 				// update stats
@@ -374,8 +377,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				break
 			}
 
+			// update state and log
 			connectionState = stateBeastAuthenticated
-
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// start the container
@@ -429,6 +432,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				connOutAttempts = 0
 				cLog.Info().Msg("connected to feed-in")
 
+				// update state
 				connectionState = stateBeastFeedInContainerConnected
 
 				// update stats
