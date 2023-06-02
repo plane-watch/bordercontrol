@@ -89,11 +89,11 @@ services:
 
   # Multiplexer: mapwithlove
   pw-ingest-mapwithlove:
-    container_name: feed-mapwithlove
+    container_name: pw-ingest-mapwithlove
     build:
       context: .
       dockerfile: Dockerfile.feeder
-    hostname: feed-mapwithlove
+    hostname: pw-ingest-mapwithlove
     environment:
       - READSB_STATS_EVERY=300
       - READSB_NET_ENABLE=true
