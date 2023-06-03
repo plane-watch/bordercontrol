@@ -100,10 +100,10 @@ type FeederStats struct {
 	Dst_mux    net.Addr `json:"DstMux"`    // connected multiplexer
 }
 
-type feederStatusUpdate struct {
-	uuid   uuid.UUID
-	update FeederStats
-}
+// type feederStatusUpdate struct {
+// 	uuid   uuid.UUID
+// 	update FeederStats
+// }
 
 // struct for list of feeder stats (+ mutex for sync)
 type Statistics struct {
