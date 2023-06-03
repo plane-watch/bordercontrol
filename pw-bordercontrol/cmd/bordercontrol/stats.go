@@ -244,7 +244,6 @@ func statsEvictor() {
 		var toEvict []uuid.UUID
 
 		stats.mu.Lock()
-		defer stats.mu.Unlock()
 
 		// find stale data
 		for u, _ := range stats.Feeders {
@@ -259,6 +258,8 @@ func statsEvictor() {
 		for _, u := range toEvict {
 			delete(stats.Feeders, u)
 		}
+
+		stats.mu.Unlock()
 
 		// periodically log number of goroutines
 		// todo: move this to the web ui
