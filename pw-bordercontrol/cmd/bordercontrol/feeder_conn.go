@@ -280,6 +280,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			}
 		}()
 
+		breakOut := false
+
 		for {
 
 			// pipe data between connections
@@ -288,18 +290,24 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				bytesWritten, err := muxConn.Write(dataIn)
 				if err != nil {
 					cLog.Err(err).Msg("error writing to mux")
-					break
+					breakOut = true
+				} else {
+					// update stats
+					stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesWritten), "MLAT")
 				}
-				// update stats
-				stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesWritten), "MLAT")
 			case dataOut := <-serverToClient:
 				bytesWritten, err := clientConn.Write(dataOut)
 				if err != nil {
 					cLog.Err(err).Msg("error writing to feeder")
-					break
+					breakOut = true
+				} else {
+					// update stats
+					stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesWritten), 0, "MLAT")
 				}
-				// update stats
-				stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesWritten), 0, "MLAT")
+			}
+
+			if breakOut {
+				break
 			}
 
 			// check feeder is still valid (every 60 secs)
