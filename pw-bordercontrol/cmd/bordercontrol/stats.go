@@ -139,15 +139,16 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, byt
 
 func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	// does stats var have an entry for uuid?
-	stats.mu.RLock()
-	_, ok := stats.Feeders[uuid]
-	stats.mu.RUnlock()
-
 	// if not, create it
+
+	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	_, ok := stats.Feeders[uuid]
 	if !ok {
-		stats.mu.Lock()
-		stats.Feeders[uuid] = FeederStats{}
-		stats.mu.Unlock()
+		stats.Feeders[uuid] = FeederStats{
+			Connections: make(map[uint]Connection),
+		}
 	}
 }
 
