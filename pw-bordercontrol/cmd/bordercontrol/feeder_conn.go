@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -249,76 +250,70 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			cLog.Err(err).Msg("error writing to client")
 		}
 
+		wg := sync.WaitGroup{}
+
 		// handle data from feeder client to mlat server
-		clientToServer := make(chan []byte)
+		wg.Add(1)
 		go func() {
-			// connReader := bufio.NewReader(clientConn)
+			defer wg.Done()
 			buf := make([]byte, sendRecvBufferSize)
 			for {
+
+				// read from feeder client
 				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
 					cLog.Err(err).Msg("could not read from client")
 					return
 				}
-				clientToServer <- buf[:bytesRead]
+
+				// write to mlat server
+				bytesWritten, err := muxConn.Write(buf[:bytesRead])
+				if err != nil {
+					cLog.Err(err).Msg("error writing to mux")
+					return
+				}
+
+				// update stats
+				stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesWritten), "MLAT")
+
+				// check feeder is still valid (every 60 secs)
+				if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
+					if !isValidApiKey(clientApiKey) {
+						cLog.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+						return
+					}
+					lastAuthCheck = time.Now()
+				}
 			}
 		}()
 
 		// handle data from mlat server to feeder client
-		serverToClient := make(chan []byte)
+		wg.Add(1)
 		go func() {
-			// connReader := bufio.NewReader(muxConn)
+			defer wg.Done()
 			buf := make([]byte, sendRecvBufferSize)
 			for {
+
+				// read from mlat server
 				bytesRead, err := muxConn.Read(buf)
 				if err != nil {
 					cLog.Err(err).Msg("could not read from mux")
 					return
 				}
-				serverToClient <- buf[:bytesRead]
+
+				// write to feeder client
+				bytesWritten, err := clientConn.Write(buf[:bytesRead])
+				if err != nil {
+					cLog.Err(err).Msg("error writing to feeder")
+					return
+				}
+
+				// update stats
+				stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesWritten), 0, "MLAT")
 			}
 		}()
 
-		breakOut := false
-
-		for {
-
-			// pipe data between connections
-			select {
-			case dataIn := <-clientToServer:
-				bytesWritten, err := muxConn.Write(dataIn)
-				if err != nil {
-					cLog.Err(err).Msg("error writing to mux")
-					breakOut = true
-				} else {
-					// update stats
-					stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesWritten), "MLAT")
-				}
-			case dataOut := <-serverToClient:
-				bytesWritten, err := clientConn.Write(dataOut)
-				if err != nil {
-					cLog.Err(err).Msg("error writing to feeder")
-					breakOut = true
-				} else {
-					// update stats
-					stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesWritten), 0, "MLAT")
-				}
-			}
-
-			if breakOut {
-				break
-			}
-
-			// check feeder is still valid (every 60 secs)
-			if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
-				if !isValidApiKey(clientApiKey) {
-					cLog.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-					break
-				}
-				lastAuthCheck = time.Now()
-			}
-
-		}
+		wg.Wait()
 
 		defer muxConn.Close()
 		defer clientConn.Close()
