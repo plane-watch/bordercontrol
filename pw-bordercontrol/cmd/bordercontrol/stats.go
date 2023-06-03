@@ -76,34 +76,21 @@ type FeederStats struct {
 	Label string  // feeder label
 	Lat   float64 // feeder lat
 	Lon   float64 // feeder lon
-	// connection bools
-	Connected_beast bool `json:"ConnectedBeast"` // is the feeder sending BEAST
-	Connected_mlat  bool `json:"ConnectedMLAT"`  // is the feeder sending MLAT
-	// source connection info
-	Src_beast net.Addr `json:"SrcBeast"` // source ip:port of client for BEAST connection
-	Src_mlat  net.Addr `json:"SrcMLAT"`  // source ip:port of client for MLAT connection
-	// connection time
-	Time_connected_beast time.Time `json:"TimeConnectedBeast"` // connection time for BEAST connection
-	Time_connected_mlat  time.Time `json:"TimeConnectedMLAT"`  // connection time for MLAT connection
-	Time_last_updated    time.Time `json:"TimeLastUpdated"`    // time stats were last updated
-	// byte counters
-	Bytes_rx_in_beast  uint64 `json:"BytesRxInBeast"`  // bytes received from client (in) for BEAST protocol
-	Bytes_tx_in_beast  uint64 `json:"BytesTxInBeast"`  // bytes send to client (in) for BEAST protocol
-	Bytes_rx_out_beast uint64 `json:"BytesRxOutBeast"` // bytes received from mux (out) for BEAST protocol
-	Bytes_tx_out_beast uint64 `json:"BytesTxOutBeast"` // bytes send to mux (out) for BEAST protocol
-	Bytes_rx_in_mlat   uint64 `json:"BytesRxInMLAT"`   // bytes received from client (in) for MLAT protocol
-	Bytes_tx_in_mlat   uint64 `json:"BytesTxInMLAT"`   // bytes send to client (in) for MLAT protocol
-	Bytes_rx_out_mlat  uint64 `json:"BytesRxOutMLAT"`  // bytes received from mux (out) for MLAT protocol
-	Bytes_tx_out_mlat  uint64 `json:"BytesTxOutMLAT"`  // bytes send to mux (out) for MLAT protocol
-	// output details
-	Dst_feedin net.Addr `json:"DstFeedIn"` // connected feed-in container
-	Dst_mux    net.Addr `json:"DstMux"`    // connected multiplexer
+
+	// Connection details
+	Connections map[uint]Connection // key = connection number
+
+	TimeUpdated time.Time // time these stats were updated
 }
 
-// type feederStatusUpdate struct {
-// 	uuid   uuid.UUID
-// 	update FeederStats
-// }
+type Connection struct {
+	Proto         string    // protocol "BEAST" or "MLAT"
+	Src           net.Addr  // source ip:port of incoming connection
+	Dst           net.Addr  // destination ip:port of outgoing connection
+	TimeConnected time.Time // time connection was established
+	BytesIn       uint64    // bytes received from feeder client
+	BytesOut      uint64    // bytes sent to feeder client
+}
 
 // struct for list of feeder stats (+ mutex for sync)
 type Statistics struct {
@@ -125,7 +112,7 @@ var (
 	matchUUID            *regexp.Regexp // regex to match UUID
 )
 
-func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, rxin, txin, rxout, txout uint64, proto string) {
+func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
 	// increment byte counters of a feeder
 	//   - sets time_last_updated to now
 
@@ -133,30 +120,20 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, rxin, txin, rxout
 
 	// copy stats entry
 	stats.mu.Lock()
-	y := stats.Feeders[uuid]
+	defer stats.mu.Unlock()
 
-	// update stats entry
-	switch strings.ToUpper(proto) {
-	case "BEAST":
-		y.Bytes_rx_in_beast += rxin
-		y.Bytes_tx_in_beast += txin
-		y.Bytes_rx_out_beast += rxout
-		y.Bytes_tx_out_beast += txout
-	case "MLAT":
-		y.Bytes_rx_in_mlat += rxin
-		y.Bytes_tx_in_mlat += txin
-		y.Bytes_rx_out_mlat += rxout
-		y.Bytes_tx_out_mlat += txout
-	default:
-		panic("unsupported protocol")
-	}
+	// update counters
+	y := stats.Feeders[uuid]
+	c := y.Connections[connNum]
+	c.BytesIn += bytesIn
+	c.BytesOut += bytesOut
+	y.Connections[connNum] = c
 
 	// update time_last_updated
-	y.Time_last_updated = time.Now()
+	y.TimeUpdated = time.Now()
 
 	// write stats entry
 	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
 
 }
 
@@ -174,114 +151,72 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	}
 }
 
-func (stats *Statistics) setOutputConnected(uuid uuid.UUID, outputType string, outputAddr net.Addr) {
-	// updates the connected status of a feeder
-
-	stats.initFeederStats(uuid)
-
-	// copy stats entry
-	stats.mu.Lock()
-	y := stats.Feeders[uuid]
-
-	// update stats entry
-	switch strings.ToUpper(outputType) {
-	case "FEEDIN":
-		y.Dst_feedin = outputAddr
-	case "MUX":
-		y.Dst_mux = outputAddr
-	default:
-		panic("unsupported output type")
-	}
-
-	// update time_last_updated
-	y.Time_last_updated = time.Now()
-
-	// write stats entry
-	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
-
-}
-
 func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon float64) {
 	// updates the details of a feeder
 
 	stats.initFeederStats(uuid)
 
-	// copy stats entry
 	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	// copy stats entry
 	y := stats.Feeders[uuid]
 
 	// update time_last_updated
 	y.Label = label
 	y.Lat = lat
 	y.Lon = lon
-	y.Time_last_updated = time.Now()
+	y.TimeUpdated = time.Now()
 
 	// write stats entry
 	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
 }
 
-func (stats *Statistics) setClientDisconnected(uuid uuid.UUID, proto string) {
+func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 	// updates the connected status of a feeder
 
 	stats.initFeederStats(uuid)
 
-	// copy stats entry
 	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	// copy stats entry
 	y := stats.Feeders[uuid]
 
-	// update stats entry
-	switch strings.ToUpper(proto) {
-	case "BEAST":
-		y.Connected_beast = false
-	case "MLAT":
-		y.Connected_mlat = false
-	default:
-		panic("unsupported protocol")
-	}
+	// delete connection
+	delete(y.Connections, connNum)
 
-	// update time_last_updated
-	y.Time_last_updated = time.Now()
+	y.TimeUpdated = time.Now()
 
 	// write stats entry
 	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
-
 }
 
-func (stats *Statistics) setClientConnected(uuid uuid.UUID, src_addr net.Addr, proto string) {
+func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {
 	// updates the connected status of a feeder
-	//   - sets src_beast/src_mlat
-	//   - sets time_connected_beast/time_connected_mlat to now
-	//   - sets time_last_updated to now
 
 	stats.initFeederStats(uuid)
 
-	// copy stats entry
 	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	// copy stats entry
 	y := stats.Feeders[uuid]
 
-	// update stats entry
-	switch strings.ToUpper(proto) {
-	case "BEAST":
-		y.Time_connected_beast = time.Now()
-		y.Connected_beast = true
-		y.Src_beast = src_addr
-	case "MLAT":
-		y.Time_connected_mlat = time.Now()
-		y.Connected_mlat = true
-		y.Src_mlat = src_addr
-	default:
-		panic("unsupported protocol")
+	// add connection
+	c := Connection{
+		Proto:         strings.ToUpper(proto),
+		Src:           src,
+		Dst:           dst,
+		TimeConnected: time.Now(),
+		BytesIn:       0,
+		BytesOut:      0,
 	}
-
-	// update time_last_updated
-	y.Time_last_updated = time.Now()
+	y.Connections[connNum] = c
+	y.TimeUpdated = time.Now()
 
 	// write stats entry
 	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
 }
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
@@ -308,15 +243,13 @@ func statsEvictor() {
 		var toEvict []uuid.UUID
 
 		stats.mu.Lock()
+		defer stats.mu.Unlock()
 
 		// find stale data
 		for u, _ := range stats.Feeders {
-			if !stats.Feeders[u].Connected_beast {
-				if !stats.Feeders[u].Connected_mlat {
-					if time.Now().Sub(stats.Feeders[u].Time_last_updated) > (time.Second * 60) {
-						// log.Debug().Str("uuid", u.String()).Msg("evicting stale stats data")
-						toEvict = append(toEvict, u)
-					}
+			if len(stats.Feeders[u].Connections) == 0 {
+				if time.Now().Sub(stats.Feeders[u].TimeUpdated) > (time.Second * 60) {
+					toEvict = append(toEvict, u)
 				}
 			}
 		}
@@ -325,8 +258,6 @@ func statsEvictor() {
 		for _, u := range toEvict {
 			delete(stats.Feeders, u)
 		}
-
-		stats.mu.Unlock()
 
 		// periodically log number of goroutines
 		// todo: move this to the web ui

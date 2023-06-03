@@ -94,10 +94,6 @@ func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (
 			log = log.With().Str("uuid", clientApiKey.String()).Logger()
 			log.Info().Msg("client connected")
 
-			// update stats
-			stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "BEAST")
-			defer stats.setClientDisconnected(clientApiKey, "BEAST")
-
 			// get feeder info (lat/lon/mux/label) from atc cache
 			refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
 			if err != nil {
@@ -238,14 +234,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// update state
 				connectionState = stateMLATMuxContainerConnected
 
-				// update stats
-				stats.setClientConnected(clientApiKey, clientConn.RemoteAddr(), "MLAT")
-				defer stats.setClientDisconnected(clientApiKey, "MLAT")
-
 				cLog.Info().Msg("connected to mux")
-
-				// update stats
-				stats.setOutputConnected(clientApiKey, "MUX", muxConn.RemoteAddr())
 
 			}
 		}
@@ -264,6 +253,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			cLog.Err(err).Msg("error writing to client")
 		}
 
+		// update stats
+		stats.addConnection(clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), "MLAT", connNum)
+		defer stats.delConnection(clientApiKey, connNum)
+
 		wg := sync.WaitGroup{}
 
 		// handle data from feeder client to mlat server
@@ -281,14 +274,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				}
 
 				// write to mlat server
-				bytesWritten, err := muxConn.Write(buf[:bytesRead])
+				_, err = muxConn.Write(buf[:bytesRead])
 				if err != nil {
 					cLog.Err(err).Msg("error writing to mux")
 					return
 				}
 
 				// update stats
-				stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesWritten), "MLAT")
+				stats.incrementByteCounters(clientApiKey, connNum, uint64(bytesRead), 0)
 
 				// check feeder is still valid (every 60 secs)
 				if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
@@ -316,14 +309,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				}
 
 				// write to feeder client
-				bytesWritten, err := clientConn.Write(buf[:bytesRead])
+				_, err = clientConn.Write(buf[:bytesRead])
 				if err != nil {
 					cLog.Err(err).Msg("error writing to feeder")
 					return
 				}
 
 				// update stats
-				stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesWritten), 0, "MLAT")
+				stats.incrementByteCounters(clientApiKey, connNum, 0, uint64(bytesRead))
 			}
 		}()
 
@@ -436,7 +429,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				connectionState = stateBeastFeedInContainerConnected
 
 				// update stats
-				stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
+				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), "BEAST", connNum)
+				defer stats.delConnection(clientApiKey, connNum)
+
 			}
 		}
 
@@ -454,14 +449,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				}
 
 				// attempt to write data in buf (that was read from client connection earlier)
-				bytesWritten, err := connOut.Write(buf[:bytesRead])
+				_, err := connOut.Write(buf[:bytesRead])
 				if err != nil {
 					cLog.Err(err).Msg("error writing to feed-in container")
 					break
 				}
 
 				// update stats
-				stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "BEAST")
+				stats.incrementByteCounters(clientApiKey, connNum, uint64(bytesRead), 0)
 			}
 		}
 
