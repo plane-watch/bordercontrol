@@ -19,7 +19,8 @@ table, th, td {
 		</td>
 	{{range $cindex, $celement := .Connections}}
 		{{ if $firstRow }}{{ else }}<tr>{{ $firstRow = false }}{{ end }}
-		<td>{{$index}}</td>
+		<td>{{ $cindex }}</td>
+        <td>{{ $celement.Proto }}</td>
 	</tr>
 	{{end}}
 {{end}}
