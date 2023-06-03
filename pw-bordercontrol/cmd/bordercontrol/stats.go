@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -25,35 +26,8 @@ import (
 // <th>Since</th>
 // </tr>
 
-const (
-	statsTemplate = `
-<html>
-<head>
-<style>
-table, th, td {
-  border: 1px solid black;
-  border-collapse: collapse;
-}
-</style>
-<meta http-equiv="Refresh" content="5"> 
-</head>
-<body>
-<table style="width:100%">
-
-{{range $index, $element := .}}
-    {{ $firstRow := true }}
-	<tr>
-		<td rowspan="{{ len .Connections }}">
-			{{.Label}}</br>UUID: {{$index}}</br>{{.Lat}} {{.Lon}}
-		</td>
-	{{range $cindex, $celement := .Connections}}
-		{{ if $firstRow == true }}{{ else }}<tr>{{ $firstRow = false }}{{ end }}
-		<td>{{$index}}</td>
-	</tr>
-	{{end}}
-{{end}}
-`
-)
+//go:embed stats.tmpl
+var statsTemplate string
 
 // struct for per-feeder statistics
 type FeederStats struct {
