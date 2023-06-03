@@ -17,6 +17,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// <tr>
+// <th>Feeder</th>
+// <th>Proto</th>
+// <th colspan="2">Src</th>
+// <th colspan="2">Dst</th>
+// <th>Since</th>
+// </tr>
+
 const (
 	statsTemplate = `
 <html>
@@ -31,41 +39,18 @@ table, th, td {
 </head>
 <body>
 <table style="width:100%">
-	<tr>
-		<th>Feeder</th>
-		<th>Proto</th>
-		<th colspan="2">Src</th>
-		<th colspan="2">Dst</th>
-		<th>Since</th>
-	</tr>
+
 {{range $index, $element := .}}
+    {{ $firstRow := true }}
 	<tr>
-		<td rowspan="2">
+		<td rowspan="{{ len .Connections }}">
 			{{.Label}}</br>UUID: {{$index}}</br>{{.Lat}} {{.Lon}}
 		</td>
-		<td>BEAST</td>
-	{{if .Connected_beast}}
-		<td>{{.Src_beast}}</td>
-		<td>Rx: {{.Bytes_rx_in_beast}}B</br>Tx: {{.Bytes_tx_in_beast}}B</br></td>
-		<td>{{.Dst_feedin}}</td>
-		<td>Rx: {{.Bytes_rx_out_beast}}B</br>Tx: {{.Bytes_tx_out_beast}}B</br></td>
-		<td>{{.Time_connected_beast}}</td>
-	{{else}}
-		<td colspan="5">No connection</td>
-	{{end}}
+	{{range $cindex, $celement := .Connections}}
+		{{ if $firstRow == true }}{{ else }}<tr>{{ $firstRow = false }}{{ end }}
+		<td>{{$index}}</td>
 	</tr>
-	<tr>
-		<td>MLAT</td>
-	{{if .Connected_mlat}}
-		<td>{{.Src_mlat}}</td>
-		<td>Rx: {{.Bytes_rx_in_mlat}}B</br>Tx: {{.Bytes_tx_in_mlat}}B</br></td>
-		<td>{{.Dst_mux}}</td>
-		<td>Rx: {{.Bytes_rx_out_mlat}}B</br>Tx: {{.Bytes_tx_out_mlat}}B</br></td>
-		<td>{{.Time_connected_mlat}}</td>
-	{{else}}
-		<td colspan="5">No connection</td>
 	{{end}}
-	</tr>
 {{end}}
 `
 )
