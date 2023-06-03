@@ -201,6 +201,7 @@ func statsEvictor() {
 
 	for {
 		var toEvict []uuid.UUID
+		var activeBeast, activeMLAT uint
 
 		stats.mu.Lock()
 
@@ -209,6 +210,15 @@ func statsEvictor() {
 			if len(stats.Feeders[u].Connections) == 0 {
 				if time.Now().Sub(stats.Feeders[u].TimeUpdated) > (time.Second * 60) {
 					toEvict = append(toEvict, u)
+				}
+			} else {
+				for _, c := range stats.Feeders[u].Connections {
+					switch c.Proto {
+					case "BEAST":
+						activeBeast++
+					case "MLAT":
+						activeMLAT++
+					}
 				}
 			}
 		}
@@ -219,6 +229,9 @@ func statsEvictor() {
 		}
 
 		stats.mu.Unlock()
+
+		// log number of connections
+		log.Info().Uint("beast", activeBeast).Uint("mlat", activeMLAT).Msg("active connections")
 
 		// periodically log number of goroutines
 		// todo: move this to the web ui
