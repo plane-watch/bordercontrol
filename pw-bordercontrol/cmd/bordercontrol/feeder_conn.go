@@ -217,6 +217,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		mux, label         string
 		bytesRead          int
 		err                error
+		lastAuthCheck      time.Time
 	)
 
 	// update log context with client IP
@@ -246,6 +247,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 			// update state and log
 			connectionState = stateMLATAuthenticated
+			lastAuthCheck = time.Now()
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 		}
 
@@ -374,6 +376,16 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// update stats
 				stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesWritten), 0, "MLAT")
 			}
+
+			// check feeder is still valid (every 60 secs)
+			if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
+				if !isValidApiKey(clientApiKey) {
+					cLog.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+					break
+				}
+				lastAuthCheck = time.Now()
+			}
+
 		}
 
 		// // start responder
