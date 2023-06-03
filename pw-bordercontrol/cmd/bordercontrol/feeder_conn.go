@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -253,10 +252,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// handle data from feeder client to mlat server
 		clientToServer := make(chan []byte)
 		go func() {
-			connReader := bufio.NewReader(clientConn)
+			// connReader := bufio.NewReader(clientConn)
 			buf := make([]byte, sendRecvBufferSize)
 			for {
-				bytesRead, err := connReader.Read(buf)
+				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
 					cLog.Err(err).Msg("could not read from client")
 					return
@@ -268,10 +267,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// handle data from mlat server to feeder client
 		serverToClient := make(chan []byte)
 		go func() {
-			connReader := bufio.NewReader(muxConn)
+			// connReader := bufio.NewReader(muxConn)
 			buf := make([]byte, sendRecvBufferSize)
 			for {
-				bytesRead, err := connReader.Read(buf)
+				bytesRead, err := muxConn.Read(buf)
 				if err != nil {
 					cLog.Err(err).Msg("could not read from mux")
 					return
