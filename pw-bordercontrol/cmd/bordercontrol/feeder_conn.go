@@ -327,6 +327,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			}
 		}()
 
+		// todo: find a way to kill above goroutines if one finishes
+
 		wg.Wait()
 
 		defer muxConn.Close()
