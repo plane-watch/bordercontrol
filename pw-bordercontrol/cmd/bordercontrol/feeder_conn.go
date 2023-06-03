@@ -128,7 +128,6 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 
 func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config) {
 	// handles incoming MLAT connections
-	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 	// TODO: need a way to deal with multiple connections from a single feeder.
 	//    - Possibly look at capping this at two connections?
 
@@ -245,8 +244,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	// if we are ready to output data to the feed-in container...
 	if connectionState == stateMLATMuxContainerConnected {
 
-		// wg := sync.WaitGroup{}
-
 		// write outstanding data
 		_, err := muxConn.Write(inBuf[:bytesRead])
 		if err != nil {
@@ -284,6 +281,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		}()
 
 		for {
+
+			// pipe data between connections
 			select {
 			case dataIn := <-clientToServer:
 				bytesWritten, err := muxConn.Write(dataIn)
@@ -322,7 +321,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest) {
 	// handles incoming BEAST connections
-	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
 	// TODO: need a way to deal with multiple connections from a single feeder.
 	//    - Possibly look at capping this at two connections?
 
