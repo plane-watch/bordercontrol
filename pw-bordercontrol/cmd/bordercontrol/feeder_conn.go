@@ -335,7 +335,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			for {
 				bytesRead, err := connReader.Read(buf)
 				if err != nil {
-					cLog.Err(err).Msg("error reading from feeder")
+					cLog.Err(err).Msg("could not read from client")
 					return
 				}
 				clientToServer <- buf[:bytesRead]
@@ -350,7 +350,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			for {
 				bytesRead, err := connReader.Read(buf)
 				if err != nil {
-					cLog.Err(err).Msg("error reading from mux")
+					cLog.Err(err).Msg("could not read from mux")
 					return
 				}
 				serverToClient <- buf[:bytesRead]
