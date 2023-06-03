@@ -1,12 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,79 +59,79 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
 }
 
-func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
-	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
-	// Designed to be run as goroutine
+// func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
+// 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
+// 	// Designed to be run as goroutine
 
-	outBuf := make([]byte, sendRecvBufferSize)
+// 	outBuf := make([]byte, sendRecvBufferSize)
 
-	for {
+// 	for {
 
-		// read data from server
-		bytesRead, err := muxConn.Read(outBuf)
-		if err != nil {
-			if err.Error() == "EOF" {
-				cLog.Info().Msg("mux disconnected from client")
-				break
-			} else if err, ok := err.(net.Error); ok && err.Timeout() {
-				// cLog.Debug().AnErr("err", err).Msg("no data to read")
-			} else {
-				cLog.Err(err).Msg("mux read error")
-				break
-			}
-		}
+// 		// read data from server
+// 		bytesRead, err := muxConn.Read(outBuf)
+// 		if err != nil {
+// 			if err.Error() == "EOF" {
+// 				cLog.Info().Msg("mux disconnected from client")
+// 				break
+// 			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+// 				// cLog.Debug().AnErr("err", err).Msg("no data to read")
+// 			} else {
+// 				cLog.Err(err).Msg("mux read error")
+// 				break
+// 			}
+// 		}
 
-		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := clientConn.Write(outBuf[:bytesRead])
-		if err != nil {
-			cLog.Err(err).Msg("error writing to client")
-			break
-		}
+// 		// attempt to write data in buf (that was read from mux connection earlier)
+// 		bytesWritten, err := clientConn.Write(outBuf[:bytesRead])
+// 		if err != nil {
+// 			cLog.Err(err).Msg("error writing to client")
+// 			break
+// 		}
 
-		// update stats
-		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
-	}
+// 		// update stats
+// 		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
+// 	}
 
-	wg.Done()
+// 	wg.Done()
 
-}
+// }
 
-func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
-	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
-	// Designed to be run as goroutine
+// func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
+// 	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
+// 	// Designed to be run as goroutine
 
-	outBuf := make([]byte, sendRecvBufferSize)
+// 	outBuf := make([]byte, sendRecvBufferSize)
 
-	for {
+// 	for {
 
-		// read data from server
-		bytesRead, err := clientConn.Read(outBuf)
-		if err != nil {
-			if err.Error() == "EOF" {
-				cLog.Info().Msg("client disconnected from mux")
-				break
-			} else if err, ok := err.(net.Error); ok && err.Timeout() {
-				// cLog.Debug().AnErr("err", err).Msg("no data to read")
-			} else {
-				cLog.Err(err).Msg("mux read error")
-				break
-			}
-		}
+// 		// read data from server
+// 		bytesRead, err := clientConn.Read(outBuf)
+// 		if err != nil {
+// 			if err.Error() == "EOF" {
+// 				cLog.Info().Msg("client disconnected from mux")
+// 				break
+// 			} else if err, ok := err.(net.Error); ok && err.Timeout() {
+// 				// cLog.Debug().AnErr("err", err).Msg("no data to read")
+// 			} else {
+// 				cLog.Err(err).Msg("mux read error")
+// 				break
+// 			}
+// 		}
 
-		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := muxConn.Write(outBuf[:bytesRead])
-		if err != nil {
-			cLog.Err(err).Msg("error writing to client")
-			break
-		}
+// 		// attempt to write data in buf (that was read from mux connection earlier)
+// 		bytesWritten, err := muxConn.Write(outBuf[:bytesRead])
+// 		if err != nil {
+// 			cLog.Err(err).Msg("error writing to client")
+// 			break
+// 		}
 
-		// update stats
-		stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
-	}
+// 		// update stats
+// 		stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
+// 	}
 
-	wg.Done()
+// 	wg.Done()
 
-}
+// }
 
 func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (clientApiKey uuid.UUID, refLat, refLon float64, mux, label string, err error) {
 	// authenticates a feeder
@@ -317,7 +317,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	// if we are ready to output data to the feed-in container...
 	if connectionState == stateMLATMuxContainerConnected {
 
-		wg := sync.WaitGroup{}
+		// wg := sync.WaitGroup{}
 
 		// write outstanding data
 		_, err := muxConn.Write(inBuf[:bytesRead])
@@ -325,12 +325,63 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			cLog.Err(err).Msg("error writing to client")
 		}
 
-		// start responder
-		wg.Add(1)
-		go mlatTcpForwarderM2C(clientApiKey, muxConn, clientConn, sendRecvBufferSize, cLog, &wg)
-		wg.Add(1)
-		go mlatTcpForwarderC2M(clientApiKey, clientConn, muxConn, sendRecvBufferSize, cLog, &wg)
-		wg.Wait()
+		// handle data from feeder client to mlat server
+		clientToServer := make(chan []byte)
+		go func() {
+			connReader := bufio.NewReader(clientConn)
+			buf := make([]byte, sendRecvBufferSize)
+			for {
+				bytesRead, err := connReader.Read(buf)
+				if err != nil {
+					cLog.Err(err).Msg("error reading from feeder")
+					return
+				}
+				clientToServer <- buf[:bytesRead]
+			}
+		}()
+
+		// handle data from mlat server to feeder client
+		serverToClient := make(chan []byte)
+		go func() {
+			connReader := bufio.NewReader(muxConn)
+			buf := make([]byte, sendRecvBufferSize)
+			for {
+				bytesRead, err := connReader.Read(buf)
+				if err != nil {
+					cLog.Err(err).Msg("error reading from mux")
+					return
+				}
+				serverToClient <- buf[:bytesRead]
+			}
+		}()
+
+		for {
+			select {
+			case dataIn := <-clientToServer:
+				bytesWritten, err := muxConn.Write(dataIn)
+				if err != nil {
+					cLog.Err(err).Msg("error writing to mux")
+					break
+				}
+				// update stats
+				stats.incrementByteCounters(clientApiKey, uint64(bytesWritten), 0, 0, uint64(bytesWritten), "MLAT")
+			case dataOut := <-serverToClient:
+				bytesWritten, err := clientConn.Write(dataOut)
+				if err != nil {
+					cLog.Err(err).Msg("error writing to feeder")
+					break
+				}
+				// update stats
+				stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesWritten), 0, "MLAT")
+			}
+		}
+
+		// // start responder
+		// wg.Add(1)
+		// go mlatTcpForwarderM2C(clientApiKey, muxConn, clientConn, sendRecvBufferSize, cLog, &wg)
+		// wg.Add(1)
+		// go mlatTcpForwarderC2M(clientApiKey, clientConn, muxConn, sendRecvBufferSize, cLog, &wg)
+		// wg.Wait()
 
 		defer muxConn.Close()
 		defer clientConn.Close()
@@ -354,6 +405,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		clientApiKey       uuid.UUID
 		refLat, refLon     float64
 		mux, label         string
+		lastAuthCheck      time.Time
 	)
 
 	defer connIn.Close()
@@ -380,6 +432,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				cLog.Err(err)
 				break
 			}
+			lastAuthCheck = time.Now()
 
 			// update state and log
 			connectionState = stateBeastAuthenticated
@@ -463,6 +516,15 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				// update stats
 				stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "BEAST")
 			}
+		}
+
+		// check feeder is still valid (every 60 secs)
+		if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
+			if !isValidApiKey(clientApiKey) {
+				cLog.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+				break
+			}
+			lastAuthCheck = time.Now()
 		}
 	}
 }
