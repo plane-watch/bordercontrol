@@ -230,12 +230,8 @@ func statsEvictor() {
 
 		stats.mu.Unlock()
 
-		// log number of connections
-		log.Info().Uint("beast", activeBeast).Uint("mlat", activeMLAT).Msg("active connections")
-
-		// periodically log number of goroutines
-		// todo: move this to the web ui
-		log.Debug().Int("goroutines", runtime.NumGoroutine()).Msg("number of goroutines")
+		// log number of connections & goroutines
+		log.Info().Uint("beast", activeBeast).Uint("mlat", activeMLAT).Int("goroutines", runtime.NumGoroutine()).Msg("active connections")
 
 		time.Sleep(time.Minute * 1)
 	}
