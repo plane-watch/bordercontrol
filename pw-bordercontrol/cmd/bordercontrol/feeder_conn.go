@@ -16,8 +16,12 @@ import (
 )
 
 type (
-	stateBeast int64
-	stateMLAT  int64
+	stateBeast       int64
+	stateMLAT        int64
+	connectionNumber struct {
+		mu  sync.RWMutex
+		num uint
+	}
 )
 
 const (
@@ -31,6 +35,16 @@ const (
 	stateMLATAuthenticated
 	stateMLATMuxContainerConnected
 )
+
+func (connNum *connectionNumber) GetNum() (num uint) {
+	connNum.mu.Lock()
+	defer connNum.mu.Unlock()
+	connNum.num++
+	if connNum.num == 0 {
+		connNum.num++
+	}
+	return connNum.num
+}
 
 func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
@@ -126,12 +140,12 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 	return n, err
 }
 
-func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config) {
+func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config, connNum uint) {
 	// handles incoming MLAT connections
 	// TODO: need a way to deal with multiple connections from a single feeder.
 	//    - Possibly look at capping this at two connections?
 
-	cLog := log.With().Str("listener", "MLAT").Logger()
+	cLog := log.With().Str("listener", "MLAT").Uint("conn#", connNum).Logger()
 
 	var (
 		connectionState    = stateMLATNotAuthenticated
@@ -321,12 +335,12 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	}
 }
 
-func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest) {
+func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
 	// handles incoming BEAST connections
 	// TODO: need a way to deal with multiple connections from a single feeder.
 	//    - Possibly look at capping this at two connections?
 
-	cLog := log.With().Str("listener", "BEAST").Logger()
+	cLog := log.With().Str("listener", "BEAST").Uint("conn#", connNum).Logger()
 
 	var (
 		connectionState    = stateBeastNotAuthenticated
