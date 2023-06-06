@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -16,9 +17,10 @@ import (
 )
 
 var (
-	feedInImage string
-	tlsConfig   tls.Config
-	kpr         *keypairReloader
+	feedInImage            string
+	tlsConfig              tls.Config
+	kpr                    *keypairReloader
+	commithash, committime string
 )
 
 const (
@@ -106,7 +108,7 @@ func main() {
 	logging.ConfigureForCli()
 
 	// get version from git info
-	var commithash = func() string {
+	commithash = func() string {
 		if info, ok := debug.ReadBuildInfo(); ok {
 			for _, setting := range info.Settings {
 				if setting.Key == "vcs.revision" {
@@ -116,10 +118,20 @@ func main() {
 		}
 		return ""
 	}()
+	committime = func() string {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.time" {
+					return setting.Value
+				}
+			}
+		}
+		return ""
+	}()
 	if len(commithash) < 7 {
 		app.Version = "unknown"
 	} else {
-		app.Version = commithash[:7]
+		app.Version = fmt.Sprintf("%s (%s)", commithash[:7], committime)
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -144,7 +156,7 @@ func runServer(ctx *cli.Context) error {
 
 	// show banner
 	log.Info().Msg(banner)
-	log.Info().Str("version", ctx.App.Version).Msg("bordercontrol starting")
+	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
 
 	// set up TLS
 	// load SSL cert/key
