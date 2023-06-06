@@ -33,7 +33,7 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		return nil, err
 	}
 	result.cert = &cert
-	certExpiryDate = result.cert.Leaf.NotAfter
+	certExpiryDate = cert.Leaf.NotAfter
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGHUP)
@@ -56,7 +56,7 @@ func (kpr *keypairReloader) maybeReload() error {
 	kpr.certMu.Lock()
 	defer kpr.certMu.Unlock()
 	kpr.cert = &newCert
-	certExpiryDate = kpr.cert.Leaf.NotAfter
+	certExpiryDate = newCert.Leaf.NotAfter
 	return nil
 }
 
