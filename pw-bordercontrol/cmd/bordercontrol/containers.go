@@ -11,8 +11,11 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+
 	"github.com/google/uuid"
+
 	"github.com/rs/zerolog/log"
+
 	"github.com/urfave/cli/v2"
 )
 

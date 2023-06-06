@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/rs/zerolog/log"
