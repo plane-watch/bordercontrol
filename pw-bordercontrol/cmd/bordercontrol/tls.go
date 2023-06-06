@@ -33,6 +33,7 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		return nil, err
 	}
 	result.cert = &cert
+	certExpiryDate = result.cert.Leaf.NotAfter
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGHUP)
