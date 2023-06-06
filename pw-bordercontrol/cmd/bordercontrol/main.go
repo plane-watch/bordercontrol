@@ -21,6 +21,8 @@ var (
 )
 
 const (
+
+	// standardise the protocol name strings
 	protoMLAT  = "MLAT"
 	protoBeast = "BEAST"
 )
