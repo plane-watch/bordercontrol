@@ -252,7 +252,7 @@ var (
 
 	promCertValidDays = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Name: "pw_bordercontrol_tls_cert_hours_until_expiry",
-		Help: "The number of hours until the TLS certificate expires",
+		Help: "The number of hours until the bordercontrol TLS certificate expires",
 	},
 		func() float64 {
 			kpr.certMu.RLock()
