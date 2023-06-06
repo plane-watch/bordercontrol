@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -26,7 +27,7 @@ const (
 	protoMLAT  = "MLAT"
 	protoBeast = "BEAST"
 
-	banner = `
+	banner = ` 
  _                   _                          _             _
 | |__   ___  _ __ __| | ___ _ __ ___ ___  _ __ | |_ _ __ ___ | |
 | '_ \ / _ \| '__/ _' |/ _ \ '__/ __/ _ \| '_ \| __| '__/ _ \| |
@@ -104,6 +105,19 @@ func main() {
 	logging.IncludeVerbosityFlags(app)
 	logging.ConfigureForCli()
 
+	// get version from git info
+	var commithash = func() string {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.revision" {
+					return setting.Value
+				}
+			}
+		}
+		return ""
+	}()
+	app.Version = commithash[:7]
+
 	app.Before = func(c *cli.Context) error {
 		// Set logging level
 		logging.SetLoggingLevel(c)
@@ -126,6 +140,7 @@ func runServer(ctx *cli.Context) error {
 
 	// show banner
 	log.Info().Msg(banner)
+	log.Info().Str("version", ctx.App.Version).Msg("bordercontrol starting")
 
 	// set up TLS
 	// load SSL cert/key
