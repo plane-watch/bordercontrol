@@ -12,8 +12,8 @@ table, th, td {
 <table style="width:100%">
     <tr>
         <th>Feeder</th>
-        <th>Conn #</th>
         <th>Proto</th>
+        <th>Conn #</th>
         <th>Src</th>
         <th>Dst</th>
         <th>Bytes In/Out</th>
@@ -25,10 +25,11 @@ table, th, td {
 		<td rowspan="{{ len .Connections }}">
 			{{.Label}}</br>UUID: {{$index}}</br>{{.Lat}} {{.Lon}}
 		</td>
-	{{range $cindex, $celement := .Connections}}
+	{{range $pindex, $pelement := .Connections}}
 		{{ if $firstRow }}{{ else }}<tr>{{ $firstRow = false }}{{ end }}
-		<td>{{ $cindex }}</td>
-        <td>{{ $celement.Proto }}</td>
+    {{range $cindex, $celement := $pelement}}
+        <td>{{ $pindex }}</td>
+        <td>{{ $cindex }}</td>
         <td>{{ $celement.Src }}</td>
         <td>{{ $celement.Dst }}</td>
         <td>{{ $celement.BytesIn }} / {{ $celement.BytesOut }}</td>
