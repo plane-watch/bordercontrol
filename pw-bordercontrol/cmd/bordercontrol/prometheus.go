@@ -22,7 +22,7 @@ var (
 	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "total_connections_beast",
+		Name:      "connections_beast_total",
 		Help:      "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -38,7 +38,7 @@ var (
 	promTotalConnectionsMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "total_connections_mlat",
+		Name:      "connections_mlat_total",
 		Help:      "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -54,7 +54,7 @@ var (
 	promTotalFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "total_feeders",
+		Name:      "feeders_total",
 		Help:      "The total number of feeders configured in ATC (active and inactive).",
 	},
 		func() float64 {
@@ -66,7 +66,7 @@ var (
 	promActiveFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "active_feeders",
+		Name:      "feeders_active_total",
 		Help:      "The total number of feeders with an active connection to this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -87,7 +87,7 @@ var (
 	promActiveFeedersBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "active_feeders_beast",
+		Name:      "feeders_active_beast",
 		Help:      "The total number of feeders with an active BEAST protocol connection to this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -105,7 +105,7 @@ var (
 	promActiveFeedersMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "active_feeders_mlat",
+		Name:      "feeders_active_mlat",
 		Help:      "The total number of feeders with an active MLAT protocol connection to this instance of bordercontrol.",
 	},
 		func() float64 {
