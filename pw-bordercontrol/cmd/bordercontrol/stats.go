@@ -18,14 +18,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// <tr>
-// <th>Feeder</th>
-// <th>Proto</th>
-// <th colspan="2">Src</th>
-// <th colspan="2">Dst</th>
-// <th>Since</th>
-// </tr>
-
 //go:embed stats.tmpl
 var statsTemplate string
 
@@ -40,6 +32,10 @@ type FeederStats struct {
 	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
 	// uint key = connection number within bordercontrol
 	Connections map[string]map[uint]Connection
+
+	// Protocol connection booleans
+	connectedBEAST bool
+	connectedMLAT  bool
 
 	TimeUpdated time.Time // time these stats were updated
 }
@@ -60,8 +56,7 @@ type Statistics struct {
 
 // struct for http api responses
 type APIResponse struct {
-	Data  interface{}
-	Error string
+	Data interface{}
 }
 
 // variable for stats
@@ -164,6 +159,18 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 				// delete the connection
 				delete(y.Connections[proto], connNum)
 
+				// update connection bools
+				if len(y.Connections[proto]) == 0 {
+					switch proto {
+					case "BEAST":
+						y.connectedBEAST = false
+					case "MLAT":
+						y.connectedMLAT = false
+					default:
+						panic("unsupported protocol!")
+					}
+				}
+
 				// update time last updated
 				y.TimeUpdated = time.Now()
 
@@ -180,6 +187,9 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	stats.initFeederStats(uuid)
 
+	// make protocol uppercase
+	proto = strings.ToUpper(proto)
+
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
@@ -194,7 +204,20 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		BytesIn:       0,
 		BytesOut:      0,
 	}
-	y.Connections[strings.ToUpper(proto)][connNum] = c
+	y.Connections[proto][connNum] = c
+
+	// update connection bools
+	if len(y.Connections[proto]) > 0 {
+		switch proto {
+		case "BEAST":
+			y.connectedBEAST = true
+		case "MLAT":
+			y.connectedMLAT = true
+		default:
+			panic("unsupported protocol!")
+		}
+	}
+
 	y.TimeUpdated = time.Now()
 
 	// write stats entry
@@ -305,7 +328,9 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		stats.mu.RLock()
 		val, ok := stats.Feeders[clientApiKey]
 		if !ok {
-			resp.Error = "feeder not found"
+			log.Error().Any("resp", resp).Msg("feeder not found")
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		} else {
 			resp.Data = val
 		}
@@ -319,10 +344,6 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// write response
-		if resp.Error != "" {
-			w.WriteHeader(http.StatusBadRequest)
-		}
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(output)
 		return
