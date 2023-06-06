@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/rs/zerolog/log"
@@ -71,35 +69,6 @@ var (
 
 	matchUrlSingleFeeder *regexp.Regexp // regex to match api request for single feeder stats
 	matchUUID            *regexp.Regexp // regex to match UUID
-
-	// prometheus metrics
-	totalConnectionsBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Name: "total_connections_beast",
-		Help: "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
-	},
-		func() float64 {
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			numConns := float64(0)
-			for u, _ := range stats.Feeders {
-				numConns += float64(stats.Feeders[u].Connections["BEAST"].ConnectionCount)
-			}
-			return numConns
-		})
-
-	totalConnectionsMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Name: "total_connections_MLAT",
-		Help: "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
-	},
-		func() float64 {
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			numConns := float64(0)
-			for u, _ := range stats.Feeders {
-				numConns += float64(stats.Feeders[u].Connections["MLAT"].ConnectionCount)
-			}
-			return numConns
-		})
 )
 
 func getNumConnsByProto(proto string) float64 {
