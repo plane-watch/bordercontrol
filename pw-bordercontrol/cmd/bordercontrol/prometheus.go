@@ -31,7 +31,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				n += float64(stats.Feeders[u].Connections["BEAST"].ConnectionCount)
+				n += float64(stats.Feeders[u].Connections[protoBeast].ConnectionCount)
 			}
 			return n
 		})
@@ -47,7 +47,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				n += float64(stats.Feeders[u].Connections["MLAT"].ConnectionCount)
+				n += float64(stats.Feeders[u].Connections[protoMLAT].ConnectionCount)
 			}
 			return n
 		})
@@ -96,7 +96,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections["BEAST"].Status == true {
+				if stats.Feeders[u].Connections[protoBeast].Status == true {
 					n++
 				}
 			}
@@ -114,7 +114,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections["MLAT"].Status == true {
+				if stats.Feeders[u].Connections[protoMLAT].Status == true {
 					n++
 				}
 			}
@@ -210,9 +210,9 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections["BEAST"].Status == true {
-					for c := range stats.Feeders[u].Connections["BEAST"].ConnectionDetails {
-						n += float64(stats.Feeders[u].Connections["BEAST"].ConnectionDetails[c].BytesIn)
+				if stats.Feeders[u].Connections[protoBeast].Status == true {
+					for c := range stats.Feeders[u].Connections[protoBeast].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections[protoBeast].ConnectionDetails[c].BytesIn)
 					}
 				}
 			}
@@ -230,9 +230,9 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections["BEAST"].Status == true {
-					for c := range stats.Feeders[u].Connections["BEAST"].ConnectionDetails {
-						n += float64(stats.Feeders[u].Connections["BEAST"].ConnectionDetails[c].BytesOut)
+				if stats.Feeders[u].Connections[protoBeast].Status == true {
+					for c := range stats.Feeders[u].Connections[protoBeast].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections[protoBeast].ConnectionDetails[c].BytesOut)
 					}
 				}
 			}
@@ -250,9 +250,9 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections["MLAT"].Status == true {
-					for c := range stats.Feeders[u].Connections["MLAT"].ConnectionDetails {
-						n += float64(stats.Feeders[u].Connections["MLAT"].ConnectionDetails[c].BytesIn)
+				if stats.Feeders[u].Connections[protoMLAT].Status == true {
+					for c := range stats.Feeders[u].Connections[protoMLAT].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections[protoMLAT].ConnectionDetails[c].BytesIn)
 					}
 				}
 			}
@@ -270,9 +270,9 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections["MLAT"].Status == true {
-					for c := range stats.Feeders[u].Connections["MLAT"].ConnectionDetails {
-						n += float64(stats.Feeders[u].Connections["MLAT"].ConnectionDetails[c].BytesOut)
+				if stats.Feeders[u].Connections[protoMLAT].Status == true {
+					for c := range stats.Feeders[u].Connections[protoMLAT].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections[protoMLAT].ConnectionDetails[c].BytesOut)
 					}
 				}
 			}

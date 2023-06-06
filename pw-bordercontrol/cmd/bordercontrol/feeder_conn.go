@@ -145,7 +145,7 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config, connNum uint) {
 	// handles incoming MLAT connections
 
-	cLog := log.With().Str("listener", "MLAT").Uint("conn#", connNum).Logger()
+	cLog := log.With().Str("listener", protoMLAT).Uint("conn#", connNum).Logger()
 
 	defer clientConn.Close()
 
@@ -190,10 +190,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// check number of connections, and drop connection if limit exceeded
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			if stats.Feeders[clientApiKey].Connections["MLAT"].ConnectionCount > maxConnectionsPerProto {
-				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections["MLAT"].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+			if stats.getNumConnections(clientApiKey, protoMLAT) > maxConnectionsPerProto {
+				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoMLAT].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
 				break
 			}
 
@@ -271,7 +269,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		}
 
 		// update stats
-		stats.addConnection(clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), "MLAT", connNum)
+		stats.addConnection(clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
 		defer stats.delConnection(clientApiKey, connNum)
 
 		wg := sync.WaitGroup{}
@@ -347,7 +345,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
 	// handles incoming BEAST connections
 
-	cLog := log.With().Str("listener", "BEAST").Uint("conn#", connNum).Logger()
+	cLog := log.With().Str("listener", protoBeast).Uint("conn#", connNum).Logger()
 
 	defer connIn.Close()
 
@@ -390,10 +388,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// check number of connections, and drop connection if limit exceeded
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			if stats.Feeders[clientApiKey].Connections["BEAST"].ConnectionCount > maxConnectionsPerProto {
-				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections["BEAST"].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+			if stats.getNumConnections(clientApiKey, protoBeast) > maxConnectionsPerProto {
+				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoBeast].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
 				break
 			}
 
@@ -451,7 +447,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				connectionState = stateBeastFeedInContainerConnected
 
 				// update stats
-				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), "BEAST", connNum)
+				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
 				defer stats.delConnection(clientApiKey, connNum)
 
 			}

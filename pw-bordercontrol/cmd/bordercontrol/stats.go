@@ -72,6 +72,13 @@ var (
 	matchUUID            *regexp.Regexp // regex to match UUID
 )
 
+func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto string) int {
+	proto = strings.ToUpper(proto)
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+	return stats.Feeders[uuid].Connections[proto].ConnectionCount
+}
+
 func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
 	// increment byte counters of a feeder
 	//   - sets time_last_updated to now
@@ -119,10 +126,10 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 		stats.Feeders[uuid] = FeederStats{
 			Connections: make(map[string]ProtocolDetail),
 		}
-		stats.Feeders[uuid].Connections["BEAST"] = ProtocolDetail{
+		stats.Feeders[uuid].Connections[protoBeast] = ProtocolDetail{
 			ConnectionDetails: make(map[uint]ConnectionDetail),
 		}
-		stats.Feeders[uuid].Connections["MLAT"] = ProtocolDetail{
+		stats.Feeders[uuid].Connections[protoMLAT] = ProtocolDetail{
 			ConnectionDetails: make(map[uint]ConnectionDetail),
 		}
 	}
@@ -264,9 +271,9 @@ func statsEvictor() {
 			} else {
 				for p, _ := range stats.Feeders[u].Connections {
 					switch p {
-					case "BEAST":
+					case protoBeast:
 						activeBeast++
-					case "MLAT":
+					case protoMLAT:
 						activeMLAT++
 					}
 				}

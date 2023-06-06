@@ -20,6 +20,11 @@ var (
 	kpr         *keypairReloader
 )
 
+const (
+	protoMLAT  = "MLAT"
+	protoBeast = "BEAST"
+)
+
 func main() {
 
 	app := &cli.App{
