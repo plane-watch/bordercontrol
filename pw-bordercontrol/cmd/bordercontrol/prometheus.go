@@ -77,7 +77,6 @@ var (
 			for u, _ := range stats.Feeders {
 				if stats.Feeders[u].Connections["BEAST"].Status == true {
 					n++
-					break
 				}
 			}
 			return n
@@ -94,7 +93,6 @@ var (
 			for u, _ := range stats.Feeders {
 				if stats.Feeders[u].Connections["MLAT"].Status == true {
 					n++
-					break
 				}
 			}
 			return n
