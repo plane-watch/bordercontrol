@@ -21,7 +21,7 @@ table, th, td {
         <th>Connection Time</th>
     </tr>
 {{range $index, $felement := .}}
-	{{range $pindex, $pelement := .Connections}}
+	{{range $pindex, $pelement := .Connections.ConnectionDetail}}
         {{range $cindex, $celement := $pelement}}
             <tr>
                 <td>{{ $felement.Label }}</td>

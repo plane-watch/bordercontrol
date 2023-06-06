@@ -30,17 +30,21 @@ type FeederStats struct {
 
 	// Connection details
 	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
-	// uint key = connection number within bordercontrol
-	Connections map[string]map[uint]Connection
-
-	// Protocol connection booleans
-	ConnectedBEAST bool
-	ConnectedMLAT  bool
+	Connections map[string]ProtocolDetail
 
 	TimeUpdated time.Time // time these stats were updated
 }
 
-type Connection struct {
+type ProtocolDetail struct {
+	Status               bool      // is protocol connected
+	ConnectionCount      uint      // number of connections for this protocol
+	MostRecentConnection time.Time // time of most recent connection
+
+	// uint key = connection number within bordercontrol
+	ConnectionDetails map[uint]ConnectionDetail
+}
+
+type ConnectionDetail struct {
 	Src           net.Addr  // source ip:port of incoming connection
 	Dst           net.Addr  // destination ip:port of outgoing connection
 	TimeConnected time.Time // time connection was established
@@ -82,15 +86,15 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, byt
 
 	// find connection to update
 	for proto, p := range y.Connections {
-		for cn, c := range p {
+		for cn, c := range p.ConnectionDetails {
 			if cn == connNum {
 
 				// increment counters
 				c.BytesIn += bytesIn
 				c.BytesOut += bytesOut
-				y.Connections[proto][connNum] = c
+				y.Connections[proto].ConnectionDetails[connNum] = c
 
-				// update time_last_updated
+				// update time last updated
 				y.TimeUpdated = time.Now()
 
 				// write stats entry
@@ -112,10 +116,14 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	_, ok := stats.Feeders[uuid]
 	if !ok {
 		stats.Feeders[uuid] = FeederStats{
-			Connections: make(map[string]map[uint]Connection),
+			Connections: make(map[string]ProtocolDetail),
 		}
-		stats.Feeders[uuid].Connections["BEAST"] = make(map[uint]Connection)
-		stats.Feeders[uuid].Connections["MLAT"] = make(map[uint]Connection)
+		stats.Feeders[uuid].Connections["BEAST"] = ProtocolDetail{
+			ConnectionDetails: make(map[uint]ConnectionDetail),
+		}
+		stats.Feeders[uuid].Connections["MLAT"] = ProtocolDetail{
+			ConnectionDetails: make(map[uint]ConnectionDetail),
+		}
 	}
 }
 
@@ -153,22 +161,17 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 
 	// find connection to update
 	for proto, p := range y.Connections {
-		for cn, _ := range p {
+		for cn, _ := range p.ConnectionDetails {
 			if cn == connNum {
 
 				// delete the connection
-				delete(y.Connections[proto], connNum)
+				delete(y.Connections[proto].ConnectionDetails, connNum)
 
-				// update connection bools
-				if len(y.Connections[proto]) == 0 {
-					switch proto {
-					case "BEAST":
-						y.ConnectedBEAST = false
-					case "MLAT":
-						y.ConnectedMLAT = false
-					default:
-						panic("unsupported protocol!")
-					}
+				// update connection state
+				if len(y.Connections[proto].ConnectionDetails) == 0 {
+					pd := y.Connections[proto]
+					pd.Status = false
+					y.Connections[proto] = pd
 				}
 
 				// update time last updated
@@ -197,25 +200,20 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	y := stats.Feeders[uuid]
 
 	// add connection
-	c := Connection{
+	c := ConnectionDetail{
 		Src:           src,
 		Dst:           dst,
 		TimeConnected: time.Now(),
 		BytesIn:       0,
 		BytesOut:      0,
 	}
-	y.Connections[proto][connNum] = c
+	y.Connections[proto].ConnectionDetails[connNum] = c
 
-	// update connection bools
-	if len(y.Connections[proto]) > 0 {
-		switch proto {
-		case "BEAST":
-			y.ConnectedBEAST = true
-		case "MLAT":
-			y.ConnectedMLAT = true
-		default:
-			panic("unsupported protocol!")
-		}
+	// update connection state
+	if len(y.Connections[proto].ConnectionDetails) > 0 {
+		pd := y.Connections[proto]
+		pd.Status = true
+		y.Connections[proto] = pd
 	}
 
 	y.TimeUpdated = time.Now()
