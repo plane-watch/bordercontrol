@@ -262,11 +262,11 @@ var (
 					d = b.Leaf.NotAfter
 				}
 			}
-			for _, b := range tlsConfig.Certificates {
-				if b.Leaf.NotAfter.Before(d) {
-					d = b.Leaf.NotAfter
-				}
-			}
+			// for _, b := range tlsConfig.Certificates {
+			// 	if b.Leaf.NotAfter.Before(d) {
+			// 		d = b.Leaf.NotAfter
+			// 	}
+			// }
 			return float64(math.Round(d.Sub(time.Now()).Hours()))
 		})
 )
