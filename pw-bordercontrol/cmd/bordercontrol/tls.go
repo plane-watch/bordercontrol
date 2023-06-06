@@ -11,6 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var certExpiryDate time.Time
+
 // struct for SSL cert/key (+ mutex for sync)
 type keypairReloader struct {
 	certMu   sync.RWMutex
@@ -44,12 +46,6 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	return result, nil
 }
 
-func (kpr *keypairReloader) expiryHours() float64 {
-	kpr.certMu.RLock()
-	defer kpr.certMu.RUnlock()
-	return kpr.cert.Leaf.NotAfter.Sub(time.Now()).Hours()
-}
-
 func (kpr *keypairReloader) maybeReload() error {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	newCert, err := tls.LoadX509KeyPair(kpr.certPath, kpr.keyPath)
@@ -59,6 +55,7 @@ func (kpr *keypairReloader) maybeReload() error {
 	kpr.certMu.Lock()
 	defer kpr.certMu.Unlock()
 	kpr.cert = &newCert
+	certExpiryDate = kpr.cert.Leaf.NotAfter
 	return nil
 }
 
