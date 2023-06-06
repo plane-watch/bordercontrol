@@ -257,6 +257,6 @@ var (
 		func() float64 {
 			kpr.certMu.RLock()
 			defer kpr.certMu.RUnlock()
-			return float64(kpr.cert.Leaf.NotAfter.Sub(time.Now()).Hours())
+			return kpr.cert.Leaf.NotAfter.Sub(time.Now()).Hours()
 		})
 )
