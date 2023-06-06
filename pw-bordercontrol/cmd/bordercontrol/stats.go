@@ -234,8 +234,8 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 	// Render the data
 	stats.mu.RLock()
+	defer stats.mu.RUnlock()
 	err = t.Execute(w, stats.Feeders)
-	stats.mu.RUnlock()
 	if err != nil {
 		fmt.Println(err)
 		log.Panic().AnErr("err", err).Msg("could not execute statsTemplate")
