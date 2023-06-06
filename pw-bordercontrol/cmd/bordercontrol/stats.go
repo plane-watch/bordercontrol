@@ -183,12 +183,10 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 				delete(y.Connections[proto].ConnectionDetails, connNum)
 
 				// update connection state
-				if len(y.Connections[proto].ConnectionDetails) == 0 {
-					pd := y.Connections[proto]
-					pd.Status = false
-					pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
-					y.Connections[proto] = pd
-				}
+				pd := y.Connections[proto]
+				pd.Status = false
+				pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
+				y.Connections[proto] = pd
 
 				// update time last updated
 				y.TimeUpdated = time.Now()
