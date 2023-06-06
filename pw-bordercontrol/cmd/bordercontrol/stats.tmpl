@@ -21,8 +21,8 @@ table, th, td {
     </tr>
 {{range $index, $element := .}}
     {{ $firstRow := true }}
-	<tr>
-		<td rowspan="{{ len .Connections }}">
+    <tr>
+        <td rowspan="{{ len .Connections }}">
 			{{.Label}}</br>UUID: {{$index}}</br>{{.Lat}} {{.Lon}}
 		</td>
 	{{range $pindex, $pelement := .Connections}}
@@ -34,7 +34,7 @@ table, th, td {
             <td>{{ $celement.Dst }}</td>
             <td>{{ $celement.BytesIn }} / {{ $celement.BytesOut }}</td>
             <td>{{ $celement.TimeConnected }}</td>
-        </tr>
         {{end}}
+        </tr>
 	{{end}}
 {{end}}
