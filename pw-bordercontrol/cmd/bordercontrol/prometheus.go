@@ -197,7 +197,7 @@ var (
 
 	promBytesOutBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Name: "pw_bordercontrol_bytes_out_beast",
-		Help: "Bytes sent (out) via BEAST protocol connections.",
+		Help: "Bytes sent (out) via BEAST protocol connections. Should be 0 as BEAST is one-way.",
 	},
 		func() float64 {
 			stats.mu.RLock()
