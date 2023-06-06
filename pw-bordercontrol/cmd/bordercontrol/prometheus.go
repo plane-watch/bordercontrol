@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -256,17 +255,8 @@ var (
 		Help: "The number of hours until the TLS certificate expires",
 	},
 		func() float64 {
-			d := time.Now()
-			for _, b := range tlsConfig.Certificates {
-				if b.Leaf.NotAfter.After(d) {
-					d = b.Leaf.NotAfter
-				}
-			}
-			// for _, b := range tlsConfig.Certificates {
-			// 	if b.Leaf.NotAfter.Before(d) {
-			// 		d = b.Leaf.NotAfter
-			// 	}
-			// }
-			return float64(math.Round(d.Sub(time.Now()).Hours()))
+			kpr.certMu.RLock()
+			defer kpr.certMu.RUnlock()
+			return float64(kpr.cert.Leaf.NotAfter.Sub(time.Now()).Hours())
 		})
 )
