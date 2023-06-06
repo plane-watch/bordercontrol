@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -247,5 +248,19 @@ var (
 				}
 			}
 			return n
+		})
+
+	promCertValidDays = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "pw_bordercontrol_tls_cert_hours_until_expiry",
+		Help: "The number of hours until the TLS certificate expires",
+	},
+		func() float64 {
+			var d time.Time
+			for _, b := range tlsConfig.Certificates {
+				if b.Leaf.NotAfter.After(d) {
+					d = b.Leaf.NotAfter
+				}
+			}
+			return float64(d.Sub(time.Now()).Hours())
 		})
 )
