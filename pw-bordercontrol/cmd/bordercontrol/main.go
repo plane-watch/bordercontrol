@@ -112,7 +112,11 @@ func main() {
 		if info, ok := debug.ReadBuildInfo(); ok {
 			for _, setting := range info.Settings {
 				if setting.Key == "vcs.revision" {
-					return setting.Value
+					if len(setting.Value) >= 7 {
+						return setting.Value[:7]
+					} else {
+						return "unknown"
+					}
 				}
 			}
 		}
@@ -131,7 +135,7 @@ func main() {
 	if len(commithash) < 7 {
 		app.Version = "unknown"
 	} else {
-		app.Version = fmt.Sprintf("%s (%s)", commithash[:7], committime)
+		app.Version = fmt.Sprintf("%s (%s)", commithash, committime)
 	}
 
 	app.Before = func(c *cli.Context) error {
