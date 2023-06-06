@@ -37,7 +37,7 @@ type FeederStats struct {
 
 type ProtocolDetail struct {
 	Status               bool      // is protocol connected
-	ConnectionCount      uint      // number of connections for this protocol
+	ConnectionCount      int       // number of connections for this protocol
 	MostRecentConnection time.Time // time of most recent connection
 
 	// uint key = connection number within bordercontrol
@@ -171,6 +171,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 				if len(y.Connections[proto].ConnectionDetails) == 0 {
 					pd := y.Connections[proto]
 					pd.Status = false
+					pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
 					y.Connections[proto] = pd
 				}
 
@@ -214,6 +215,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		pd := y.Connections[proto]
 		pd.Status = true
 		pd.MostRecentConnection = c.TimeConnected
+		pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
 		y.Connections[proto] = pd
 	}
 
