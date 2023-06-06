@@ -176,4 +176,76 @@ var (
 			}
 			return n
 		})
+
+	promBytesInBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "pw_bordercontrol_bytes_in_beast",
+		Help: "Bytes received (in) via BEAST protocol connections.",
+	},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			n := float64(0)
+			for u, _ := range stats.Feeders {
+				if stats.Feeders[u].Connections["BEAST"].Status == true {
+					for c, _ := range stats.Feeders[u].Connections["BEAST"].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections["BEAST"].ConnectionDetails[c].BytesIn)
+					}
+				}
+			}
+			return n
+		})
+
+	promBytesOutBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "pw_bordercontrol_bytes_out_beast",
+		Help: "Bytes sent (out) via BEAST protocol connections.",
+	},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			n := float64(0)
+			for u, _ := range stats.Feeders {
+				if stats.Feeders[u].Connections["BEAST"].Status == true {
+					for c, _ := range stats.Feeders[u].Connections["BEAST"].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections["BEAST"].ConnectionDetails[c].BytesOut)
+					}
+				}
+			}
+			return n
+		})
+
+	promBytesInMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "pw_bordercontrol_bytes_in_mlat",
+		Help: "Bytes received (in) via MLAT protocol connections.",
+	},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			n := float64(0)
+			for u, _ := range stats.Feeders {
+				if stats.Feeders[u].Connections["MLAT"].Status == true {
+					for c, _ := range stats.Feeders[u].Connections["MLAT"].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections["MLAT"].ConnectionDetails[c].BytesIn)
+					}
+				}
+			}
+			return n
+		})
+
+	promBytesOutMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "pw_bordercontrol_bytes_out_mlat",
+		Help: "Bytes sent (out) via MLAT protocol connections.",
+	},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			n := float64(0)
+			for u, _ := range stats.Feeders {
+				if stats.Feeders[u].Connections["MLAT"].Status == true {
+					for c, _ := range stats.Feeders[u].Connections["MLAT"].ConnectionDetails {
+						n += float64(stats.Feeders[u].Connections["MLAT"].ConnectionDetails[c].BytesOut)
+					}
+				}
+			}
+			return n
+		})
 )
