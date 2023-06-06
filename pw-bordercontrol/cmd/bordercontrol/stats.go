@@ -390,6 +390,7 @@ func statsManager() {
 
 	// prometheus endpoint
 	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/metrics/", promhttp.Handler())
 
 	// start stats http server
 	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
