@@ -229,7 +229,7 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	// Make and parse the HTML template
 	t, err := template.New("stats").Parse(statsTemplate)
 	if err != nil {
-		log.Panic().AnErr("err", err).Msg("could not render statsTemplate")
+		log.Panic().AnErr("err", err).Str("api", "httpRenderStats").Msg("could not render statsTemplate")
 	}
 
 	// Render the data
@@ -238,7 +238,7 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	err = t.Execute(w, stats.Feeders)
 	if err != nil {
 		fmt.Println(err)
-		log.Panic().AnErr("err", err).Msg("could not execute statsTemplate")
+		log.Panic().AnErr("err", err).Str("api", "httpRenderStats").Msg("could not execute statsTemplate")
 	}
 }
 
@@ -295,7 +295,7 @@ func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 	// prepare response
 	output, err := json.Marshal(resp)
 	if err != nil {
-		log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+		log.Error().Any("resp", resp).Str("api", "apiReturnAllFeeders").Msg("could not marshall resp into json")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -319,7 +319,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		// try to extract uuid from path
 		clientApiKey, err := uuid.Parse((string(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))))
 		if err != nil {
-			log.Err(err).Str("url", r.URL.Path).Msg("could not get uuid from url")
+			log.Err(err).Str("url", r.URL.Path).Str("api", "apiReturnSingleFeeder").Msg("could not get uuid from url")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -329,7 +329,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		defer stats.mu.RUnlock()
 		val, ok := stats.Feeders[clientApiKey]
 		if !ok {
-			log.Error().Any("resp", resp).Msg("feeder not found")
+			log.Error().Any("resp", resp).Str("api", "apiReturnSingleFeeder").Msg("feeder not found")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		} else {
@@ -339,7 +339,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		// prepare response
 		output, err := json.Marshal(resp)
 		if err != nil {
-			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+			log.Error().Any("resp", resp).Str("api", "apiReturnSingleFeeder").Msg("could not marshall resp into json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -349,7 +349,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		return
 
 	} else {
-		log.Error().Str("url", r.URL.Path).Msg("path did not match single feeder")
+		log.Error().Str("url", r.URL.Path).Str("api", "apiReturnSingleFeeder").Msg("path did not match single feeder")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
