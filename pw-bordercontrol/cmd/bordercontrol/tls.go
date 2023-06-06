@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -41,6 +42,12 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		}
 	}()
 	return result, nil
+}
+
+func (kpr *keypairReloader) expiryHours() float64 {
+	kpr.certMu.RLock()
+	defer kpr.certMu.RUnlock()
+	return kpr.cert.Leaf.NotAfter.Sub(time.Now()).Hours()
 }
 
 func (kpr *keypairReloader) maybeReload() error {

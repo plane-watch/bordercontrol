@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -255,8 +254,6 @@ var (
 		Help: "The number of hours until the bordercontrol TLS certificate expires",
 	},
 		func() float64 {
-			kpr.certMu.RLock()
-			defer kpr.certMu.RUnlock()
-			return kpr.cert.Leaf.NotAfter.Sub(time.Now()).Hours()
+			return kpr.expiryHours()
 		})
 )
