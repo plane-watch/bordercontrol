@@ -119,7 +119,7 @@ func main() {
 		return ""
 	}()
 	if len(commithash) < 7 {
-		app.Version = "dev"
+		app.Version = "unknown"
 	} else {
 		app.Version = commithash[:7]
 	}
