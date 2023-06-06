@@ -20,11 +20,11 @@ table, th, td {
         <th>Bytes In/Out</th>
         <th>Connection Time</th>
     </tr>
-{{range $index, $element := .}}
+{{range $index, $felement := .}}
 	{{range $pindex, $pelement := .Connections}}
         {{range $cindex, $celement := $pelement}}
             <tr>
-                <td>{{ .Label }}</td>
+                <td>{{ $felement.Label }}</td>
                 <td>{{ $index }}</td>
                 <td>{{ $pindex }}</td>
                 <td>{{ $cindex }}</td>
