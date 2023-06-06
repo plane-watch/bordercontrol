@@ -37,13 +37,12 @@ type FeederStats struct {
 	Lon   float64 // feeder lon
 
 	// Connection details
-	Connections map[uint]Connection // key = connection number
+	Connections map[string]map[uint]Connection // key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
 
 	TimeUpdated time.Time // time these stats were updated
 }
 
 type Connection struct {
-	Proto         string    // protocol "BEAST" or "MLAT"
 	Src           net.Addr  // source ip:port of incoming connection
 	Dst           net.Addr  // destination ip:port of outgoing connection
 	TimeConnected time.Time // time connection was established
@@ -83,17 +82,27 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, byt
 
 	// update counters
 	y := stats.Feeders[uuid]
-	c := y.Connections[connNum]
-	c.BytesIn += bytesIn
-	c.BytesOut += bytesOut
-	y.Connections[connNum] = c
 
-	// update time_last_updated
-	y.TimeUpdated = time.Now()
+	// find connection to update
+	for proto, p := range y.Connections {
+		for cn, c := range p {
+			if cn == connNum {
 
-	// write stats entry
-	stats.Feeders[uuid] = y
+				// increment counters
+				c.BytesIn += bytesIn
+				c.BytesOut += bytesOut
+				y.Connections[proto][connNum] = c
 
+				// update time_last_updated
+				y.TimeUpdated = time.Now()
+
+				// write stats entry
+				stats.Feeders[uuid] = y
+
+				return
+			}
+		}
+	}
 }
 
 func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
@@ -106,8 +115,10 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	_, ok := stats.Feeders[uuid]
 	if !ok {
 		stats.Feeders[uuid] = FeederStats{
-			Connections: make(map[uint]Connection),
+			Connections: make(map[string]map[uint]Connection),
 		}
+		stats.Feeders[uuid].Connections["BEAST"] = make(map[uint]Connection)
+		stats.Feeders[uuid].Connections["MLAT"] = make(map[uint]Connection)
 	}
 }
 
@@ -122,7 +133,7 @@ func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon
 	// copy stats entry
 	y := stats.Feeders[uuid]
 
-	// update time_last_updated
+	// update label, lat, lon and time last updated
 	y.Label = label
 	y.Lat = lat
 	y.Lon = lon
@@ -143,13 +154,23 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 	// copy stats entry
 	y := stats.Feeders[uuid]
 
-	// delete connection
-	delete(y.Connections, connNum)
+	// find connection to update
+	for proto, p := range y.Connections {
+		for cn, _ := range p {
+			if cn == connNum {
 
-	y.TimeUpdated = time.Now()
+				// delete the connection
+				delete(y.Connections[proto], connNum)
 
-	// write stats entry
-	stats.Feeders[uuid] = y
+				// update time last updated
+				y.TimeUpdated = time.Now()
+
+				// write stats entry
+				stats.Feeders[uuid] = y
+
+			}
+		}
+	}
 }
 
 func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {
@@ -165,14 +186,13 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	// add connection
 	c := Connection{
-		Proto:         strings.ToUpper(proto),
 		Src:           src,
 		Dst:           dst,
 		TimeConnected: time.Now(),
 		BytesIn:       0,
 		BytesOut:      0,
 	}
-	y.Connections[connNum] = c
+	y.Connections[strings.ToUpper(proto)][connNum] = c
 	y.TimeUpdated = time.Now()
 
 	// write stats entry
@@ -212,8 +232,8 @@ func statsEvictor() {
 					toEvict = append(toEvict, u)
 				}
 			} else {
-				for _, c := range stats.Feeders[u].Connections {
-					switch c.Proto {
+				for p, _ := range stats.Feeders[u].Connections {
+					switch p {
 					case "BEAST":
 						activeBeast++
 					case "MLAT":
