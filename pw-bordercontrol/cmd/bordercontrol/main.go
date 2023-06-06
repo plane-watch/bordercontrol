@@ -25,6 +25,15 @@ const (
 	// standardise the protocol name strings
 	protoMLAT  = "MLAT"
 	protoBeast = "BEAST"
+
+	banner = `
+	 _                   _                          _             _
+	| |__   ___  _ __ __| | ___ _ __ ___ ___  _ __ | |_ _ __ ___ | |
+	| '_ \ / _ \| '__/ _' |/ _ \ '__/ __/ _ \| '_ \| __| '__/ _ \| |
+	| |_) | (_) | | | (_| |  __/ | | (_| (_) | | | | |_| | | (_) | |
+	|_.__/ \___/|_|  \__,_|\___|_|  \___\___/|_| |_|\__|_|  \___/|_|
+	
+	`
 )
 
 func main() {
@@ -115,6 +124,9 @@ func main() {
 }
 
 func runServer(ctx *cli.Context) error {
+
+	// show banner
+	log.Info().Msg(banner)
 
 	// set up TLS
 	// load SSL cert/key
