@@ -14,7 +14,10 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var feedInImage string
+var (
+	feedInImage string
+	tlsConfig   tls.Config
+)
 
 func main() {
 
@@ -105,6 +108,14 @@ func main() {
 
 func runServer(ctx *cli.Context) error {
 
+	// set up TLS
+	// load SSL cert/key
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
+	}
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
 	// start statistics manager
 	log.Info().Msg("starting statsManager")
 	go statsManager()
@@ -144,14 +155,6 @@ func runServer(ctx *cli.Context) error {
 func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest, connNum *connectionNumber) {
 	// BEAST listener
 
-	// load SSL cert/key
-	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "BEAST")
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
-	}
-	tlsConfig := tls.Config{}
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
 	// start TLS server
 	log.Info().Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).Msg("starting BEAST listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
@@ -175,14 +178,6 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 
 func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, connNum *connectionNumber) {
 	// MLAT listener
-
-	// load SSL cert/key
-	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "MLAT")
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
-	}
-	tlsConfig := tls.Config{}
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start TLS server
 	log.Info().Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).Msg("starting MLAT listener")
