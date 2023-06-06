@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -266,6 +267,6 @@ var (
 					d = b.Leaf.NotAfter
 				}
 			}
-			return float64(d.Sub(time.Now()).Hours())
+			return float64(math.Round(d.Sub(time.Now()).Hours()))
 		})
 )
