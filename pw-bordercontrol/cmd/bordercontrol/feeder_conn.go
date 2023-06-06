@@ -27,6 +27,10 @@ type (
 )
 
 const (
+	maxConnectionsPerProto = 2
+)
+
+const (
 	stateBeastNotAuthenticated stateBeast = iota
 	stateBeastAuthenticated
 	stateBeastFeedInContainerConnected
@@ -140,10 +144,10 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 
 func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config, connNum uint) {
 	// handles incoming MLAT connections
-	// TODO: need a way to deal with multiple connections from a single feeder.
-	//    - Possibly look at capping this at two connections?
 
 	cLog := log.With().Str("listener", "MLAT").Uint("conn#", connNum).Logger()
+
+	defer clientConn.Close()
 
 	var (
 		connectionState    = stateMLATNotAuthenticated
@@ -186,6 +190,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			connectionState = stateMLATAuthenticated
 			lastAuthCheck = time.Now()
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
+
+			// check number of connections, and drop connection if limit exceeded
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			if stats.Feeders[clientApiKey].Connections["MLAT"].ConnectionCount > maxConnectionsPerProto {
+				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections["MLAT"].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+				return
+			}
 		}
 
 		// If the client has been authenticated, then we can do stuff with the data
@@ -212,6 +224,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			} else {
 
 				// connected OK...
+				defer muxConn.Close()
 
 				// attempt to set tcp keepalive with 1 sec interval
 				err := muxConn.SetKeepAlive(true)
@@ -326,18 +339,15 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 		wg.Wait()
 
-		defer muxConn.Close()
-		defer clientConn.Close()
-
 	}
 }
 
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
 	// handles incoming BEAST connections
-	// TODO: need a way to deal with multiple connections from a single feeder.
-	//    - Possibly look at capping this at two connections?
 
 	cLog := log.With().Str("listener", "BEAST").Uint("conn#", connNum).Logger()
+
+	defer connIn.Close()
 
 	var (
 		connectionState    = stateBeastNotAuthenticated
@@ -349,8 +359,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		mux, label         string
 		lastAuthCheck      time.Time
 	)
-
-	defer connIn.Close()
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
@@ -379,6 +387,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			// update state and log
 			connectionState = stateBeastAuthenticated
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
+
+			// check number of connections, and drop connection if limit exceeded
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			if stats.Feeders[clientApiKey].Connections["BEAST"].ConnectionCount > maxConnectionsPerProto {
+				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections["BEAST"].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+				return
+			}
 
 			// start the container
 			// used a chan here so it blocks while waiting for the request to be popped off the chan

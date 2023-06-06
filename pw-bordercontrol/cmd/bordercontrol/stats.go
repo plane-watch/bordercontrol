@@ -72,20 +72,6 @@ var (
 	matchUUID            *regexp.Regexp // regex to match UUID
 )
 
-func getNumConnsByProto(proto string) float64 {
-
-	numConns := float64(0)
-
-	// make proto uppercase
-	proto = strings.ToUpper(proto)
-
-	// count connections
-	for u, _ := range stats.Feeders {
-		numConns += float64(stats.Feeders[u].Connections[proto].ConnectionCount)
-	}
-	return numConns
-}
-
 func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
 	// increment byte counters of a feeder
 	//   - sets time_last_updated to now
