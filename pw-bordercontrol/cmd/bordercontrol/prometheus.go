@@ -10,13 +10,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+const (
+	promNamespace = "pw"
+	promSubsystem = "bordercontrol"
+)
+
 // FYI - Prometheus HTTP handler started via statsManager() in stats.go
 
 // prometheus metrics
 var (
 	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pw",
-		Subsystem: "bordercontrol",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
 		Name:      "total_connections_beast",
 		Help:      "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
 	},
@@ -31,8 +36,10 @@ var (
 		})
 
 	promTotalConnectionsMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_total_connections_mlat",
-		Help: "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "total_connections_mlat",
+		Help:      "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -45,8 +52,10 @@ var (
 		})
 
 	promTotalFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_total_feeders",
-		Help: "The total number of feeders configured in ATC (active and inactive).",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "total_feeders",
+		Help:      "The total number of feeders configured in ATC (active and inactive).",
 	},
 		func() float64 {
 			validFeeders.mu.RLock()
@@ -55,8 +64,10 @@ var (
 		})
 
 	promActiveFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_active_feeders",
-		Help: "The total number of feeders with an active connection to this instance of bordercontrol.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "active_feeders",
+		Help:      "The total number of feeders with an active connection to this instance of bordercontrol.",
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -74,8 +85,10 @@ var (
 		})
 
 	promActiveFeedersBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_active_feeders_beast",
-		Help: "The total number of feeders with an active BEAST protocol connection to this instance of bordercontrol.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "active_feeders_beast",
+		Help:      "The total number of feeders with an active BEAST protocol connection to this instance of bordercontrol.",
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -90,8 +103,10 @@ var (
 		})
 
 	promActiveFeedersMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_active_feeders_mlat",
-		Help: "The total number of feeders with an active MLAT protocol connection to this instance of bordercontrol.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "active_feeders_mlat",
+		Help:      "The total number of feeders with an active MLAT protocol connection to this instance of bordercontrol.",
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -106,8 +121,10 @@ var (
 		})
 
 	promFeederContainersImageCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_feeder_containers_image_current",
-		Help: "The number of feed-in-* containers running on this host that are using the latest feed-in image.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "feeder_containers_image_current",
+		Help:      "The number of feed-in-* containers running on this host that are using the latest feed-in image.",
 	},
 		func() float64 {
 			n := float64(0)
@@ -143,8 +160,10 @@ var (
 		})
 
 	promFeederContainersImageNotCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_feeder_containers_image_not_current",
-		Help: "The number of feed-in-* containers running on this host that are using an out of date feed-in image and require upgrading.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "feeder_containers_image_not_current",
+		Help:      "The number of feed-in-* containers running on this host that are using an out of date feed-in image and require upgrading.",
 	},
 		func() float64 {
 			n := float64(0)
@@ -180,8 +199,10 @@ var (
 		})
 
 	promBytesInBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Name: "pw_bordercontrol_bytes_in_beast",
-		Help: "Bytes received (in) via BEAST protocol connections.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "bytes_in_beast",
+		Help:      "Bytes received (in) via BEAST protocol connections.",
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -198,8 +219,10 @@ var (
 		})
 
 	promBytesOutBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Name: "pw_bordercontrol_bytes_out_beast",
-		Help: "Bytes sent (out) via BEAST protocol connections. Should be 0 as BEAST is one-way.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "bytes_out_beast",
+		Help:      "Bytes sent (out) via BEAST protocol connections. Should be 0 as BEAST is one-way.",
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -216,8 +239,10 @@ var (
 		})
 
 	promBytesInMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Name: "pw_bordercontrol_bytes_in_mlat",
-		Help: "Bytes received (in) via MLAT protocol connections.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "bytes_in_mlat",
+		Help:      "Bytes received (in) via MLAT protocol connections.",
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -234,8 +259,10 @@ var (
 		})
 
 	promBytesOutMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Name: "pw_bordercontrol_bytes_out_mlat",
-		Help: "Bytes sent (out) via MLAT protocol connections.",
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "bytes_out_mlat",
+		Help:      "Bytes sent (out) via MLAT protocol connections.",
 	},
 		func() float64 {
 			stats.mu.RLock()
