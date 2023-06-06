@@ -37,7 +37,9 @@ type FeederStats struct {
 	Lon   float64 // feeder lon
 
 	// Connection details
-	Connections map[string]map[uint]Connection // key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
+	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
+	// uint key = connection number within bordercontrol
+	Connections map[string]map[uint]Connection
 
 	TimeUpdated time.Time // time these stats were updated
 }
