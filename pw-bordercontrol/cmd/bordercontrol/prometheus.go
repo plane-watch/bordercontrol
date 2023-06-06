@@ -255,9 +255,14 @@ var (
 		Help: "The number of hours until the TLS certificate expires",
 	},
 		func() float64 {
-			var d time.Time
+			d := time.Now()
 			for _, b := range tlsConfig.Certificates {
 				if b.Leaf.NotAfter.After(d) {
+					d = b.Leaf.NotAfter
+				}
+			}
+			for _, b := range tlsConfig.Certificates {
+				if b.Leaf.NotAfter.Before(d) {
 					d = b.Leaf.NotAfter
 				}
 			}
