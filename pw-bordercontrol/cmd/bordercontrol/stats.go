@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/rs/zerolog/log"
 )
@@ -63,13 +66,55 @@ type APIResponse struct {
 	Data interface{}
 }
 
-// variable for stats
 var (
 	stats Statistics // feeder statistics
 
 	matchUrlSingleFeeder *regexp.Regexp // regex to match api request for single feeder stats
 	matchUUID            *regexp.Regexp // regex to match UUID
+
+	// prometheus metrics
+	totalConnectionsBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "total_connections_beast",
+		Help: "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
+	},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			numConns := float64(0)
+			for u, _ := range stats.Feeders {
+				numConns += float64(stats.Feeders[u].Connections["BEAST"].ConnectionCount)
+			}
+			return numConns
+		})
+
+	totalConnectionsMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "total_connections_MLAT",
+		Help: "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
+	},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			numConns := float64(0)
+			for u, _ := range stats.Feeders {
+				numConns += float64(stats.Feeders[u].Connections["MLAT"].ConnectionCount)
+			}
+			return numConns
+		})
 )
+
+func getNumConnsByProto(proto string) float64 {
+
+	numConns := float64(0)
+
+	// make proto uppercase
+	proto = strings.ToUpper(proto)
+
+	// count connections
+	for u, _ := range stats.Feeders {
+		numConns += float64(stats.Feeders[u].Connections[proto].ConnectionCount)
+	}
+	return numConns
+}
 
 func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
 	// increment byte counters of a feeder
@@ -373,6 +418,9 @@ func statsManager() {
 	http.HandleFunc("/", httpRenderStats)
 	http.HandleFunc("/api/v1/feeder/", apiReturnSingleFeeder)
 	http.HandleFunc("/api/v1/feeders/", apiReturnAllFeeders)
+
+	// prometheus endpoint
+	http.Handle("/metrics", promhttp.Handler())
 
 	// start stats http server
 	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
