@@ -15,7 +15,7 @@ import (
 // prometheus metrics
 var (
 	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_total_connections_beast",
+		Name: "pw_bordercontrol_total_connections_beast",
 		Help: "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -29,7 +29,7 @@ var (
 		})
 
 	promTotalConnectionsMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_total_connections_mlat",
+		Name: "pw_bordercontrol_total_connections_mlat",
 		Help: "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -43,7 +43,7 @@ var (
 		})
 
 	promTotalFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_total_feeders",
+		Name: "pw_bordercontrol_total_feeders",
 		Help: "The total number of feeders configured in ATC (active and inactive).",
 	},
 		func() float64 {
@@ -53,7 +53,7 @@ var (
 		})
 
 	promActiveFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_active_feeders",
+		Name: "pw_bordercontrol_active_feeders",
 		Help: "The total number of feeders with an active connection to this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -72,7 +72,7 @@ var (
 		})
 
 	promActiveFeedersBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_active_feeders_beast",
+		Name: "pw_bordercontrol_active_feeders_beast",
 		Help: "The total number of feeders with an active BEAST protocol connection to this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -88,7 +88,7 @@ var (
 		})
 
 	promActiveFeedersMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_active_feeders_mlat",
+		Name: "pw_bordercontrol_active_feeders_mlat",
 		Help: "The total number of feeders with an active MLAT protocol connection to this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -104,7 +104,7 @@ var (
 		})
 
 	promFeederContainersImageCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_feeder_containers_image_current",
+		Name: "pw_bordercontrol_feeder_containers_image_current",
 		Help: "The number of feed-in-* containers running on this host that are using the latest feed-in image.",
 	},
 		func() float64 {
@@ -141,7 +141,7 @@ var (
 		})
 
 	promFeederContainersImageNotCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "bordercontrol_feeder_containers_image_not_current",
+		Name: "pw_bordercontrol_feeder_containers_image_not_current",
 		Help: "The number of feed-in-* containers running on this host that are using an out of date feed-in image and require upgrading.",
 	},
 		func() float64 {
