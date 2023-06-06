@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -115,6 +116,10 @@ func runServer(ctx *cli.Context) error {
 		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
 	}
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	for _, b := range tlsConfig.Certificates {
+		fmt.Println(b.Leaf.NotAfter)
+	}
 
 	// start statistics manager
 	log.Info().Msg("starting statsManager")
