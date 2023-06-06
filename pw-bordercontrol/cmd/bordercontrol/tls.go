@@ -6,12 +6,9 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/rs/zerolog/log"
 )
-
-var certExpiryDate time.Time
 
 // struct for SSL cert/key (+ mutex for sync)
 type keypairReloader struct {
@@ -33,7 +30,6 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		return nil, err
 	}
 	result.cert = &cert
-	certExpiryDate = cert.Leaf.NotAfter
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGHUP)
@@ -56,7 +52,6 @@ func (kpr *keypairReloader) maybeReload() error {
 	kpr.certMu.Lock()
 	defer kpr.certMu.Unlock()
 	kpr.cert = &newCert
-	certExpiryDate = newCert.Leaf.NotAfter
 	return nil
 }
 

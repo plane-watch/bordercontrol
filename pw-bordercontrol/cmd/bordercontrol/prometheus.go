@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -255,6 +255,9 @@ var (
 		Help: "The number of hours until the bordercontrol TLS certificate expires",
 	},
 		func() float64 {
-			return certExpiryDate.Sub(time.Now()).Hours()
+			for _, c := range tlsConfig.Certificates {
+				fmt.Println(c)
+			}
+			return 0
 		})
 )
