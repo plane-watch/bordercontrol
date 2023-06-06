@@ -213,6 +213,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	if len(y.Connections[proto].ConnectionDetails) > 0 {
 		pd := y.Connections[proto]
 		pd.Status = true
+		pd.MostRecentConnection = c.TimeConnected
 		y.Connections[proto] = pd
 	}
 
