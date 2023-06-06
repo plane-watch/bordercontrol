@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -109,7 +108,6 @@ func main() {
 	// get version from git info
 	var commithash = func() string {
 		if info, ok := debug.ReadBuildInfo(); ok {
-			fmt.Println(info)
 			for _, setting := range info.Settings {
 				if setting.Key == "vcs.revision" {
 					return setting.Value
