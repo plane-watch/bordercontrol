@@ -116,7 +116,11 @@ func main() {
 		}
 		return ""
 	}()
-	app.Version = commithash[:7]
+	if len(commithash) < 7 {
+		app.Version = "dev"
+	} else {
+		app.Version = commithash[:7]
+	}
 
 	app.Before = func(c *cli.Context) error {
 		// Set logging level
