@@ -15,8 +15,10 @@ import (
 // prometheus metrics
 var (
 	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "pw_bordercontrol_total_connections_beast",
-		Help: "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
+		Namespace: "pw",
+		Subsystem: "bordercontrol",
+		Name:      "total_connections_beast",
+		Help:      "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
 			stats.mu.RLock()
