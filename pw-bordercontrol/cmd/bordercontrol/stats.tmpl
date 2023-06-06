@@ -12,6 +12,7 @@ table, th, td {
 <table style="width:100%">
     <tr>
         <th>Feeder</th>
+        <th>UUID</th>
         <th>Proto</th>
         <th>Conn #</th>
         <th>Src</th>
@@ -20,21 +21,18 @@ table, th, td {
         <th>Connection Time</th>
     </tr>
 {{range $index, $element := .}}
-    {{ $firstRow := true }}
-    <tr>
-        <td rowspan="{{ len .Connections }}">
-			{{.Label}}</br>UUID: {{$index}}</br>{{.Lat}} {{.Lon}}
-		</td>
 	{{range $pindex, $pelement := .Connections}}
-		{{ if $firstRow }}{{ else }}<tr>{{ $firstRow = false }}{{ end }}
         {{range $cindex, $celement := $pelement}}
-            <td>{{ $pindex }}</td>
-            <td>{{ $cindex }}</td>
-            <td>{{ $celement.Src }}</td>
-            <td>{{ $celement.Dst }}</td>
-            <td>{{ $celement.BytesIn }} / {{ $celement.BytesOut }}</td>
-            <td>{{ $celement.TimeConnected }}</td>
+            <tr>
+                <td>{{ .Label }}</td>
+                <td>{{ $index }}</td>
+                <td>{{ $pindex }}</td>
+                <td>{{ $cindex }}</td>
+                <td>{{ $celement.Src }}</td>
+                <td>{{ $celement.Dst }}</td>
+                <td>{{ $celement.BytesIn }} / {{ $celement.BytesOut }}</td>
+                <td>{{ $celement.TimeConnected }}</td>
+            </tr>
         {{end}}
-        </tr>
 	{{end}}
 {{end}}
