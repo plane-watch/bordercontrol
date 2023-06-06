@@ -186,9 +186,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				break
 			}
 
-			// update state and log
-			connectionState = stateMLATAuthenticated
-			lastAuthCheck = time.Now()
+			// update logger
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// check number of connections, and drop connection if limit exceeded
@@ -196,8 +194,12 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			defer stats.mu.RUnlock()
 			if stats.Feeders[clientApiKey].Connections["MLAT"].ConnectionCount > maxConnectionsPerProto {
 				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections["MLAT"].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
-				return
+				break
 			}
+
+			// update state
+			connectionState = stateMLATAuthenticated
+			lastAuthCheck = time.Now()
 		}
 
 		// If the client has been authenticated, then we can do stuff with the data
@@ -384,8 +386,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			}
 			lastAuthCheck = time.Now()
 
-			// update state and log
-			connectionState = stateBeastAuthenticated
+			// update logger
 			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// check number of connections, and drop connection if limit exceeded
@@ -393,7 +394,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			defer stats.mu.RUnlock()
 			if stats.Feeders[clientApiKey].Connections["BEAST"].ConnectionCount > maxConnectionsPerProto {
 				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections["BEAST"].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
-				return
+				break
 			}
 
 			// start the container
@@ -409,6 +410,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 			// wait for container start
 			time.Sleep(5 * time.Second)
+
+			// update state
+			connectionState = stateBeastAuthenticated
 		}
 
 		// If the client has been authenticated, then we can do stuff with the data
