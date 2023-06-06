@@ -14,6 +14,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var feedInImage string
+
 func main() {
 
 	app := &cli.App{
@@ -83,9 +85,13 @@ func main() {
 	logging.IncludeVerbosityFlags(app)
 	logging.ConfigureForCli()
 
-	// Set logging level
 	app.Before = func(c *cli.Context) error {
+		// Set logging level
 		logging.SetLoggingLevel(c)
+
+		// set global var containing feed-in image name
+		feedInImage = c.String("feedinimage")
+
 		return nil
 	}
 

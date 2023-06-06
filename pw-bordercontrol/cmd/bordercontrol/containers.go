@@ -175,7 +175,6 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 			// logging
 			cLog.Info().Str("container_id", resp.ID).Msg("started feed-in container")
-
 		}
 	}
 }

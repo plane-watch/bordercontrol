@@ -1,6 +1,11 @@
 package main
 
 import (
+	"context"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -94,6 +99,80 @@ var (
 				if stats.Feeders[u].Connections["MLAT"].Status == true {
 					n++
 				}
+			}
+			return n
+		})
+
+	promFeederContainersImageCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "bordercontrol_feeder_containers_image_current",
+		Help: "The number of feed-in-* containers running on this host that are using the latest feed-in image.",
+	},
+		func() float64 {
+			n := float64(0)
+
+			// set up docker client
+			dockerCtx := context.Background()
+			cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			if err != nil {
+				panic(err)
+			}
+			defer cli.Close()
+
+			// prepare filter to find feed-in containers
+			filters := filters.NewArgs()
+			filters.Add("name", "feed-in-*")
+
+			// find containers
+			containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
+			if err != nil {
+				panic(err)
+			}
+
+			// for each container...
+			for _, container := range containers {
+
+				// check containers are running latest feed-in image
+				if container.Image == feedInImage {
+					n++
+				}
+
+			}
+			return n
+		})
+
+	promFeederContainersImageNotCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "bordercontrol_feeder_containers_image_not_current",
+		Help: "The number of feed-in-* containers running on this host that are using an out of date feed-in image and require upgrading.",
+	},
+		func() float64 {
+			n := float64(0)
+
+			// set up docker client
+			dockerCtx := context.Background()
+			cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			if err != nil {
+				panic(err)
+			}
+			defer cli.Close()
+
+			// prepare filter to find feed-in containers
+			filters := filters.NewArgs()
+			filters.Add("name", "feed-in-*")
+
+			// find containers
+			containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
+			if err != nil {
+				panic(err)
+			}
+
+			// for each container...
+			for _, container := range containers {
+
+				// check containers are running latest feed-in image
+				if container.Image != feedInImage {
+					n++
+				}
+
 			}
 			return n
 		})
