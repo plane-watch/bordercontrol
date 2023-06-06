@@ -34,8 +34,8 @@ type FeederStats struct {
 	Connections map[string]map[uint]Connection
 
 	// Protocol connection booleans
-	connectedBEAST bool
-	connectedMLAT  bool
+	ConnectedBEAST bool
+	ConnectedMLAT  bool
 
 	TimeUpdated time.Time // time these stats were updated
 }
@@ -163,9 +163,9 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 				if len(y.Connections[proto]) == 0 {
 					switch proto {
 					case "BEAST":
-						y.connectedBEAST = false
+						y.ConnectedBEAST = false
 					case "MLAT":
-						y.connectedMLAT = false
+						y.ConnectedMLAT = false
 					default:
 						panic("unsupported protocol!")
 					}
@@ -210,9 +210,9 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	if len(y.Connections[proto]) > 0 {
 		switch proto {
 		case "BEAST":
-			y.connectedBEAST = true
+			y.ConnectedBEAST = true
 		case "MLAT":
-			y.connectedMLAT = true
+			y.ConnectedMLAT = true
 		default:
 			panic("unsupported protocol!")
 		}
