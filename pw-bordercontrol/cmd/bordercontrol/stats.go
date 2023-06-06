@@ -326,6 +326,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
 		// look up feeder by uuid
 		stats.mu.RLock()
+		defer stats.mu.RUnlock()
 		val, ok := stats.Feeders[clientApiKey]
 		if !ok {
 			log.Error().Any("resp", resp).Msg("feeder not found")
@@ -334,7 +335,6 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		} else {
 			resp.Data = val
 		}
-		stats.mu.RUnlock()
 
 		// prepare response
 		output, err := json.Marshal(resp)
