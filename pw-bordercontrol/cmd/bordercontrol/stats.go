@@ -310,15 +310,15 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 			case ' ':
 				out = fmt.Sprintf("%d", n)
 			case 'K':
-				out = fmt.Sprintf("%.1fK", float32(n)/1024.0)
+				out = fmt.Sprintf("%.1fKi", float32(n)/1024.0)
 			case 'M':
-				out = fmt.Sprintf("%.2fM", float32(n)/1024.0/1024.0)
+				out = fmt.Sprintf("%.2fMi", float32(n)/1024.0/1024.0)
 			case 'G':
-				out = fmt.Sprintf("%.3fG", float32(n)/1024.0/1024.0/1024.0)
+				out = fmt.Sprintf("%.3fGi", float32(n)/1024.0/1024.0/1024.0)
 			case 'T':
-				out = fmt.Sprintf("%.4fT", float32(n)/1024.0/1024.0/1024.0/1024.0)
+				out = fmt.Sprintf("%.4fTi", float32(n)/1024.0/1024.0/1024.0/1024.0)
 			case 'P':
-				out = fmt.Sprintf("%.5fP", float32(n)/1024.0/1024.0/1024.0/1024.0/1024.0)
+				out = fmt.Sprintf("%.5fPi", float32(n)/1024.0/1024.0/1024.0/1024.0/1024.0)
 			}
 
 			return out
