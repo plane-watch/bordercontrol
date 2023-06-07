@@ -66,27 +66,27 @@ var (
 			return float64(len(validFeeders.Feeders))
 		})
 
-	promActiveFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace:   promNamespace,
-		Subsystem:   promSubsystem,
-		Name:        "feeders_active",
-		Help:        "The total number of feeders with an active connection to this instance of bordercontrol.",
-		ConstLabels: prometheus.Labels{"protocol": "any"},
-	},
-		func() float64 {
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			n := float64(0)
-			for u := range stats.Feeders {
-				for p := range stats.Feeders[u].Connections {
-					if stats.Feeders[u].Connections[p].Status == true {
-						n++
-						break
-					}
-				}
-			}
-			return n
-		})
+	// promActiveFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	// 	Namespace:   promNamespace,
+	// 	Subsystem:   promSubsystem,
+	// 	Name:        "feeders_active",
+	// 	Help:        "The total number of feeders with an active connection to this instance of bordercontrol.",
+	// 	ConstLabels: prometheus.Labels{"protocol": "any"},
+	// },
+	// 	func() float64 {
+	// 		stats.mu.RLock()
+	// 		defer stats.mu.RUnlock()
+	// 		n := float64(0)
+	// 		for u := range stats.Feeders {
+	// 			for p := range stats.Feeders[u].Connections {
+	// 				if stats.Feeders[u].Connections[p].Status == true {
+	// 					n++
+	// 					break
+	// 				}
+	// 			}
+	// 		}
+	// 		return n
+	// 	})
 
 	promActiveFeedersBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
