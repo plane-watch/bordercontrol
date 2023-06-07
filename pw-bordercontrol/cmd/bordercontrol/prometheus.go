@@ -16,9 +16,11 @@ const (
 	promSubsystem = "bordercontrol"
 )
 
-// FYI - Prometheus HTTP handler started via statsManager() in stats.go
+// FYI
+//  - Prometheus HTTP handler started via statsManager() in stats.go
+//  - per-feeder metrics are registered in addConnection() in stats.go
+//  - per-feeder metrics are unregistered in delConnection() in stats.go
 
-// prometheus metrics
 var (
 	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
