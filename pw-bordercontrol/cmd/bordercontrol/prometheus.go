@@ -24,7 +24,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "connections_total",
-		Help:        "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
+		Help:        "The total number of active connections being handled by this instance of bordercontrol.",
 		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
@@ -41,7 +41,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "connections_total",
-		Help:        "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
+		Help:        "The total number of active connections being handled by this instance of bordercontrol.",
 		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
@@ -91,7 +91,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
-		Help:        "The total number of feeders with an active BEAST protocol connection to this instance of bordercontrol.",
+		Help:        "The total number of feeders with an active protocol connection to this instance of bordercontrol.",
 		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
@@ -110,7 +110,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
-		Help:        "The total number of feeders with an active MLAT protocol connection to this instance of bordercontrol.",
+		Help:        "The total number of feeders with an active protocol connection to this instance of bordercontrol.",
 		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
@@ -207,7 +207,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_in_bytes_total",
-		Help:        "Bytes received (in) via BEAST protocol connections.",
+		Help:        "Bytes received (in) via protocol connection.",
 		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
@@ -228,7 +228,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_out_bytes_total",
-		Help:        "Bytes sent (out) via BEAST protocol connections. Should be 0 as BEAST is one-way.",
+		Help:        "Bytes sent (out) via protocol connection.",
 		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
@@ -249,7 +249,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_in_bytes_total",
-		Help:        "Bytes received (in) via MLAT protocol connections.",
+		Help:        "Bytes received (in) via protocol connection.",
 		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
@@ -270,7 +270,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_out_bytes_total",
-		Help:        "Bytes sent (out) via MLAT protocol connections.",
+		Help:        "Bytes sent (out) via protocol connection.",
 		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
