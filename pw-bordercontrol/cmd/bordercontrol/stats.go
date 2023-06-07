@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -375,7 +374,7 @@ func statsEvictor() {
 		stats.mu.Unlock()
 
 		// log number of connections & goroutines
-		log.Info().Uint("beast", activeBeast).Uint("mlat", activeMLAT).Int("goroutines", runtime.NumGoroutine()).Msg("active connections")
+		// log.Info().Uint("beast", activeBeast).Uint("mlat", activeMLAT).Int("goroutines", runtime.NumGoroutine()).Msg("active connections")
 
 		time.Sleep(time.Minute * 1)
 	}
