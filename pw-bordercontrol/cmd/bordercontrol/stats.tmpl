@@ -1,32 +1,32 @@
 <!DOCTYPE html>
 <html>
-<head>
-<style>
-table, th, td {
-  border: 1px solid black;
-  border-collapse: collapse;
-}
-body {
-  font-family: "Lucida Console", "Courier New", monospace;
-}
-</style>
-<meta http-equiv="Refresh" content="5"> 
-</head>
-<body>
-<table style="width:100%">
-    <tr>
-        <th>Feeder</th>
-        <th>UUID</th>
-        <th>Proto</th>
-        <th>Conn #</th>
-        <th>Src</th>
-        <th>Dst</th>
-        <th colspan="2">Bytes In/Out</th>
-        <th>Connection Time</th>
-    </tr>
-{{range $index, $felement := .}}
-	{{range $pindex, $pelement := .Connections}}
-        {{range $cindex, $celement := $pelement.ConnectionDetails}}
+  <head>
+    <style>
+      table, th, td {
+      border: 1px solid black;
+      border-collapse: collapse;
+      }
+      body {
+      font-family: "Lucida Console", "Courier New", monospace;
+      }
+    </style>
+    <meta http-equiv="Refresh" content="5"> 
+  </head>
+  <body>
+    <table style="width:100%">
+      <tr>
+          <th>Feeder</th>
+          <th>UUID</th>
+          <th>Proto</th>
+          <th>Conn #</th>
+          <th>Src</th>
+          <th>Dst</th>
+          <th colspan="2">Bytes In/Out</th>
+          <th>Connection Time</th>
+      </tr>
+      {{range $index, $felement := .}}
+        {{range $pindex, $pelement := .Connections}}
+          {{range $cindex, $celement := $pelement.ConnectionDetails}}
             <tr>
                 <td>{{ $felement.Label }}</td>
                 <td>{{ $index }}</td>
@@ -38,8 +38,9 @@ body {
                 <td style="text-align: right;">{{ humanReadableDataUnits $celement.BytesOut }}</td>
                 <td>{{ $celement.TimeConnected.Format "Jan 02, 2006 15:04:05 UTC" }}</td>
             </tr>
+          {{end}}
         {{end}}
-	{{end}}
-{{end}}
-</body>
+      {{end}}
+    </table>
+  </body>
 </html>
