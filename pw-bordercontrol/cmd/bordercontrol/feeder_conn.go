@@ -87,15 +87,14 @@ func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 
 	var connCount uint
 
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	// count number of connections from this source IP
+	t.mu.RLock()
 	for _, c := range t.connections {
 		if c.srcIP.Equal(srcIP) {
 			connCount++
 		}
 	}
+	t.mu.RUnlock()
 
 	if connCount >= 2 {
 		// if connecting too frequently, raise an error
@@ -103,10 +102,12 @@ func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 
 	} else {
 		// otherwise, don't raise an error but add this connection to the tracker
+		t.mu.Lock()
 		t.connections = append(t.connections, incomingConnection{
 			srcIP:    srcIP,
 			connTime: time.Now(),
 		})
+		t.mu.Unlock()
 	}
 
 	return err
