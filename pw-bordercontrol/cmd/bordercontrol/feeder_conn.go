@@ -97,7 +97,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 		}
 	}
 
-	if connCount > 2 {
+	if connCount >= 2 {
 		// if connecting too frequently, raise an error
 		err = errors.New("more than 2 connections in a 10 second period")
 
