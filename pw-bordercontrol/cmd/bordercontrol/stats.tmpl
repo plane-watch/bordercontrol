@@ -17,7 +17,7 @@ table, th, td {
         <th>Conn #</th>
         <th>Src</th>
         <th>Dst</th>
-        <th>Bytes In/Out</th>
+        <th colspan="2">Bytes In/Out</th>
         <th>Connection Time</th>
     </tr>
 {{range $index, $felement := .}}
@@ -30,7 +30,8 @@ table, th, td {
                 <td>{{ $cindex }}</td>
                 <td>{{ $celement.Src }}</td>
                 <td>{{ $celement.Dst }}</td>
-                <td>{{ humanReadableDataUnits $celement.BytesIn }} / {{ humanReadableDataUnits $celement.BytesOut }}</td>
+                <td style="text-align: right;">{{ humanReadableDataUnits $celement.BytesIn }}</td>
+                <td style="text-align: right;">{{ humanReadableDataUnits $celement.BytesOut }}</td>
                 <td>{{ $celement.TimeConnected.Format "Jan 02, 2006 15:04:05 UTC" }}</td>
             </tr>
         {{end}}
