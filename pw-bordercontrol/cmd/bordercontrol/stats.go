@@ -178,6 +178,10 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 		for cn, _ := range p.ConnectionDetails {
 			if cn == connNum {
 
+				// unregister prom metrics
+				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
+				_ = prometheus.Register(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
+
 				// delete the connection
 				delete(y.Connections[proto].ConnectionDetails, connNum)
 
@@ -239,6 +243,14 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Name:        "feeder_data_out_bytes",
 		Help:        "Per-feeder bytes sent (out)",
 		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "conn#": fmt.Sprintf("%d", connNum)}})
+	err := prometheus.Register(c.promMetricBytesIn)
+	if err != nil {
+		log.Err(err).Msg("could not register per-feeder prometheus bytes in metric")
+	}
+	err = prometheus.Register(c.promMetricBytesOut)
+	if err != nil {
+		log.Err(err).Msg("could not register per-feeder prometheus bytes out metric")
+	}
 
 	y.Connections[proto].ConnectionDetails[connNum] = c
 
