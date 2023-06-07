@@ -180,7 +180,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 
 				// unregister prom metrics
 				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
-				_ = prometheus.Register(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
+				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
 
 				// delete the connection
 				delete(y.Connections[proto].ConnectionDetails, connNum)
