@@ -30,7 +30,7 @@ table, th, td {
                 <td>{{ $cindex }}</td>
                 <td>{{ $celement.Src }}</td>
                 <td>{{ $celement.Dst }}</td>
-                <td>{{ $celement.BytesIn }} / {{ $celement.BytesOut }}</td>
+                <td>{{ humanReadableDataUnits $celement.BytesIn }} / {{ humanReadableDataUnits $celement.BytesOut }}</td>
                 <td>{{ $celement.TimeConnected.Format "Jan 02, 2006 15:04:05 UTC" }}</td>
             </tr>
         {{end}}

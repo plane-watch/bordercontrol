@@ -238,8 +238,47 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
+	// Template helper functions
+	funcMap := template.FuncMap{
+		// human readable data units
+		"humanReadableDataUnits": func(n uint64) string {
+			prefix := ""
+
+			if n > 1024 {
+				prefix = "K"
+			}
+			if n > 1048576 {
+				prefix = "M"
+			}
+			if n > 1073741824 {
+				prefix = "G"
+			}
+			if n > 1099511627776 {
+				prefix = "T"
+			}
+			if n > 1125899906842624 {
+				prefix = "P"
+			}
+
+			switch prefix {
+			case "":
+			case "K":
+				n = n / 1024
+			case "M":
+				n = n / 1024 / 1024
+			case "G":
+				n = n / 1024 / 1024 / 1024
+			case "T":
+				n = n / 1024 / 1024 / 1024 / 1024
+			case "P":
+				n = n / 1024 / 1024 / 1024 / 1024 / 1024
+			}
+			return fmt.Sprintf("%d%s", n, prefix)
+		},
+	}
+
 	// Make and parse the HTML template
-	t, err := template.New("stats").Parse(statsTemplate)
+	t, err := template.New("stats").Funcs(funcMap).Parse(statsTemplate)
 	if err != nil {
 		log.Panic().AnErr("err", err).Str("api", "httpRenderStats").Str("reqURI", r.RequestURI).Msg("could not render statsTemplate")
 	}
