@@ -319,7 +319,7 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 			case "P":
 				f = float32(n / 1024.0 / 1024.0 / 1024.0 / 1024.0 / 1024.0)
 			}
-			return fmt.Sprintf("%f.2%s", f, prefix)
+			return fmt.Sprintf("%.2f%s", f, prefix)
 		},
 	}
 
