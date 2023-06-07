@@ -232,17 +232,27 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	// define per-feeder prometheus metrics
 	c.promMetricBytesIn = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace:   promNamespace,
-		Subsystem:   promSubsystem,
-		Name:        "feeder_data_in_bytes",
-		Help:        "Per-feeder bytes received (in)",
-		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "connection_num": fmt.Sprintf("%d", connNum)}})
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "feeder_data_in_bytes",
+		Help:      "Per-feeder bytes received (in)",
+		ConstLabels: prometheus.Labels{
+			"protocol":       strings.ToLower(proto),
+			"uuid":           uuid.String(),
+			"connection_num": fmt.Sprintf("%d", connNum),
+			"label":          y.Label,
+		}})
 	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace:   promNamespace,
-		Subsystem:   promSubsystem,
-		Name:        "feeder_data_out_bytes",
-		Help:        "Per-feeder bytes sent (out)",
-		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "connection_num": fmt.Sprintf("%d", connNum)}})
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "feeder_data_out_bytes",
+		Help:      "Per-feeder bytes sent (out)",
+		ConstLabels: prometheus.Labels{
+			"protocol":       strings.ToLower(proto),
+			"uuid":           uuid.String(),
+			"connection_num": fmt.Sprintf("%d", connNum),
+			"label":          y.Label,
+		}})
 	err := prometheus.Register(c.promMetricBytesIn)
 	if err != nil {
 		log.Err(err).Msg("could not register per-feeder prometheus bytes in metric")
