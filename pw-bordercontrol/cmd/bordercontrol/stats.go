@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/rs/zerolog/log"
@@ -47,11 +48,13 @@ type ProtocolDetail struct {
 }
 
 type ConnectionDetail struct {
-	Src           net.Addr  // source ip:port of incoming connection
-	Dst           net.Addr  // destination ip:port of outgoing connection
-	TimeConnected time.Time // time connection was established
-	BytesIn       uint64    // bytes received from feeder client
-	BytesOut      uint64    // bytes sent to feeder client
+	Src                net.Addr               // source ip:port of incoming connection
+	Dst                net.Addr               // destination ip:port of outgoing connection
+	TimeConnected      time.Time              // time connection was established
+	BytesIn            uint64                 // bytes received from feeder client
+	BytesOut           uint64                 // bytes sent to feeder client
+	promMetricBytesIn  prometheus.CounterFunc // holds the prometheus counter function for bytes in
+	promMetricBytesOut prometheus.CounterFunc // holds the prometheus counter function for bytes out
 }
 
 // struct for list of feeder stats (+ mutex for sync)
@@ -219,6 +222,31 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		BytesIn:       0,
 		BytesOut:      0,
 	}
+
+	// define per-feeder prometheus metrics
+	c.promMetricBytesIn = prometheus.NewCounterFunc(prometheus.CounterOpts{
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "feeder_data_in_bytes",
+		Help:        "Per-feeder bytes received (in)",
+		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "conn#": fmt.Sprintf("%d", connNum)}},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			return float64(c.BytesIn)
+		})
+	c.promMetricBytesOut = prometheus.NewCounterFunc(prometheus.CounterOpts{
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "feeder_data_out_bytes",
+		Help:        "Per-feeder bytes sent (out)",
+		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "conn#": fmt.Sprintf("%d", connNum)}},
+		func() float64 {
+			stats.mu.RLock()
+			defer stats.mu.RUnlock()
+			return float64(c.BytesOut)
+		})
+
 	y.Connections[proto].ConnectionDetails[connNum] = c
 
 	// update connection state
@@ -234,6 +262,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	// write stats entry
 	stats.Feeders[uuid] = y
+
 }
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {

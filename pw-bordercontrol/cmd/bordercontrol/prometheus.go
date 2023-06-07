@@ -37,7 +37,7 @@ var (
 			return n
 		})
 
-	promTotalConnectionsMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "connections",
@@ -54,7 +54,7 @@ var (
 			return n
 		})
 
-	promTotalFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
 		Name:      "feeders",
@@ -88,7 +88,7 @@ var (
 	// 		return n
 	// 	})
 
-	promActiveFeedersBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
@@ -107,7 +107,7 @@ var (
 			return n
 		})
 
-	promActiveFeedersMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
@@ -126,10 +126,10 @@ var (
 			return n
 		})
 
-	promFeederContainersImageCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "feeder_containers_image_current",
+		Name:      "feedercontainers_image_current",
 		Help:      "The number of feed-in-* containers running on this host that are using the latest feed-in image.",
 	},
 		func() float64 {
@@ -165,10 +165,10 @@ var (
 			return n
 		})
 
-	promFeederContainersImageNotCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "feeder_containers_image_not_current",
+		Name:      "feedercontainers_image_not_current",
 		Help:      "The number of feed-in-* containers running on this host that are using an out of date feed-in image and require upgrading.",
 	},
 		func() float64 {
@@ -204,7 +204,7 @@ var (
 			return n
 		})
 
-	promBytesInBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
+	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_in_bytes_total",
@@ -225,7 +225,7 @@ var (
 			return n
 		})
 
-	promBytesOutBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
+	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_out_bytes_total",
@@ -246,7 +246,7 @@ var (
 			return n
 		})
 
-	promBytesInMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
+	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_in_bytes_total",
@@ -267,7 +267,7 @@ var (
 			return n
 		})
 
-	promBytesOutMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
+	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "data_out_bytes_total",
