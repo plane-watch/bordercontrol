@@ -238,7 +238,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	for {
 
 		if connectionState == stateMLATNotAuthenticated {
-			// give the client 10 seconds to perform TLS handshake
+			// give the unauthenticated client 10 seconds to perform TLS handshake
 			clientConn.SetDeadline(time.Now().Add(time.Second * 10))
 		}
 
@@ -451,7 +451,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	for {
 
 		if connectionState == stateBeastNotAuthenticated {
-			// give the client 10 seconds to perform TLS handshake
+			// give the unauthenticated client 10 seconds to perform TLS handshake
 			connIn.SetDeadline(time.Now().Add(time.Second * 10))
 		}
 
