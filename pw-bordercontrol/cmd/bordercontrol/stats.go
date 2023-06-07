@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -319,7 +320,8 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 			case "P":
 				f = float32(n / 1024.0 / 1024.0 / 1024.0 / 1024.0 / 1024.0)
 			}
-			return fmt.Sprintf("%.2f%s", f, prefix)
+
+			return fmt.Sprintf("%s%s", strconv.FormatFloat(float64(f), 'f', -1, 32), prefix)
 		},
 	}
 
