@@ -29,6 +29,7 @@ const (
 	protoMLAT  = "MLAT"
 	protoBeast = "BEAST"
 
+	// banner to display when started
 	banner = ` 
  _                   _                          _             _
 | |__   ___  _ __ __| | ___ _ __ ___ ___  _ __ | |_ _ __ ___ | |
@@ -107,7 +108,7 @@ func main() {
 	logging.IncludeVerbosityFlags(app)
 	logging.ConfigureForCli()
 
-	// get version from git info
+	// get commit hash and commit time from git info
 	commithash = func() string {
 		if info, ok := debug.ReadBuildInfo(); ok {
 			for _, setting := range info.Settings {
