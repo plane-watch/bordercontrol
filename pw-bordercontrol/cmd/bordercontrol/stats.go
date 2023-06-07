@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -287,8 +286,8 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	funcMap := template.FuncMap{
 		// human readable data units
 		"humanReadableDataUnits": func(n uint64) string {
-			var f float32
-			var prefix string
+
+			var prefix, out string
 
 			if n > 1024 {
 				prefix = "K"
@@ -308,20 +307,20 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 			switch prefix {
 			case "":
-				f = float32(n)
+				out = fmt.Sprintf("%d", n)
 			case "K":
-				f = float32(n / 1024.0)
+				out = fmt.Sprintf("%.1fK", float32(n/1024.0))
 			case "M":
-				f = float32(n / 1024.0 / 1024.0)
+				out = fmt.Sprintf("%.2fM", float32(n/1024.0/1024.0))
 			case "G":
-				f = float32(n / 1024.0 / 1024.0 / 1024.0)
+				out = fmt.Sprintf("%.3fG", float32(n/1024.0/1024.0/1024.0))
 			case "T":
-				f = float32(n / 1024.0 / 1024.0 / 1024.0 / 1024.0)
+				out = fmt.Sprintf("%.4fT", float32(n/1024.0/1024.0/1024.0/1024.0))
 			case "P":
-				f = float32(n / 1024.0 / 1024.0 / 1024.0 / 1024.0 / 1024.0)
+				out = fmt.Sprintf("%.5fP", float32(n/1024.0/1024.0/1024.0/1024.0/1024.0))
 			}
 
-			return fmt.Sprintf("%s%s", strconv.FormatFloat(float64(f), 'f', -1, 32), prefix)
+			return out
 		},
 	}
 
