@@ -237,6 +237,11 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 	for {
 
+		if connectionState == stateMLATNotAuthenticated {
+			// give the client 10 seconds to perform TLS handshake
+			clientConn.SetDeadline(time.Now().Add(time.Second * 10))
+		}
+
 		// read data from client
 		bytesRead, err = readFromClient(clientConn, inBuf)
 		if err != nil {
@@ -328,6 +333,9 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 	// if we are ready to output data to the feed-in container...
 	if connectionState == stateMLATMuxContainerConnected {
+
+		// reset deadline
+		clientConn.SetDeadline(time.Time{})
 
 		// write outstanding data
 		_, err := muxConn.Write(inBuf[:bytesRead])
@@ -442,6 +450,11 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
+		if connectionState == stateBeastNotAuthenticated {
+			// give the client 10 seconds to perform TLS handshake
+			connIn.SetDeadline(time.Now().Add(time.Second * 10))
+		}
+
 		// read data from client
 		bytesRead, err := readFromClient(connIn, buf)
 		if err != nil {
@@ -524,6 +537,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				// update stats
 				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
 				defer stats.delConnection(clientApiKey, connNum)
+
+				// reset deadline
+				connIn.SetDeadline(time.Time{})
 
 			}
 		}
