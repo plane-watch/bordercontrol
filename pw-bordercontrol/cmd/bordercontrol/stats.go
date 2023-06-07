@@ -287,36 +287,37 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 		// human readable data units
 		"humanReadableDataUnits": func(n uint64) string {
 
-			var prefix, out string
+			var prefix byte = ' '
+			var out string
 
 			if n > 1024 {
-				prefix = "K"
+				prefix = 'K'
 			}
 			if n > 1048576 {
-				prefix = "M"
+				prefix = 'M'
 			}
 			if n > 1073741824 {
-				prefix = "G"
+				prefix = 'G'
 			}
 			if n > 1099511627776 {
-				prefix = "T"
+				prefix = 'T'
 			}
 			if n > 1125899906842624 {
-				prefix = "P"
+				prefix = 'P'
 			}
 
 			switch prefix {
-			case "":
+			case ' ':
 				out = fmt.Sprintf("%d", n)
-			case "K":
+			case 'K':
 				out = fmt.Sprintf("%.1fK", float32(n/1024.0))
-			case "M":
+			case 'M':
 				out = fmt.Sprintf("%.2fM", float32(n/1024.0/1024.0))
-			case "G":
+			case 'G':
 				out = fmt.Sprintf("%.3fG", float32(n/1024.0/1024.0/1024.0))
-			case "T":
+			case 'T':
 				out = fmt.Sprintf("%.4fT", float32(n/1024.0/1024.0/1024.0/1024.0))
-			case "P":
+			case 'P':
 				out = fmt.Sprintf("%.5fP", float32(n/1024.0/1024.0/1024.0/1024.0/1024.0))
 			}
 
