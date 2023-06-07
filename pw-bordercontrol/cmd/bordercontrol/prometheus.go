@@ -91,7 +91,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
-		Help:        "The total number of feeders with an active protocol connection to this instance of bordercontrol.",
+		Help:        "The total number of feeders with an active connection to this instance of bordercontrol.",
 		ConstLabels: prometheus.Labels{"protocol": "beast"},
 	},
 		func() float64 {
@@ -110,7 +110,7 @@ var (
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
-		Help:        "The total number of feeders with an active protocol connection to this instance of bordercontrol.",
+		Help:        "The total number of feeders with an active connection to this instance of bordercontrol.",
 		ConstLabels: prometheus.Labels{"protocol": "mlat"},
 	},
 		func() float64 {
