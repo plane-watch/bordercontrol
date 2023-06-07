@@ -18,11 +18,23 @@ import (
 )
 
 type (
-	stateBeast       int64
-	stateMLAT        int64
+	stateBeast int64
+	stateMLAT  int64
+
+	// struct to allocate connection numbers
 	connectionNumber struct {
 		mu  sync.RWMutex
 		num uint
+	}
+
+	// structs to hold incoming connection data
+	incomingConnectionTracker struct {
+		mu          sync.RWMutex
+		connections []incomingConnection
+	}
+	incomingConnection struct {
+		srcIP    net.IP
+		connTime time.Time
 	}
 )
 
@@ -50,6 +62,54 @@ func (connNum *connectionNumber) GetNum() (num uint) {
 		connNum.num++
 	}
 	return connNum.num
+}
+
+func (t *incomingConnectionTracker) evict() {
+	// evicts connections from the tracker if older than 10 seconds
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// slice magic: https://stackoverflow.com/questions/20545743/how-to-remove-items-from-a-slice-while-ranging-over-it
+	i := 0
+	for _, c := range t.connections {
+		if !c.connTime.Add(time.Second * 10).Before(time.Now()) {
+			t.connections[i] = c
+			i++
+		}
+	}
+	t.connections = t.connections[:i]
+}
+
+func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
+	// checks an incoming connection
+	// allows 2 connections every 10 seconds
+
+	var connCount uint
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// count number of connections from this source IP
+	for _, c := range t.connections {
+		if c.srcIP.Equal(srcIP) {
+			connCount++
+		}
+	}
+
+	if connCount > 2 {
+		// if connecting too frequently, raise an error
+		err = errors.New("more than 2 connections in a 10 second period")
+
+	} else {
+		// otherwise, don't raise an error but add this connection to the tracker
+		t.connections = append(t.connections, incomingConnection{
+			srcIP:    srcIP,
+			connTime: time.Now(),
+		})
+	}
+
+	return err
 }
 
 func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
@@ -164,6 +224,13 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(clientConn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
+
+	// check for too-frequent incoming connections
+	err = incomingConnTracker.check(remoteIP)
+	if err != nil {
+		cLog.Err(err).Msg("dropping connection")
+		return
+	}
 
 	// make buffer to hold data read from client
 	inBuf := make([]byte, sendRecvBufferSize)
@@ -358,11 +425,19 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		refLat, refLon     float64
 		mux, label         string
 		lastAuthCheck      time.Time
+		err                error
 	)
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
 	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
+
+	// check for too-frequent incoming connections
+	err = incomingConnTracker.check(remoteIP)
+	if err != nil {
+		cLog.Err(err).Msg("dropping connection")
+		return
+	}
 
 	buf := make([]byte, sendRecvBufferSize)
 	for {

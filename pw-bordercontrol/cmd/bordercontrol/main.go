@@ -21,6 +21,7 @@ var (
 	tlsConfig              tls.Config
 	kpr                    *keypairReloader
 	commithash, committime string
+	incomingConnTracker    incomingConnectionTracker
 )
 
 const (
@@ -192,6 +193,15 @@ func runServer(ctx *cli.Context) error {
 
 	var wg sync.WaitGroup
 	connNum := connectionNumber{}
+
+	// prepare incoming connection tracker (to allow dropping too-frequent connections)
+	// start evictor for incoming connection tracker
+	go func() {
+		for {
+			incomingConnTracker.evict()
+			time.Sleep(time.Second * 1)
+		}
+	}()
 
 	// start listening for incoming BEAST connections
 	wg.Add(1)
