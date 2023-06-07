@@ -20,7 +20,7 @@ const (
 
 // prometheus metrics
 var (
-	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "connections",
