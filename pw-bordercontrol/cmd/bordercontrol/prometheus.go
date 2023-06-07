@@ -67,10 +67,11 @@ var (
 		})
 
 	promActiveFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "feeders_active",
-		Help:      "The total number of feeders with an active connection to this instance of bordercontrol.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "feeders_active",
+		Help:        "The total number of feeders with an active connection to this instance of bordercontrol.",
+		ConstLabels: prometheus.Labels{"protocol": "any"},
 	},
 		func() float64 {
 			stats.mu.RLock()
