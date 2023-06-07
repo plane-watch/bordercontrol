@@ -202,7 +202,7 @@ var (
 	promBytesInBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "bytes_in_beast",
+		Name:      "beast_data_in_bytes",
 		Help:      "Bytes received (in) via BEAST protocol connections.",
 	},
 		func() float64 {
@@ -222,7 +222,7 @@ var (
 	promBytesOutBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "bytes_out_beast",
+		Name:      "beast_data_out_bytes",
 		Help:      "Bytes sent (out) via BEAST protocol connections. Should be 0 as BEAST is one-way.",
 	},
 		func() float64 {
@@ -242,7 +242,7 @@ var (
 	promBytesInMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "bytes_in_mlat",
+		Name:      "mlat_data_in_bytes",
 		Help:      "Bytes received (in) via MLAT protocol connections.",
 	},
 		func() float64 {
@@ -262,7 +262,7 @@ var (
 	promBytesOutMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "bytes_out_mlat",
+		Name:      "mlat_data_out_bytes",
 		Help:      "Bytes sent (out) via MLAT protocol connections.",
 	},
 		func() float64 {
