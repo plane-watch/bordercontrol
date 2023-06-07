@@ -48,13 +48,13 @@ type ProtocolDetail struct {
 }
 
 type ConnectionDetail struct {
-	Src                net.Addr               // source ip:port of incoming connection
-	Dst                net.Addr               // destination ip:port of outgoing connection
-	TimeConnected      time.Time              // time connection was established
-	BytesIn            uint64                 // bytes received from feeder client
-	BytesOut           uint64                 // bytes sent to feeder client
-	promMetricBytesIn  prometheus.CounterFunc // holds the prometheus counter function for bytes in
-	promMetricBytesOut prometheus.CounterFunc // holds the prometheus counter function for bytes out
+	Src                net.Addr           // source ip:port of incoming connection
+	Dst                net.Addr           // destination ip:port of outgoing connection
+	TimeConnected      time.Time          // time connection was established
+	BytesIn            uint64             // bytes received from feeder client
+	BytesOut           uint64             // bytes sent to feeder client
+	promMetricBytesIn  prometheus.Counter // holds the prometheus counter for bytes in
+	promMetricBytesOut prometheus.Counter // holds the prometheus counter for bytes out
 }
 
 // struct for list of feeder stats (+ mutex for sync)
@@ -102,7 +102,10 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, byt
 
 				// increment counters
 				c.BytesIn += bytesIn
+				c.promMetricBytesIn.Add(float64(bytesIn))
 				c.BytesOut += bytesOut
+				c.promMetricBytesOut.Add(float64(bytesOut))
+
 				y.Connections[proto].ConnectionDetails[connNum] = c
 
 				// update time last updated
@@ -224,28 +227,18 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	}
 
 	// define per-feeder prometheus metrics
-	c.promMetricBytesIn = prometheus.NewCounterFunc(prometheus.CounterOpts{
+	c.promMetricBytesIn = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeder_data_in_bytes",
 		Help:        "Per-feeder bytes received (in)",
-		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "conn#": fmt.Sprintf("%d", connNum)}},
-		func() float64 {
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			return float64(c.BytesIn)
-		})
-	c.promMetricBytesOut = prometheus.NewCounterFunc(prometheus.CounterOpts{
+		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "conn#": fmt.Sprintf("%d", connNum)}})
+	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
 		Name:        "feeder_data_out_bytes",
 		Help:        "Per-feeder bytes sent (out)",
-		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "conn#": fmt.Sprintf("%d", connNum)}},
-		func() float64 {
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			return float64(c.BytesOut)
-		})
+		ConstLabels: prometheus.Labels{"protocol": strings.ToLower(proto), "uuid": uuid.String(), "conn#": fmt.Sprintf("%d", connNum)}})
 
 	y.Connections[proto].ConnectionDetails[connNum] = c
 
