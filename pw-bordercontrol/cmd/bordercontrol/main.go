@@ -178,11 +178,9 @@ func runServer(ctx *cli.Context) error {
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start statistics manager
-	log.Info().Msg("starting statsManager")
-	go statsManager()
+\	go statsManager()
 
 	// start goroutine to regularly pull feeders from atc
-	log.Info().Msg("starting updateFeederDB")
 	go updateFeederDB(ctx, 60*time.Second)
 
 	// prepare channel for container start requests
@@ -190,7 +188,6 @@ func runServer(ctx *cli.Context) error {
 	defer close(containersToStart)
 
 	// start goroutine to start feeder containers
-	log.Info().Msg("starting startFeederContainers")
 	go startFeederContainers(ctx, containersToStart)
 
 	// start goroutine to check feed-in containers
