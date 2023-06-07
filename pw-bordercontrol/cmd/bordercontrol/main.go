@@ -178,7 +178,7 @@ func runServer(ctx *cli.Context) error {
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start statistics manager
-\	go statsManager()
+	go statsManager()
 
 	// start goroutine to regularly pull feeders from atc
 	go updateFeederDB(ctx, 60*time.Second)
