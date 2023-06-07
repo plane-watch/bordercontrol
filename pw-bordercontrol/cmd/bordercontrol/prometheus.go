@@ -21,10 +21,11 @@ const (
 // prometheus metrics
 var (
 	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "beast_connections_total",
-		Help:      "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "connections_total",
+		Help:        "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
+		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -37,10 +38,11 @@ var (
 		})
 
 	promTotalConnectionsMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "mlat_connections_total",
-		Help:      "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "connections_total",
+		Help:        "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
+		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -86,10 +88,11 @@ var (
 		})
 
 	promActiveFeedersBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "feeders_active_beast",
-		Help:      "The total number of feeders with an active BEAST protocol connection to this instance of bordercontrol.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "feeders_active",
+		Help:        "The total number of feeders with an active BEAST protocol connection to this instance of bordercontrol.",
+		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -104,10 +107,11 @@ var (
 		})
 
 	promActiveFeedersMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "feeders_active_mlat",
-		Help:      "The total number of feeders with an active MLAT protocol connection to this instance of bordercontrol.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "feeders_active",
+		Help:        "The total number of feeders with an active MLAT protocol connection to this instance of bordercontrol.",
+		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -200,10 +204,11 @@ var (
 		})
 
 	promBytesInBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "beast_data_in_bytes",
-		Help:      "Bytes received (in) via BEAST protocol connections.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "data_in_bytes_total",
+		Help:        "Bytes received (in) via BEAST protocol connections.",
+		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -220,10 +225,11 @@ var (
 		})
 
 	promBytesOutBEAST = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "beast_data_out_bytes",
-		Help:      "Bytes sent (out) via BEAST protocol connections. Should be 0 as BEAST is one-way.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "data_out_bytes_total",
+		Help:        "Bytes sent (out) via BEAST protocol connections. Should be 0 as BEAST is one-way.",
+		ConstLabels: prometheus.Labels{"connection_type": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -240,10 +246,11 @@ var (
 		})
 
 	promBytesInMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "mlat_data_in_bytes",
-		Help:      "Bytes received (in) via MLAT protocol connections.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "data_in_bytes_total",
+		Help:        "Bytes received (in) via MLAT protocol connections.",
+		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -260,10 +267,11 @@ var (
 		})
 
 	promBytesOutMLAT = promauto.NewCounterFunc(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
-		Name:      "mlat_data_out_bytes",
-		Help:      "Bytes sent (out) via MLAT protocol connections.",
+		Namespace:   promNamespace,
+		Subsystem:   promSubsystem,
+		Name:        "data_out_bytes_total",
+		Help:        "Bytes sent (out) via MLAT protocol connections.",
+		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
