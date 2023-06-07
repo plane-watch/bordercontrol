@@ -23,9 +23,9 @@ var (
 	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
-		Name:        "connections_total",
+		Name:        "connections",
 		Help:        "The total number of active connections being handled by this instance of bordercontrol.",
-		ConstLabels: prometheus.Labels{"connection_type": "beast"},
+		ConstLabels: prometheus.Labels{"protocol": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -40,9 +40,9 @@ var (
 	promTotalConnectionsMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   promNamespace,
 		Subsystem:   promSubsystem,
-		Name:        "connections_total",
+		Name:        "connections",
 		Help:        "The total number of active connections being handled by this instance of bordercontrol.",
-		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
+		ConstLabels: prometheus.Labels{"protocol": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -57,7 +57,7 @@ var (
 	promTotalFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "feeders_total",
+		Name:      "feeders",
 		Help:      "The total number of feeders configured in ATC (active and inactive).",
 	},
 		func() float64 {
@@ -69,7 +69,7 @@ var (
 	promActiveFeeders = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "feeders_active_total",
+		Name:      "feeders_active",
 		Help:      "The total number of feeders with an active connection to this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -92,7 +92,7 @@ var (
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
 		Help:        "The total number of feeders with an active protocol connection to this instance of bordercontrol.",
-		ConstLabels: prometheus.Labels{"connection_type": "beast"},
+		ConstLabels: prometheus.Labels{"protocol": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -111,7 +111,7 @@ var (
 		Subsystem:   promSubsystem,
 		Name:        "feeders_active",
 		Help:        "The total number of feeders with an active protocol connection to this instance of bordercontrol.",
-		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
+		ConstLabels: prometheus.Labels{"protocol": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -208,7 +208,7 @@ var (
 		Subsystem:   promSubsystem,
 		Name:        "data_in_bytes_total",
 		Help:        "Bytes received (in) via protocol connection.",
-		ConstLabels: prometheus.Labels{"connection_type": "beast"},
+		ConstLabels: prometheus.Labels{"protocol": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -229,7 +229,7 @@ var (
 		Subsystem:   promSubsystem,
 		Name:        "data_out_bytes_total",
 		Help:        "Bytes sent (out) via protocol connection.",
-		ConstLabels: prometheus.Labels{"connection_type": "beast"},
+		ConstLabels: prometheus.Labels{"protocol": "beast"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -250,7 +250,7 @@ var (
 		Subsystem:   promSubsystem,
 		Name:        "data_in_bytes_total",
 		Help:        "Bytes received (in) via protocol connection.",
-		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
+		ConstLabels: prometheus.Labels{"protocol": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
@@ -271,7 +271,7 @@ var (
 		Subsystem:   promSubsystem,
 		Name:        "data_out_bytes_total",
 		Help:        "Bytes sent (out) via protocol connection.",
-		ConstLabels: prometheus.Labels{"connection_type": "mlat"},
+		ConstLabels: prometheus.Labels{"protocol": "mlat"},
 	},
 		func() float64 {
 			stats.mu.RLock()
