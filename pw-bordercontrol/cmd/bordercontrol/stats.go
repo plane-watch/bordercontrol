@@ -285,8 +285,9 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	// Template helper functions
 	funcMap := template.FuncMap{
 		// human readable data units
-		"humanReadableDataUnits": func(n float64) string {
-			prefix := ""
+		"humanReadableDataUnits": func(n uint64) string {
+			var f float32
+			var prefix string
 
 			if n > 1024 {
 				prefix = "K"
@@ -306,16 +307,17 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 			switch prefix {
 			case "":
+				f = float32(n)
 			case "K":
-				n = n / 1024.0
+				f = float32(n / 1024.0)
 			case "M":
-				n = n / 1024.0 / 1024.0
+				f = float32(n / 1024.0 / 1024.0)
 			case "G":
-				n = n / 1024.0 / 1024.0 / 1024.0
+				f = float32(n / 1024.0 / 1024.0 / 1024.0)
 			case "T":
-				n = n / 1024.0 / 1024.0 / 1024.0 / 1024.0
+				f = float32(n / 1024.0 / 1024.0 / 1024.0 / 1024.0)
 			case "P":
-				n = n / 1024.0 / 1024.0 / 1024.0 / 1024.0 / 1024.0
+				f = float32(n / 1024.0 / 1024.0 / 1024.0 / 1024.0 / 1024.0)
 			}
 			return fmt.Sprintf("%f.2%s", n, prefix)
 		},
