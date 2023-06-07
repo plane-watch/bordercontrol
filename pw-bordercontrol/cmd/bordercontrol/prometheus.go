@@ -23,7 +23,7 @@ var (
 	promTotalConnectionsBEAST = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "connections_beast_total",
+		Name:      "beast_connections_total",
 		Help:      "The total number of active BEAST protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
@@ -39,7 +39,7 @@ var (
 	promTotalConnectionsMLAT = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
-		Name:      "connections_mlat_total",
+		Name:      "mlat_connections_total",
 		Help:      "The total number of active MLAT protocol connections being handled by this instance of bordercontrol.",
 	},
 		func() float64 {
