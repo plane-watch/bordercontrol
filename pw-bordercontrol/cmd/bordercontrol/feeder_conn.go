@@ -529,6 +529,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// connected OK...
 
+				defer connOut.Close()
+
 				// attempt to set tcp keepalive with 1 sec interval
 				err := connOut.SetKeepAlive(true)
 				if err != nil {
@@ -541,7 +543,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 					break
 				}
 
-				defer connOut.Close()
 				cLog.Info().Msg("connected to feed-in")
 
 				// update state
