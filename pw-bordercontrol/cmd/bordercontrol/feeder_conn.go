@@ -39,7 +39,14 @@ type (
 )
 
 const (
+	// limits maximum number of connections per feeder, per protocol to this many:
 	maxConnectionsPerProto = 2
+
+	// limits connection attempts to
+	//   "maxIncomingConnectionRequestsPerProto" (2) attempts in a
+	//   "maxIncomingConnectionRequestSeconds" (10) second period
+	maxIncomingConnectionRequestsPerProto = 2
+	maxIncomingConnectionRequestSeconds   = 10
 )
 
 const (
@@ -73,7 +80,9 @@ func (t *incomingConnectionTracker) evict() {
 	// slice magic: https://stackoverflow.com/questions/20545743/how-to-remove-items-from-a-slice-while-ranging-over-it
 	i := 0
 	for _, c := range t.connections {
-		if !c.connTime.Add(time.Second * 10).Before(time.Now()) {
+
+		// keep connections tracked if less than maxIncomingConnectionRequestSeconds seconds old
+		if !c.connTime.Add(time.Second * maxIncomingConnectionRequestSeconds).Before(time.Now()) {
 			t.connections[i] = c
 			i++
 		}
@@ -83,7 +92,7 @@ func (t *incomingConnectionTracker) evict() {
 
 func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 	// checks an incoming connection
-	// allows 2 connections every 10 seconds
+	// allows 'maxIncomingConnectionRequestsPerProto' connections every 10 seconds
 
 	var connCount uint
 
@@ -96,9 +105,12 @@ func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 	}
 	t.mu.RUnlock()
 
-	if connCount >= 2 {
+	if connCount >= maxIncomingConnectionRequestsPerProto {
 		// if connecting too frequently, raise an error
-		err = errors.New("more than 2 connections from src within a 10 second period")
+		err = errors.New(fmt.Sprintf("more than %d connections from src within a %d second period",
+			maxIncomingConnectionRequestsPerProto,
+			maxIncomingConnectionRequestSeconds,
+		))
 
 	} else {
 		// otherwise, don't raise an error but add this connection to the tracker
