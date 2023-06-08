@@ -380,13 +380,14 @@ func statsEvictor() {
 
 func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+
 	// prepare response variable
 	var resp APIResponse
 
 	// get data
-	stats.mu.RLock()
 	resp.Data = stats.Feeders
-	stats.mu.RUnlock()
 
 	// prepare response
 	output, err := json.Marshal(resp)
