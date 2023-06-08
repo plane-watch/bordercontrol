@@ -229,7 +229,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		BytesOut:      0,
 	}
 
-	// define per-feeder prometheus metrics
+	// define per-connection prometheus metrics
 	c.promMetricBytesIn = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: promNamespace,
 		Subsystem: promSubsystem,
@@ -259,6 +259,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		log.Err(err).Msg("could not register per-feeder prometheus bytes out metric")
 	}
 
+	// add connection to feeder connections map
 	y.Connections[proto].ConnectionDetails[connNum] = c
 
 	// update connection state
@@ -270,6 +271,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		y.Connections[proto] = pd
 	}
 
+	// update time updated
 	y.TimeUpdated = time.Now()
 
 	// write stats entry
@@ -281,7 +283,8 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 	// Template helper functions
 	funcMap := template.FuncMap{
-		// human readable data units
+
+		// human readable / pretty printable data units
 		"humanReadableDataUnits": func(n uint64) string {
 
 			var prefix byte = ' '
@@ -340,9 +343,10 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 func statsEvictor() {
 
+	// loop through stats data, evict any feeders that have been inactive for over 60 seconds
 	for {
 		var toEvict []uuid.UUID
-		var activeBeast, activeMLAT uint
+		// var activeBeast, activeMLAT uint
 
 		stats.mu.Lock()
 
@@ -352,15 +356,15 @@ func statsEvictor() {
 				if time.Now().Sub(stats.Feeders[u].TimeUpdated) > (time.Second * 60) {
 					toEvict = append(toEvict, u)
 				}
-			} else {
-				for p, _ := range stats.Feeders[u].Connections {
-					switch p {
-					case protoBeast:
-						activeBeast++
-					case protoMLAT:
-						activeMLAT++
-					}
-				}
+				// } else {
+				// 	for p, _ := range stats.Feeders[u].Connections {
+				// 		switch p {
+				// 		case protoBeast:
+				// 			activeBeast++
+				// 		case protoMLAT:
+				// 			activeMLAT++
+				// 		}
+				// 	}
 			}
 		}
 
@@ -380,6 +384,7 @@ func statsEvictor() {
 
 func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
+	// get a read lock on stats
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
 
