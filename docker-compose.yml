@@ -1,3 +1,4 @@
+---
 version: '3.8'
 
 networks:
@@ -57,9 +58,9 @@ services:
     networks:
       - bordercontrol_feeder
     ports:
-      - 8080:8080   # Stats Web UI (http)
-      - 12345:12345 # BEAST
-      - 12346:12346 # MLAT    
+      - 8080:8080      # Stats Web UI (http)
+      - 12345:12345    # BEAST
+      - 12346:12346    # MLAT    
 
   feed-in-builder:
     container_name: feed-in-builder
