@@ -471,7 +471,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		// read data from client
 		bytesRead, err := readFromClient(connIn, buf)
 		if err != nil {
-			cLog.Err(err).Msg("could not read from client")
+			cLog.Warn().Err(err).Msg("could not read from client")
 			break
 		}
 
