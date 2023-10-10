@@ -18,13 +18,13 @@ type keypairReloader struct {
 	keyPath  string
 }
 
-func NewKeypairReloader(certPath, keyPath, listener string) (*keypairReloader, error) {
+func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	result := &keypairReloader{
 		certPath: certPath,
 		keyPath:  keyPath,
 	}
-	log.Info().Str("cert", certPath).Str("key", keyPath).Str("listener", listener).Msg("loading TLS certificate and key")
+	log.Info().Str("cert", certPath).Str("key", keyPath).Msg("loading TLS certificate and key")
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, err

@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/rs/zerolog/log"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -35,6 +37,7 @@ func isValidApiKey(clientApiKey uuid.UUID) bool {
 }
 
 func getFeederInfo(feederApiKey uuid.UUID) (refLat float64, refLon float64, mux string, label string, err error) {
+	// return feeder info from atc, specifically: lat, lon, mux and label
 	found := false
 	validFeeders.mu.RLock()
 	defer validFeeders.mu.RUnlock()
@@ -97,6 +100,6 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		validFeeders.Feeders = f.Feeders
 		validFeeders.mu.Unlock()
 
-		log.Info().Int("feeders", count).Msg("updated feeder cache from atc")
+		// log.Info().Int("feeders", count).Msg("updated feeder cache from atc")
 	}
 }
