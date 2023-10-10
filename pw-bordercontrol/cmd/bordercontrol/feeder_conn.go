@@ -474,7 +474,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		if os.IsTimeout(err) {
 			break // suppress constant i/o timeout messages
 		} else if err != nil {
-			cLog.Warn().Err(err).Msg("could not read from client")
+			cLog.Err(err).Msg("could not read from client")
 			break
 		}
 
