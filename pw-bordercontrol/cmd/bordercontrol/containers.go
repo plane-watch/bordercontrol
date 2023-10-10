@@ -11,8 +11,11 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+
 	"github.com/google/uuid"
+
 	"github.com/rs/zerolog/log"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -74,6 +77,7 @@ func checkFeederContainers(ctx *cli.Context) {
 
 func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
 	// reads startContainerRequests from channel containersToStart and starts container
+
 	sfcLog := log.With().Logger()
 
 	// set up docker client
@@ -108,20 +112,10 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				}
 			}
 		}
-		if foundContainer {
-			cLog.Info().Msg("feed-in container already running")
 
-		} else {
+		if !foundContainer {
 
 			// if container is not running, create it
-			// cLog.Debug().Msg("starting feed-in container")
-
-			// mux, err := muxHostname(containerToStart.mux)
-			// if err != nil {
-			// 	cLog.Err(err).Msg("could not assign mux")
-			// 	time.Sleep(5 * time.Second)
-			// 	break
-			// }
 
 			// prepare environment variables for container
 			envVars := [...]string{
@@ -142,6 +136,9 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			containerLabels := make(map[string]string)
 			containerLabels["plane.watch.label"] = containerToStart.label
 			containerLabels["plane.watch.mux"] = containerToStart.mux
+			containerLabels["plane.watch.lat"] = fmt.Sprintf("%f", containerToStart.refLat)
+			containerLabels["plane.watch.lon"] = fmt.Sprintf("%f", containerToStart.refLon)
+			containerLabels["plane.watch.uuid"] = containerToStart.uuid.String()
 
 			// prepare container config
 			containerConfig := container.Config{
@@ -179,8 +176,8 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				panic(err)
 			}
 
+			// logging
 			cLog.Info().Str("container_id", resp.ID).Msg("started feed-in container")
-
 		}
 	}
 }

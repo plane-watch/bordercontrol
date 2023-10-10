@@ -3,548 +3,47 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"net"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
 
 	"pw_bordercontrol/lib/logging"
 
-	"github.com/google/uuid"
-
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
 )
 
-func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, tlsConfig *tls.Config, containersToStart chan startContainerRequest) {
-	// handles incoming BEAST connections
-	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
-
-	cLog := log.With().Str("listener", "BEAST").Logger()
-
-	var (
-		sendRecvBufferSize             = 256 * 1024 // 256kB
-		clientAuthenticated            = false
-		clientFeedInContainerConnected = false
-		connOut                        *net.TCPConn
-		connOutErr                     error
-		connOutAttempts                = 0
-		clientApiKey                   uuid.UUID
-	)
-
-	defer connIn.Close()
-
-	// update log context with client IP
-	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
-	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
-
-	// cLog.Debug().Msgf("connection established")
-	// defer cLog.Debug().Msgf("connection closed")
-
-	buf := make([]byte, sendRecvBufferSize)
-	for {
-
-		// read data
-		bytesRead, err := connIn.Read(buf)
-		if err != nil {
-			if err.Error() == "tls: first record does not look like a TLS handshake" {
-				cLog.Warn().Msg(err.Error())
-				break
-			} else if err.Error() == "EOF" {
-				if clientAuthenticated {
-					cLog.Info().Msg("client disconnected")
-				}
-				break
-			} else {
-				cLog.Err(err).Msg("conn.Read")
-				break
-			}
-		}
-
-		// When the first data is sent, the TLS handshake should take place.
-		// Accordingly, we need to track the state...
-		if !clientAuthenticated {
-
-			// check TLS handshake
-			tlscon := connIn.(*tls.Conn)
-			if tlscon.ConnectionState().HandshakeComplete {
-
-				// check valid uuid was returned as ServerName (sni)
-				clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
-				if err != nil {
-					cLog.Warn().Str("sni", tlscon.ConnectionState().ServerName).Msg("client sent invalid SNI")
-					break
-				}
-
-				// check valid api key
-				if isValidApiKey(clientApiKey) {
-
-					// update log context with client uuid
-					cLog = cLog.With().Str("uuid", clientApiKey.String()).Logger()
-					cLog.Info().Msg("client connected")
-
-					// if API is valid, then set clientAuthenticated to TRUE
-					clientAuthenticated = true
-
-					// update stats
-					stats.setClientConnected(clientApiKey, connIn.RemoteAddr(), "BEAST")
-					defer stats.setClientDisconnected(clientApiKey, "BEAST")
-
-					// get feeder info (lat/lon/mux/label)
-					refLat, refLon, mux, label, err := getFeederInfo(clientApiKey)
-					if err != nil {
-						log.Err(err).Msg("getFeederInfo")
-						continue
-					}
-
-					// start the container
-					// used a chan here so it blocks while waiting for the request to be popped off the chan
-					containersToStart <- startContainerRequest{
-						uuid:   clientApiKey,
-						refLat: refLat,
-						refLon: refLon,
-						mux:    mux,
-						label:  label,
-						srcIP:  remoteIP,
-					}
-
-					// update stats
-					stats.setFeederDetails(clientApiKey, label, refLat, refLon)
-
-					// wait for container start
-					time.Sleep(5 * time.Second)
-
-				} else {
-					// if API is not valid, then kill the connection
-					cLog.Warn().Str("sni", clientApiKey.String()).Msg("client sent invalid api key")
-					break
-				}
-
-			} else {
-				// if TLS handshake is not complete, then kill the connection
-				cLog.Warn().Msg("data received before tls handshake")
-				break
-			}
-		}
-
-		// If the client has been authenticated, then we can do stuff with the data
-		if clientAuthenticated {
-
-			// If the client's feed-in container is not yet connected
-			if !clientFeedInContainerConnected {
-
-				// attempt to connect to the feed-in container
-				dialAddress := fmt.Sprintf("feed-in-%s:12345", clientApiKey)
-
-				var dstIP net.IP
-				dstIPs, err := net.LookupIP(fmt.Sprintf("feed-in-%s", clientApiKey))
-				if err != nil {
-					cLog.Err(err).Msg("could not perform lookup")
-				} else {
-					if len(dstIPs) > 0 {
-						dstIP = dstIPs[0]
-					} else {
-						continue
-					}
-				}
-
-				dstTCPAddr := net.TCPAddr{
-					IP:   dstIP,
-					Port: 12345,
-				}
-
-				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-				// connOut, connOutErr = net.DialTimeout("tcp", dialAddress, 1*time.Second)
-				connOut, connOutErr = net.DialTCP("tcp", nil, &dstTCPAddr)
-
-				if connOutErr != nil {
-
-					// handle connection errors to feed-in container
-
-					cLog.Warn().AnErr("error", connOutErr).Str("dst", dialAddress).Msg("could not connect to feed-in container")
-					time.Sleep(1 * time.Second)
-
-					// retry up to 5 times then bail
-					connOutAttempts += 1
-					if connOutAttempts > 5 {
-						break
-					}
-
-				} else {
-
-					// connected OK...
-
-					err := connOut.SetKeepAlive(true)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive")
-						break
-					}
-					err = connOut.SetKeepAlivePeriod(1 * time.Second)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive period")
-						break
-					}
-
-					defer connOut.Close()
-					clientFeedInContainerConnected = true
-					connOutAttempts = 0
-					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected to feed-in")
-
-					// update stats
-					stats.setOutputConnected(clientApiKey, "FEEDIN", connOut.RemoteAddr())
-				}
-			}
-		}
-
-		// if we are ready to output data to the feed-in container...
-		if clientAuthenticated {
-			if clientFeedInContainerConnected {
-
-				// if we have data to write...
-				if bytesRead > 0 {
-
-					// set deadline of 5 second
-					wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
-					if wdErr != nil {
-						cLog.Err(wdErr).Msg("could not set deadline on connection")
-						break
-					}
-
-					// attempt to write data in buf (that was read from client connection earlier)
-					bytesWritten, err := connOut.Write(buf[:bytesRead])
-					if err != nil {
-						cLog.Err(err).Msg("error writing to feed-in container")
-						break
-					}
-
-					// update stats
-					stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "BEAST")
-				}
-			}
-		}
-	}
-	// cLog.Debug().Msg("clientBEASTConnection goroutine finishing")
-}
-
-func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config) {
-	// handles incoming MLAT connections
-	// TODO: need a way to kill a client connection if the UUID is no longer valid (ie: feeder banned)
-
-	cLog := log.With().Str("listener", "MLAT").Logger()
-
-	var (
-		sendRecvBufferSize    = 256 * 1024 // 256kB
-		clientAuthenticated   = false
-		muxContainerConnected = false
-		muxConn               *net.TCPConn
-		muxConnErr            error
-		clientApiKey          uuid.UUID
-		mux                   string
-		refLat, refLon        float64
-		label                 string
-		bytesRead             int
-		err                   error
-	)
-
-	// update log context with client IP
-	remoteIP := net.ParseIP(strings.Split(clientConn.RemoteAddr().String(), ":")[0])
-	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
-
-	// cLog.Debug().Msgf("connection established")
-	// defer cLog.Debug().Msgf("connection closed")
-
-	inBuf := make([]byte, sendRecvBufferSize)
-
-	for {
-
-		// read data from client
-		bytesRead, err = clientConn.Read(inBuf)
-		if err != nil {
-			if err.Error() == "tls: first record does not look like a TLS handshake" {
-				cLog.Warn().Msg(err.Error())
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
-				}
-				break
-			} else if err.Error() == "EOF" {
-				if clientAuthenticated {
-					cLog.Info().Msg("client disconnected")
-				}
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
-				}
-				break
-			} else {
-				cLog.Err(err).Msg("client read error")
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
-				}
-				break
-			}
-		}
-
-		// When the first data is sent, the TLS handshake should take place.
-		// Accordingly, we need to track the state...
-		if !clientAuthenticated {
-
-			// check TLS handshake
-			tlscon := clientConn.(*tls.Conn)
-			if tlscon.ConnectionState().HandshakeComplete {
-
-				// check valid uuid was returned as ServerName (sni)
-				clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
-				if err != nil {
-					cLog.Warn().Str("sni", tlscon.ConnectionState().ServerName).Msg("client sent invalid SNI")
-					e := clientConn.Close()
-					if e != nil {
-						log.Err(e).Caller().Msg("could not close clientConn")
-					}
-					break
-				}
-
-				// check valid api key
-				if isValidApiKey(clientApiKey) {
-
-					// update log context with client uuid
-					cLog = cLog.With().Str("uuid", clientApiKey.String()).Logger()
-					cLog.Info().Msg("client connected")
-
-					// if API is valid, then set clientAuthenticated to TRUE
-					clientAuthenticated = true
-
-					// get feeder info (lat/lon/mux/label)
-					refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
-					if err != nil {
-						log.Err(err).Msg("getFeederInfo")
-						continue
-					}
-
-					// update stats
-					stats.setFeederDetails(clientApiKey, label, refLat, refLon)
-
-					// wait for container start
-					time.Sleep(5 * time.Second)
-
-				} else {
-					// if API is not valid, then kill the connection
-					cLog.Warn().Str("sni", clientApiKey.String()).Msg("client sent invalid api key")
-					e := clientConn.Close()
-					if e != nil {
-						log.Err(e).Caller().Msg("could not close clientConn")
-					}
-					break
-				}
-
-			} else {
-				// if TLS handshake is not complete, then kill the connection
-				cLog.Warn().Msg("data received before tls handshake")
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
-				}
-				break
-			}
-		}
-
-		// If the client has been authenticated, then we can do stuff with the data
-		if clientAuthenticated {
-
-			// If we aren't yet connected to a mux
-			if !muxContainerConnected {
-
-				// attempt to connect to the mux container
-				dialAddress := fmt.Sprintf("%s:12346", mux)
-
-				var dstIP net.IP
-				dstIPs, err := net.LookupIP(mux)
-				if err != nil {
-					cLog.Err(err).Msg("could not perform lookup")
-				} else {
-					if len(dstIPs) > 0 {
-						dstIP = dstIPs[0]
-					} else {
-						continue
-					}
-				}
-
-				dstTCPAddr := net.TCPAddr{
-					IP:   dstIP,
-					Port: 12346,
-				}
-
-				// cLog.Debug().Str("dst", dialAddress).Msg("attempting to connect")
-				muxConn, muxConnErr = net.DialTCP("tcp", nil, &dstTCPAddr)
-
-				if muxConnErr != nil {
-
-					// handle connection errors to feed-in container
-
-					cLog.Warn().AnErr("error", muxConnErr).Str("dst", dialAddress).Msg("could not connect to mux container")
-					time.Sleep(1 * time.Second)
-
-					e := clientConn.Close()
-					if e != nil {
-						log.Err(e).Caller().Msg("could not close clientConn")
-					}
-					break
-
-				} else {
-
-					// connected OK...
-
-					err := muxConn.SetKeepAlive(true)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive")
-						e := clientConn.Close()
-						if e != nil {
-							log.Err(e).Caller().Msg("could not close clientConn")
-						}
-						break
-					}
-					err = muxConn.SetKeepAlivePeriod(1 * time.Second)
-					if err != nil {
-						cLog.Err(err).Msg("could not set keep alive period")
-						e := clientConn.Close()
-						if e != nil {
-							log.Err(e).Caller().Msg("could not close clientConn")
-						}
-						break
-					}
-
-					muxContainerConnected = true
-
-					// update stats
-					stats.setClientConnected(clientApiKey, clientConn.RemoteAddr(), "MLAT")
-					defer stats.setClientDisconnected(clientApiKey, "MLAT")
-
-					cLog = cLog.With().Str("dst", dialAddress).Logger()
-					cLog.Info().Msg("connected to mux")
-
-					// update stats
-					stats.setOutputConnected(clientApiKey, "MUX", muxConn.RemoteAddr())
-
-				}
-			}
-		}
-		// if we are ready to output data to the feed-in container...
-		if clientAuthenticated {
-			if muxContainerConnected {
-				break
-			}
-		}
-	}
-
-	// if we are ready to output data to the feed-in container...
-	if clientAuthenticated {
-		if muxContainerConnected {
-
-			wg := sync.WaitGroup{}
-
-			// write outstanding data
-			_, err := muxConn.Write(inBuf[:bytesRead])
-			if err != nil {
-				cLog.Err(err).Msg("error writing to client")
-			}
-
-			// start responder
-			wg.Add(1)
-			go mlatTcpForwarderM2C(clientApiKey, muxConn, clientConn, sendRecvBufferSize, cLog, &wg)
-			wg.Add(1)
-			go mlatTcpForwarderC2M(clientApiKey, clientConn, muxConn, sendRecvBufferSize, cLog, &wg)
-			wg.Wait()
-
-			defer muxConn.Close()
-			defer clientConn.Close()
-
-		}
-	}
-	// cLog.Debug().Msg("clientMLATConnection goroutine finishing")
-}
-
-func mlatTcpForwarderM2C(clientApiKey uuid.UUID, muxConn *net.TCPConn, clientConn net.Conn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
-	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
-	// Designed to be run as goroutine
-
-	// cLog.Debug().Msg("clientMLATResponder started")
-
-	outBuf := make([]byte, sendRecvBufferSize)
-
-	for {
-
-		// read data from server
-		bytesRead, err := muxConn.Read(outBuf)
-		if err != nil {
-			if err.Error() == "EOF" {
-				cLog.Info().Caller().Msg("mux disconnected from client")
-				break
-			} else if err, ok := err.(net.Error); ok && err.Timeout() {
-				// cLog.Debug().AnErr("err", err).Msg("no data to read")
-			} else {
-				cLog.Err(err).Msg("mux read error")
-				break
-			}
-		}
-
-		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := clientConn.Write(outBuf[:bytesRead])
-		if err != nil {
-			cLog.Err(err).Msg("error writing to client")
-			break
-		}
-
-		// update stats
-		stats.incrementByteCounters(clientApiKey, 0, uint64(bytesWritten), uint64(bytesRead), 0, "MLAT")
-	}
-
-	wg.Done()
-
-}
-
-func mlatTcpForwarderC2M(clientApiKey uuid.UUID, clientConn net.Conn, muxConn *net.TCPConn, sendRecvBufferSize int, cLog zerolog.Logger, wg *sync.WaitGroup) {
-	// MLAT traffic is two-way. This func reads from mlat-server and sends back to client.
-	// Designed to be run as goroutine
-
-	// cLog.Debug().Msg("clientMLATResponder started")
-
-	outBuf := make([]byte, sendRecvBufferSize)
-
-	for {
-
-		// read data from server
-		bytesRead, err := clientConn.Read(outBuf)
-		if err != nil {
-			if err.Error() == "EOF" {
-				cLog.Info().Caller().Msg("client disconnected from mux")
-				break
-			} else if err, ok := err.(net.Error); ok && err.Timeout() {
-				// cLog.Debug().AnErr("err", err).Msg("no data to read")
-			} else {
-				cLog.Err(err).Msg("mux read error")
-				break
-			}
-		}
-
-		// attempt to write data in buf (that was read from mux connection earlier)
-		bytesWritten, err := muxConn.Write(outBuf[:bytesRead])
-		if err != nil {
-			cLog.Err(err).Msg("error writing to client")
-			break
-		}
-
-		// update stats
-		stats.incrementByteCounters(clientApiKey, uint64(bytesRead), 0, 0, uint64(bytesWritten), "MLAT")
-	}
-
-	wg.Done()
-
-}
+var (
+	feedInImage            string
+	tlsConfig              tls.Config
+	kpr                    *keypairReloader
+	commithash, committime string
+	incomingConnTracker    incomingConnectionTracker
+)
+
+const (
+
+	// standardise the protocol name strings
+	protoMLAT  = "MLAT"
+	protoBeast = "BEAST"
+
+	// banner to display when started
+	banner = ` 
+ _                   _                          _             _
+| |__   ___  _ __ __| | ___ _ __ ___ ___  _ __ | |_ _ __ ___ | |
+| '_ \ / _ \| '__/ _' |/ _ \ '__/ __/ _ \| '_ \| __| '__/ _ \| |
+| |_) | (_) | | | (_| |  __/ | | (_| (_) | | | | |_| | | (_) | |
+|_.__/ \___/|_|  \__,_|\___|_|  \___\___/|_| |_|\__|_|  \___/| |
+                                                            _| |_
+                                                          _| | | | _
+                                                         | | | | |' |
+                                                         \          /
+                                                          \________/
+`
+)
 
 func main() {
 
@@ -615,9 +114,44 @@ func main() {
 	logging.IncludeVerbosityFlags(app)
 	logging.ConfigureForCli()
 
-	// Set logging level
+	// get commit hash and commit time from git info
+	commithash = func() string {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.revision" {
+					if len(setting.Value) >= 7 {
+						return setting.Value[:7]
+					} else {
+						return "unknown"
+					}
+				}
+			}
+		}
+		return ""
+	}()
+	committime = func() string {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.time" {
+					return setting.Value
+				}
+			}
+		}
+		return ""
+	}()
+	if len(commithash) < 7 {
+		app.Version = "unknown"
+	} else {
+		app.Version = fmt.Sprintf("%s (%s)", commithash, committime)
+	}
+
 	app.Before = func(c *cli.Context) error {
+		// Set logging level
 		logging.SetLoggingLevel(c)
+
+		// set global var containing feed-in image name
+		feedInImage = c.String("feedinimage")
+
 		return nil
 	}
 
@@ -631,12 +165,22 @@ func main() {
 
 func runServer(ctx *cli.Context) error {
 
+	// show banner
+	log.Info().Msg(banner)
+	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
+
+	// set up TLS
+	// load SSL cert/key
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
+	}
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
 	// start statistics manager
-	log.Info().Msg("starting statsManager")
 	go statsManager()
 
 	// start goroutine to regularly pull feeders from atc
-	log.Info().Msg("starting updateFeederDB")
 	go updateFeederDB(ctx, 60*time.Second)
 
 	// prepare channel for container start requests
@@ -644,21 +188,30 @@ func runServer(ctx *cli.Context) error {
 	defer close(containersToStart)
 
 	// start goroutine to start feeder containers
-	log.Info().Msg("starting startFeederContainers")
 	go startFeederContainers(ctx, containersToStart)
 
 	// start goroutine to check feed-in containers
 	go checkFeederContainers(ctx)
 
 	var wg sync.WaitGroup
+	connNum := connectionNumber{}
+
+	// prepare incoming connection tracker (to allow dropping too-frequent connections)
+	// start evictor for incoming connection tracker
+	go func() {
+		for {
+			incomingConnTracker.evict()
+			time.Sleep(time.Second * 1)
+		}
+	}()
 
 	// start listening for incoming BEAST connections
 	wg.Add(1)
-	go listenBEAST(ctx, &wg, containersToStart)
+	go listenBEAST(ctx, &wg, containersToStart, &connNum)
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
-	go listenMLAT(ctx, &wg)
+	go listenMLAT(ctx, &wg, &connNum)
 
 	// wait for all listeners to finish / serve forever
 	wg.Wait()
@@ -666,16 +219,8 @@ func runServer(ctx *cli.Context) error {
 	return nil
 }
 
-func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
+func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest, connNum *connectionNumber) {
 	// BEAST listener
-
-	// load SSL cert/key
-	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "BEAST")
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
-	}
-	tlsConfig := tls.Config{}
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start TLS server
 	log.Info().Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).Msg("starting BEAST listener")
@@ -692,22 +237,14 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		go clientBEASTConnection(ctx, conn, &tlsConfig, containersToStart)
+		go clientBEASTConnection(ctx, conn, containersToStart, connNum.GetNum())
 	}
 
 	wg.Done()
 }
 
-func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
+func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, connNum *connectionNumber) {
 	// MLAT listener
-
-	// load SSL cert/key
-	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), "MLAT")
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
-	}
-	tlsConfig := tls.Config{}
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// start TLS server
 	log.Info().Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).Msg("starting MLAT listener")
@@ -724,7 +261,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		go clientMLATConnection(ctx, conn, &tlsConfig)
+		go clientMLATConnection(ctx, conn, &tlsConfig, connNum.GetNum())
 	}
 
 	wg.Done()
