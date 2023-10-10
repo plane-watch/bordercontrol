@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -470,7 +471,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 		// read data from client
 		bytesRead, err := readFromClient(connIn, buf)
-		if err != nil {
+		if os.IsTimeout(err) {
+			break // suppress constant i/o timeout messages
+		} else if err != nil {
 			cLog.Warn().Err(err).Msg("could not read from client")
 			break
 		}
