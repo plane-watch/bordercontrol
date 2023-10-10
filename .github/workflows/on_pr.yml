@@ -21,20 +21,28 @@ on:
 
 jobs:
 
-  test-build-bc:
-    name: Test build bordercontrol
+  test-build:
+    name: Test build
     runs-on: ubuntu-latest
     steps:
-      - run: docker build -f ./Dockerfile.bordercontrol
-
-  test-build-feeder:
-    name: Test build feeder
-    runs-on: ubuntu-latest
-    steps:
-      - run: docker build -f ./Dockerfile.feeder
-
-  test-build-mux:
-    name: Test build mux
-    runs-on: ubuntu-latest
-    steps:
-      - run: docker build -f ./Dockerfile.mux
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Build bordercontrol
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          file: ./Dockerfile.bordercontrol
+      -
+        name: Build feeder
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          file: ./Dockerfile.feeder
+      -
+        name: Build mux
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          file: ./Dockerfile.mux
