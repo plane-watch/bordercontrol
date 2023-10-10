@@ -7,8 +7,8 @@ on:
   # Test build/deploy on PRs to main/master
   pull_request:
     # Only publish on push to main branch
-    branches:
-      - main
+    # branches:
+    #   - main
     # Don't trigger if it's just a documentation update
     paths-ignore:
       - '**.md'

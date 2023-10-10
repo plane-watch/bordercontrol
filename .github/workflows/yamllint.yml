@@ -3,8 +3,8 @@ name: Linting (YAML)
 
 on:
   pull_request:
-    branches:
-      - main
+    # branches:
+    #   - main
       # only run when yaml files are updated
     paths:
       - '**.yml'

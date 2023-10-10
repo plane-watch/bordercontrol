@@ -4,8 +4,8 @@ name: Linting (Hadolint)
 on:
   workflow_dispatch:
   pull_request:
-    branches:
-      - main
+    # branches:
+    #   - main
     paths:
       - 'Dockerfile'
 
