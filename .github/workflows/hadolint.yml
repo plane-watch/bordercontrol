@@ -8,7 +8,7 @@ on:
     #   - main
     paths:
       - 'Dockerfile'
-      - 'Dockerfile.**'
+      - 'Dockerfile.*'
 
 jobs:
 
