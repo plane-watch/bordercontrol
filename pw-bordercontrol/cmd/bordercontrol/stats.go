@@ -1,74 +1,27 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"net"
 	"net/http"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	statsTemplate = `
-<html>
-<head>
-<style>
-table, th, td {
-  border: 1px solid black;
-  border-collapse: collapse;
-}
-</style>
-<meta http-equiv="Refresh" content="5"> 
-</head>
-<body>
-<table style="width:100%">
-	<tr>
-		<th>Feeder</th>
-		<th>Proto</th>
-		<th colspan="2">Src</th>
-		<th colspan="2">Dst</th>
-		<th>Since</th>
-	</tr>
-{{range $index, $element := .}}
-	<tr>
-		<td rowspan="2">
-			{{.Label}}</br>UUID: {{$index}}</br>{{.Lat}} {{.Lon}}
-		</td>
-		<td>BEAST</td>
-	{{if .Connected_beast}}
-		<td>{{.Src_beast}}</td>
-		<td>Rx: {{.Bytes_rx_in_beast}}B</br>Tx: {{.Bytes_tx_in_beast}}B</br></td>
-		<td>{{.Dst_feedin}}</td>
-		<td>Rx: {{.Bytes_rx_out_beast}}B</br>Tx: {{.Bytes_tx_out_beast}}B</br></td>
-		<td>{{.Time_connected_beast}}</td>
-	{{else}}
-		<td colspan="5">No connection</td>
-	{{end}}
-	</tr>
-	<tr>
-		<td>MLAT</td>
-	{{if .Connected_mlat}}
-		<td>{{.Src_mlat}}</td>
-		<td>Rx: {{.Bytes_rx_in_mlat}}B</br>Tx: {{.Bytes_tx_in_mlat}}B</br></td>
-		<td>{{.Dst_mux}}</td>
-		<td>Rx: {{.Bytes_rx_out_mlat}}B</br>Tx: {{.Bytes_tx_out_mlat}}B</br></td>
-		<td>{{.Time_connected_mlat}}</td>
-	{{else}}
-		<td colspan="5">No connection</td>
-	{{end}}
-	</tr>
-{{end}}
-`
-)
+//go:embed stats.tmpl
+var statsTemplate string
 
 // struct for per-feeder statistics
 type FeederStats struct {
@@ -76,33 +29,31 @@ type FeederStats struct {
 	Label string  // feeder label
 	Lat   float64 // feeder lat
 	Lon   float64 // feeder lon
-	// connection bools
-	Connected_beast bool `json:"ConnectedBeast"` // is the feeder sending BEAST
-	Connected_mlat  bool `json:"ConnectedMLAT"`  // is the feeder sending MLAT
-	// source connection info
-	Src_beast net.Addr `json:"SrcBeast"` // source ip:port of client for BEAST connection
-	Src_mlat  net.Addr `json:"SrcMLAT"`  // source ip:port of client for MLAT connection
-	// connection time
-	Time_connected_beast time.Time `json:"TimeConnectedBeast"` // connection time for BEAST connection
-	Time_connected_mlat  time.Time `json:"TimeConnectedMLAT"`  // connection time for MLAT connection
-	Time_last_updated    time.Time `json:"TimeLastUpdated"`    // time stats were last updated
-	// byte counters
-	Bytes_rx_in_beast  uint64 `json:"BytesRxInBeast"`  // bytes received from client (in) for BEAST protocol
-	Bytes_tx_in_beast  uint64 `json:"BytesTxInBeast"`  // bytes send to client (in) for BEAST protocol
-	Bytes_rx_out_beast uint64 `json:"BytesRxOutBeast"` // bytes received from mux (out) for BEAST protocol
-	Bytes_tx_out_beast uint64 `json:"BytesTxOutBeast"` // bytes send to mux (out) for BEAST protocol
-	Bytes_rx_in_mlat   uint64 `json:"BytesRxInMLAT"`   // bytes received from client (in) for MLAT protocol
-	Bytes_tx_in_mlat   uint64 `json:"BytesTxInMLAT"`   // bytes send to client (in) for MLAT protocol
-	Bytes_rx_out_mlat  uint64 `json:"BytesRxOutMLAT"`  // bytes received from mux (out) for MLAT protocol
-	Bytes_tx_out_mlat  uint64 `json:"BytesTxOutMLAT"`  // bytes send to mux (out) for MLAT protocol
-	// output details
-	Dst_feedin net.Addr `json:"DstFeedIn"` // connected feed-in container
-	Dst_mux    net.Addr `json:"DstMux"`    // connected multiplexer
+
+	// Connection details
+	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
+	Connections map[string]ProtocolDetail
+
+	TimeUpdated time.Time // time these stats were updated
 }
 
-type feederStatusUpdate struct {
-	uuid   uuid.UUID
-	update FeederStats
+type ProtocolDetail struct {
+	Status               bool      // is protocol connected
+	ConnectionCount      int       // number of connections for this protocol
+	MostRecentConnection time.Time // time of most recent connection
+
+	// uint key = connection number within bordercontrol
+	ConnectionDetails map[uint]ConnectionDetail
+}
+
+type ConnectionDetail struct {
+	Src                net.Addr           // source ip:port of incoming connection
+	Dst                net.Addr           // destination ip:port of outgoing connection
+	TimeConnected      time.Time          // time connection was established
+	BytesIn            uint64             // bytes received from feeder client
+	BytesOut           uint64             // bytes sent to feeder client
+	promMetricBytesIn  prometheus.Counter // holds the prometheus counter for bytes in
+	promMetricBytesOut prometheus.Counter // holds the prometheus counter for bytes out
 }
 
 // struct for list of feeder stats (+ mutex for sync)
@@ -113,11 +64,9 @@ type Statistics struct {
 
 // struct for http api responses
 type APIResponse struct {
-	Data  interface{}
-	Error string
+	Data interface{}
 }
 
-// variable for stats
 var (
 	stats Statistics // feeder statistics
 
@@ -125,7 +74,14 @@ var (
 	matchUUID            *regexp.Regexp // regex to match UUID
 )
 
-func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, rxin, txin, rxout, txout uint64, proto string) {
+func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto string) int {
+	proto = strings.ToUpper(proto)
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+	return stats.Feeders[uuid].Connections[proto].ConnectionCount
+}
+
+func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
 	// increment byte counters of a feeder
 	//   - sets time_last_updated to now
 
@@ -133,73 +89,55 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, rxin, txin, rxout
 
 	// copy stats entry
 	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	// update counters
 	y := stats.Feeders[uuid]
 
-	// update stats entry
-	switch strings.ToUpper(proto) {
-	case "BEAST":
-		y.Bytes_rx_in_beast += rxin
-		y.Bytes_tx_in_beast += txin
-		y.Bytes_rx_out_beast += rxout
-		y.Bytes_tx_out_beast += txout
-	case "MLAT":
-		y.Bytes_rx_in_mlat += rxin
-		y.Bytes_tx_in_mlat += txin
-		y.Bytes_rx_out_mlat += rxout
-		y.Bytes_tx_out_mlat += txout
-	default:
-		panic("unsupported protocol")
+	// find connection to update
+	for proto, p := range y.Connections {
+		for cn, c := range p.ConnectionDetails {
+			if cn == connNum {
+
+				// increment counters
+				c.BytesIn += bytesIn
+				c.promMetricBytesIn.Add(float64(bytesIn))
+				c.BytesOut += bytesOut
+				c.promMetricBytesOut.Add(float64(bytesOut))
+
+				y.Connections[proto].ConnectionDetails[connNum] = c
+
+				// update time last updated
+				y.TimeUpdated = time.Now()
+
+				// write stats entry
+				stats.Feeders[uuid] = y
+
+				return
+			}
+		}
 	}
-
-	// update time_last_updated
-	y.Time_last_updated = time.Now()
-
-	// write stats entry
-	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
-
 }
 
 func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	// does stats var have an entry for uuid?
-	stats.mu.RLock()
-	_, ok := stats.Feeders[uuid]
-	stats.mu.RUnlock()
-
 	// if not, create it
-	if !ok {
-		stats.mu.Lock()
-		stats.Feeders[uuid] = FeederStats{}
-		stats.mu.Unlock()
-	}
-}
 
-func (stats *Statistics) setOutputConnected(uuid uuid.UUID, outputType string, outputAddr net.Addr) {
-	// updates the connected status of a feeder
-
-	stats.initFeederStats(uuid)
-
-	// copy stats entry
 	stats.mu.Lock()
-	y := stats.Feeders[uuid]
+	defer stats.mu.Unlock()
 
-	// update stats entry
-	switch strings.ToUpper(outputType) {
-	case "FEEDIN":
-		y.Dst_feedin = outputAddr
-	case "MUX":
-		y.Dst_mux = outputAddr
-	default:
-		panic("unsupported output type")
+	_, ok := stats.Feeders[uuid]
+	if !ok {
+		stats.Feeders[uuid] = FeederStats{
+			Connections: make(map[string]ProtocolDetail),
+		}
+		stats.Feeders[uuid].Connections[protoBeast] = ProtocolDetail{
+			ConnectionDetails: make(map[uint]ConnectionDetail),
+		}
+		stats.Feeders[uuid].Connections[protoMLAT] = ProtocolDetail{
+			ConnectionDetails: make(map[uint]ConnectionDetail),
+		}
 	}
-
-	// update time_last_updated
-	y.Time_last_updated = time.Now()
-
-	// write stats entry
-	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
-
 }
 
 func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon float64) {
@@ -207,117 +145,228 @@ func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon
 
 	stats.initFeederStats(uuid)
 
-	// copy stats entry
 	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	// copy stats entry
 	y := stats.Feeders[uuid]
 
-	// update time_last_updated
+	// update label, lat, lon and time last updated
 	y.Label = label
 	y.Lat = lat
 	y.Lon = lon
-	y.Time_last_updated = time.Now()
+	y.TimeUpdated = time.Now()
 
 	// write stats entry
 	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
 }
 
-func (stats *Statistics) setClientDisconnected(uuid uuid.UUID, proto string) {
+func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 	// updates the connected status of a feeder
 
 	stats.initFeederStats(uuid)
 
-	// copy stats entry
 	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	// copy stats entry
 	y := stats.Feeders[uuid]
 
-	// update stats entry
-	switch strings.ToUpper(proto) {
-	case "BEAST":
-		y.Connected_beast = false
-	case "MLAT":
-		y.Connected_mlat = false
-	default:
-		panic("unsupported protocol")
+	// find connection to update
+	for proto, p := range y.Connections {
+		for cn, _ := range p.ConnectionDetails {
+			if cn == connNum {
+
+				// unregister prom metrics
+				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
+				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
+
+				// delete the connection
+				delete(y.Connections[proto].ConnectionDetails, connNum)
+
+				// update connection state
+				pd := y.Connections[proto]
+				pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
+				if len(y.Connections[proto].ConnectionDetails) > 0 {
+					pd.Status = true
+				} else {
+					pd.Status = false
+				}
+
+				y.Connections[proto] = pd
+
+				// update time last updated
+				y.TimeUpdated = time.Now()
+
+				// write stats entry
+				stats.Feeders[uuid] = y
+
+			}
+		}
 	}
-
-	// update time_last_updated
-	y.Time_last_updated = time.Now()
-
-	// write stats entry
-	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
-
 }
 
-func (stats *Statistics) setClientConnected(uuid uuid.UUID, src_addr net.Addr, proto string) {
+func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {
 	// updates the connected status of a feeder
-	//   - sets src_beast/src_mlat
-	//   - sets time_connected_beast/time_connected_mlat to now
-	//   - sets time_last_updated to now
 
 	stats.initFeederStats(uuid)
 
-	// copy stats entry
+	// make protocol uppercase
+	proto = strings.ToUpper(proto)
+
 	stats.mu.Lock()
+	defer stats.mu.Unlock()
+
+	// copy stats entry
 	y := stats.Feeders[uuid]
 
-	// update stats entry
-	switch strings.ToUpper(proto) {
-	case "BEAST":
-		y.Time_connected_beast = time.Now()
-		y.Connected_beast = true
-		y.Src_beast = src_addr
-	case "MLAT":
-		y.Time_connected_mlat = time.Now()
-		y.Connected_mlat = true
-		y.Src_mlat = src_addr
-	default:
-		panic("unsupported protocol")
+	// add connection
+	c := ConnectionDetail{
+		Src:           src,
+		Dst:           dst,
+		TimeConnected: time.Now(),
+		BytesIn:       0,
+		BytesOut:      0,
 	}
 
-	// update time_last_updated
-	y.Time_last_updated = time.Now()
+	// define per-connection prometheus metrics
+	c.promMetricBytesIn = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "feeder_data_in_bytes_total",
+		Help:      "Per-feeder bytes received (in)",
+		ConstLabels: prometheus.Labels{
+			"protocol": strings.ToLower(proto),
+			"uuid":     uuid.String(),
+			"label":    y.Label,
+			"connnum":  fmt.Sprintf("%d", connNum),
+		}})
+	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: promNamespace,
+		Subsystem: promSubsystem,
+		Name:      "feeder_data_out_bytes_total",
+		Help:      "Per-feeder bytes sent (out)",
+		ConstLabels: prometheus.Labels{
+			"protocol": strings.ToLower(proto),
+			"uuid":     uuid.String(),
+			"label":    y.Label,
+			"connnum":  fmt.Sprintf("%d", connNum),
+		}})
+	err := prometheus.Register(c.promMetricBytesIn)
+	if err != nil {
+		log.Err(err).Msg("could not register per-feeder prometheus bytes in metric")
+	}
+	err = prometheus.Register(c.promMetricBytesOut)
+	if err != nil {
+		log.Err(err).Msg("could not register per-feeder prometheus bytes out metric")
+	}
+
+	// add connection to feeder connections map
+	y.Connections[proto].ConnectionDetails[connNum] = c
+
+	// update connection state
+	if len(y.Connections[proto].ConnectionDetails) > 0 {
+		pd := y.Connections[proto]
+		pd.Status = true
+		pd.MostRecentConnection = c.TimeConnected
+		pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
+		y.Connections[proto] = pd
+	}
+
+	// update time updated
+	y.TimeUpdated = time.Now()
 
 	// write stats entry
 	stats.Feeders[uuid] = y
-	stats.mu.Unlock()
+
 }
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
+	// Template helper functions
+	funcMap := template.FuncMap{
+
+		// human readable / pretty printable data units
+		"humanReadableDataUnits": func(n uint64) string {
+
+			var prefix byte = ' '
+			var out string
+
+			if n > 1024 {
+				prefix = 'K'
+			}
+			if n > 1048576 {
+				prefix = 'M'
+			}
+			if n > 1073741824 {
+				prefix = 'G'
+			}
+			if n > 1099511627776 {
+				prefix = 'T'
+			}
+			if n > 1125899906842624 {
+				prefix = 'P'
+			}
+
+			switch prefix {
+			case ' ':
+				out = fmt.Sprintf("%dB", n)
+			case 'K':
+				out = fmt.Sprintf("%.1fK", float32(n)/1024.0)
+			case 'M':
+				out = fmt.Sprintf("%.2fM", float32(n)/1024.0/1024.0)
+			case 'G':
+				out = fmt.Sprintf("%.3fG", float32(n)/1024.0/1024.0/1024.0)
+			case 'T':
+				out = fmt.Sprintf("%.4fT", float32(n)/1024.0/1024.0/1024.0/1024.0)
+			case 'P':
+				out = fmt.Sprintf("%.5fP", float32(n)/1024.0/1024.0/1024.0/1024.0/1024.0)
+			}
+
+			return out
+		},
+	}
+
 	// Make and parse the HTML template
-	t, err := template.New("stats").Parse(statsTemplate)
+	t, err := template.New("stats").Funcs(funcMap).Parse(statsTemplate)
 	if err != nil {
-		log.Panic().AnErr("err", err).Msg("could not render statsTemplate")
+		log.Panic().AnErr("err", err).Str("api", "httpRenderStats").Str("reqURI", r.RequestURI).Msg("could not render statsTemplate")
 	}
 
 	// Render the data
 	stats.mu.RLock()
+	defer stats.mu.RUnlock()
 	err = t.Execute(w, stats.Feeders)
-	stats.mu.RUnlock()
 	if err != nil {
 		fmt.Println(err)
-		log.Panic().AnErr("err", err).Msg("could not execute statsTemplate")
+		log.Panic().AnErr("err", err).Str("api", "httpRenderStats").Str("reqURI", r.RequestURI).Msg("could not execute statsTemplate")
 	}
 }
 
 func statsEvictor() {
 
+	// loop through stats data, evict any feeders that have been inactive for over 60 seconds
 	for {
 		var toEvict []uuid.UUID
+		// var activeBeast, activeMLAT uint
 
 		stats.mu.Lock()
 
 		// find stale data
 		for u, _ := range stats.Feeders {
-			if !stats.Feeders[u].Connected_beast {
-				if !stats.Feeders[u].Connected_mlat {
-					if time.Now().Sub(stats.Feeders[u].Time_last_updated) > (time.Second * 60) {
-						// log.Debug().Str("uuid", u.String()).Msg("evicting stale stats data")
-						toEvict = append(toEvict, u)
-					}
+			if len(stats.Feeders[u].Connections) == 0 {
+				if time.Now().Sub(stats.Feeders[u].TimeUpdated) > (time.Second * 60) {
+					toEvict = append(toEvict, u)
 				}
+				// } else {
+				// 	for p, _ := range stats.Feeders[u].Connections {
+				// 		switch p {
+				// 		case protoBeast:
+				// 			activeBeast++
+				// 		case protoMLAT:
+				// 			activeMLAT++
+				// 		}
+				// 	}
 			}
 		}
 
@@ -328,9 +377,8 @@ func statsEvictor() {
 
 		stats.mu.Unlock()
 
-		// periodically log number of goroutines
-		// todo: move this to the web ui
-		log.Debug().Int("goroutines", runtime.NumGoroutine()).Msg("number of goroutines")
+		// log number of connections & goroutines
+		// log.Info().Uint("beast", activeBeast).Uint("mlat", activeMLAT).Int("goroutines", runtime.NumGoroutine()).Msg("active connections")
 
 		time.Sleep(time.Minute * 1)
 	}
@@ -338,18 +386,20 @@ func statsEvictor() {
 
 func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
+	// get a read lock on stats
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+
 	// prepare response variable
 	var resp APIResponse
 
 	// get data
-	stats.mu.RLock()
 	resp.Data = stats.Feeders
-	stats.mu.RUnlock()
 
 	// prepare response
 	output, err := json.Marshal(resp)
 	if err != nil {
-		log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+		log.Error().Any("resp", resp).Str("api", "apiReturnAllFeeders").Str("reqURI", r.RequestURI).Msg("could not marshall resp into json")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -373,39 +423,37 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		// try to extract uuid from path
 		clientApiKey, err := uuid.Parse((string(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))))
 		if err != nil {
-			log.Err(err).Str("url", r.URL.Path).Msg("could not get uuid from url")
+			log.Err(err).Str("url", r.URL.Path).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("could not get uuid from url")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		// look up feeder by uuid
 		stats.mu.RLock()
+		defer stats.mu.RUnlock()
 		val, ok := stats.Feeders[clientApiKey]
 		if !ok {
-			resp.Error = "feeder not found"
+			log.Error().Any("resp", resp).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("feeder not found")
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		} else {
 			resp.Data = val
 		}
-		stats.mu.RUnlock()
 
 		// prepare response
 		output, err := json.Marshal(resp)
 		if err != nil {
-			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+			log.Error().Any("resp", resp).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("could not marshall resp into json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// write response
-		if resp.Error != "" {
-			w.WriteHeader(http.StatusBadRequest)
-		}
 		w.Header().Add("Content-Type", "application/json")
 		w.Write(output)
 		return
 
 	} else {
-		log.Error().Str("url", r.URL.Path).Msg("path did not match single feeder")
+		log.Error().Str("url", r.URL.Path).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("path did not match single feeder")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -428,6 +476,10 @@ func statsManager() {
 	http.HandleFunc("/", httpRenderStats)
 	http.HandleFunc("/api/v1/feeder/", apiReturnSingleFeeder)
 	http.HandleFunc("/api/v1/feeders/", apiReturnAllFeeders)
+
+	// prometheus endpoint
+	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/metrics/", promhttp.Handler())
 
 	// start stats http server
 	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
