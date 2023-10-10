@@ -21,8 +21,20 @@ on:
 
 jobs:
 
-  test-build:
-    name: Test
-    uses: sdr-enthusiasts/common-github-workflows/.github/workflows/build_and_push_image.yml@main
-    with:
-      push_enabled: false
+  test-build-bc:
+    name: Test build bordercontrol
+    runs-on: ubuntu-latest
+    steps:
+      - run: docker build -f ./Dockerfile.bordercontrol
+
+  test-build-feeder:
+    name: Test build feeder
+    runs-on: ubuntu-latest
+    steps:
+      - run: docker build -f ./Dockerfile.feeder
+
+  test-build-mux:
+    name: Test build mux
+    runs-on: ubuntu-latest
+    steps:
+      - run: docker build -f ./Dockerfile.mux
