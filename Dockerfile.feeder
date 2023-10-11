@@ -1,6 +1,6 @@
 FROM ghcr.io/plane-watch/pw-pipeline:pw_ingest as pipeline
 
-FROM debian:bullseye-20230502-slim
+FROM debian:bullseye-20230919-slim
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x && \
     TEMP_PACKAGES=() && \
