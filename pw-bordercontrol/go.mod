@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.3.1
 	github.com/prometheus/client_golang v1.15.1
 	github.com/rs/zerolog v1.29.1
-	github.com/urfave/cli/v2 v2.25.3
+	github.com/urfave/cli/v2 v2.25.7
 )
 
 require (
