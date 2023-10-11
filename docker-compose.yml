@@ -1,3 +1,4 @@
+---
 version: '3.8'
 
 networks:
@@ -57,9 +58,9 @@ services:
     networks:
       - bordercontrol_feeder
     ports:
-      - 8080:8080   # Stats Web UI (http)
-      - 12345:12345 # BEAST
-      - 12346:12346 # MLAT    
+      - 8080:8080      # Stats Web UI (http)
+      - 12345:12345    # BEAST
+      - 12346:12346    # MLAT
 
   feed-in-builder:
     container_name: feed-in-builder
@@ -106,8 +107,8 @@ services:
     networks:
       - bordercontrol_feeder
     healthcheck:
-      test: ['CMD','true'] # disable the healthcheck
-    
+      test: ['CMD', 'true']    # disable the healthcheck
+
   # Multiplexer: Australia ACT
   mux-act:
     container_name: mux-act
@@ -187,7 +188,7 @@ services:
     <<: *mux-common
     ports:
       - 22001:30015
-  
+
   # Multiplexer: USA
   mux-us:
     container_name: mux-us
@@ -203,4 +204,3 @@ services:
     <<: *mux-common
     ports:
       - 24001:30015
-
