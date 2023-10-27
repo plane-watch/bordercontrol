@@ -1,4 +1,4 @@
-FROM golang:1.21.3 AS builder
+FROM golang:1.20 AS builder
 COPY / /src/pw-bordercontrol
 WORKDIR /src/pw-bordercontrol/pw-bordercontrol
 RUN go mod tidy && \
