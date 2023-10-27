@@ -3,7 +3,7 @@ module pw_bordercontrol
 go 1.19
 
 require (
-	github.com/docker/docker v24.0.0+incompatible
+	github.com/docker/docker v24.0.7+incompatible
 	github.com/google/uuid v1.4.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/rs/zerolog v1.31.0
