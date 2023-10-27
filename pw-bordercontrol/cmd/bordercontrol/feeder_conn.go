@@ -259,7 +259,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// read data from client
 		bytesRead, err = readFromClient(clientConn, inBuf)
 		if err != nil {
-			cLog.Err(err).Msg("could not read from client")
+			cLog.Err(err).Msg("error reading from client")
 			break
 		}
 
@@ -298,12 +298,12 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 				// handle connection errors to feed-in container
 
-				cLog.Warn().AnErr("error", muxConnErr).Msg("could not connect to mux container")
+				cLog.Warn().AnErr("error", muxConnErr).Msg("error connecting to mux container")
 				time.Sleep(1 * time.Second)
 
 				e := clientConn.Close()
 				if e != nil {
-					log.Err(e).Caller().Msg("could not close clientConn")
+					log.Err(e).Caller().Msg("error closing clientConn")
 				}
 				break
 
@@ -315,19 +315,19 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// attempt to set tcp keepalive with 1 sec interval
 				err := muxConn.SetKeepAlive(true)
 				if err != nil {
-					cLog.Err(err).Msg("could not set keep alive")
+					cLog.Err(err).Msg("error setting keep alive")
 					e := clientConn.Close()
 					if e != nil {
-						log.Err(e).Caller().Msg("could not close clientConn")
+						log.Err(e).Caller().Msg("error closing client connection")
 					}
 					break
 				}
 				err = muxConn.SetKeepAlivePeriod(1 * time.Second)
 				if err != nil {
-					cLog.Err(err).Msg("could not set keep alive period")
+					cLog.Err(err).Msg("error setting keep alive period")
 					e := clientConn.Close()
 					if e != nil {
-						log.Err(e).Caller().Msg("could not close clientConn")
+						log.Err(e).Caller().Msg("error closing client connection")
 					}
 					break
 				}
@@ -373,7 +373,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// read from feeder client
 				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
-					cLog.Err(err).Msg("could not read from client")
+					cLog.Err(err).Msg("error reading from client")
 					return
 				}
 
@@ -408,7 +408,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// read from mlat server
 				bytesRead, err := muxConn.Read(buf)
 				if err != nil {
-					cLog.Err(err).Msg("could not read from mux")
+					cLog.Err(err).Msg("error reading from mux")
 					return
 				}
 
@@ -474,7 +474,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		if os.IsTimeout(err) {
 			break // suppress constant i/o timeout messages
 		} else if err != nil {
-			cLog.Err(err).Msg("could not read from client")
+			cLog.Err(err).Msg("error reading from client")
 			break
 		}
 
@@ -523,7 +523,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			if connOutErr != nil {
 
 				// handle connection errors to feed-in container
-				cLog.Warn().AnErr("error", connOutErr).Msg("could not connect to feed-in container")
+				cLog.Warn().AnErr("error", connOutErr).Msg("error connecting to feed-in container")
 				time.Sleep(1 * time.Second)
 
 				break
@@ -537,12 +537,12 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				// attempt to set tcp keepalive with 1 sec interval
 				err := connOut.SetKeepAlive(true)
 				if err != nil {
-					cLog.Err(err).Msg("could not set keep alive")
+					cLog.Err(err).Msg("error setting keep alive")
 					break
 				}
 				err = connOut.SetKeepAlivePeriod(1 * time.Second)
 				if err != nil {
-					cLog.Err(err).Msg("could not set keep alive period")
+					cLog.Err(err).Msg("error setting keep alive period")
 					break
 				}
 
@@ -570,7 +570,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				// set deadline of 5 second
 				wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
 				if wdErr != nil {
-					cLog.Err(wdErr).Msg("could not set deadline on connection")
+					cLog.Err(wdErr).Msg("error setting deadline on connection")
 					break
 				}
 
