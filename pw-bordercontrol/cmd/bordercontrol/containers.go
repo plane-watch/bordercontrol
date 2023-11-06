@@ -31,10 +31,11 @@ type startContainerRequest struct {
 
 func checkFeederContainers(ctx *cli.Context) {
 	// cycles through feed-in containers and recreates if needed
-	cfcLog := log.With().Logger()
-	// cfcLog.Debug().Msg("Running checkFeederContainers")
+	cfcLog := log.With().Str("goroutine", "checkFeederContainers").Logger()
+	cfcLog.Info().Msg("started")
 
 	// set up docker client
+	cfcLog.Info().Msg("set up docker client")
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -44,10 +45,12 @@ func checkFeederContainers(ctx *cli.Context) {
 	defer cli.Close()
 
 	// prepare filter to find feed-in containers
+	cfcLog.Info().Msg("prepare filter to find feed-in containers")
 	filters := filters.NewArgs()
 	filters.Add("name", "feed-in-*")
 
 	// find containers
+	cfcLog.Info().Msg("find containers")
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
 	if err != nil {
 		panic(err)
@@ -55,6 +58,8 @@ func checkFeederContainers(ctx *cli.Context) {
 
 	// for each container...
 	for _, container := range containers {
+
+		cfcLog.Info().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
 
 		// check containers are running latest feed-in image
 		if container.Image != ctx.String("feedinimage") {
@@ -66,10 +71,12 @@ func checkFeederContainers(ctx *cli.Context) {
 		}
 
 		// avoid killing lots of containers in a short duration
+		cfcLog.Info().Msg("sleep 30 seconds")
 		time.Sleep(30 * time.Second)
 	}
 
 	// re-launch this goroutine in 5 mins
+	cfcLog.Info().Msg("sleep 5 mins")
 	time.Sleep(300 * time.Second)
 	go checkFeederContainers(ctx)
 
