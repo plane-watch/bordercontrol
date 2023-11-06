@@ -78,6 +78,8 @@ func checkFeederContainers(ctx *cli.Context) {
 	// re-launch this goroutine in 5 mins
 	cfcLog.Info().Msg("sleep 5 mins")
 	time.Sleep(300 * time.Second)
+
+	cfcLog.Info().Msg("launching new instance")
 	go checkFeederContainers(ctx)
 
 }
