@@ -33,10 +33,10 @@ type startContainerRequest struct {
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) {
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Str("goroutine", "checkFeederContainers").Logger()
-	cfcLog.Info().Msg("started")
+	// cfcLog.Info().Msg("started")
 
 	// set up docker client
-	cfcLog.Info().Msg("set up docker client")
+	// cfcLog.Info().Msg("set up docker client")
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -46,21 +46,22 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	defer cli.Close()
 
 	// prepare filters to find feed-in containers
-	cfcLog.Info().Msg("prepare filter to find feed-in containers")
+	// cfcLog.Info().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
 	filterFeedIn.Add("name", "feed-in-*")
 
 	// find containers
-	cfcLog.Info().Msg("find containers")
+	// cfcLog.Info().Msg("find containers")
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		panic(err)
 	}
 
 	// for each container...
+ContainerLoop:
 	for _, container := range containers {
 
-		cfcLog.Info().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
+		// cfcLog.Info().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
 
 		// check containers are running latest feed-in image
 		if container.Image != ctx.String("feedinimage") {
@@ -70,11 +71,11 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
 			} else {
 				// avoid killing lots of containers in a short duration
-				cfcLog.Info().Msg("sleep 30 seconds or await signal")
+				// cfcLog.Info().Msg("sleep 30 seconds or await signal")
 				select {
 				case s := <-checkFeederContainerSigs:
-					cfcLog.Info().Str("signal", s.String()).Msg("caught signal")
-					break
+					cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
+					break ContainerLoop
 				case <-time.After(30 * time.Second):
 				}
 			}
@@ -82,15 +83,15 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	}
 
 	// re-launch this goroutine in 5 mins
-	cfcLog.Info().Msg("sleep 5 mins or await signal")
+	// cfcLog.Info().Msg("sleep 5 mins or await signal")
 	select {
 	case s := <-checkFeederContainerSigs:
-		cfcLog.Info().Str("signal", s.String()).Msg("caught signal")
+		cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
 		break
 	case <-time.After(300 * time.Second):
 	}
 
-	cfcLog.Info().Msg("launching new instance")
+	// cfcLog.Info().Msg("launching new instance")
 	go checkFeederContainers(ctx, checkFeederContainerSigs)
 
 }
