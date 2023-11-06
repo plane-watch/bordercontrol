@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -29,7 +30,7 @@ type startContainerRequest struct {
 	srcIP  net.IP    // client IP address
 }
 
-func checkFeederContainers(ctx *cli.Context) {
+func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) {
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Str("goroutine", "checkFeederContainers").Logger()
 	cfcLog.Info().Msg("started")
@@ -69,18 +70,28 @@ func checkFeederContainers(ctx *cli.Context) {
 				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
 			} else {
 				// avoid killing lots of containers in a short duration
-				cfcLog.Info().Msg("sleep 30 seconds")
-				time.Sleep(30 * time.Second)
+				cfcLog.Info().Msg("sleep 30 seconds or await signal")
+				select {
+				case s := <-checkFeederContainerSigs:
+					cfcLog.Info().Str("signal", s.String()).Msg("caught signal")
+					break
+				case <-time.After(30 * time.Second):
+				}
 			}
 		}
 	}
 
 	// re-launch this goroutine in 5 mins
-	cfcLog.Info().Msg("sleep 5 mins")
-	time.Sleep(300 * time.Second)
+	cfcLog.Info().Msg("sleep 5 mins or await signal")
+	select {
+	case s := <-checkFeederContainerSigs:
+		cfcLog.Info().Str("signal", s.String()).Msg("caught signal")
+		break
+	case <-time.After(300 * time.Second):
+	}
 
 	cfcLog.Info().Msg("launching new instance")
-	go checkFeederContainers(ctx)
+	go checkFeederContainers(ctx, checkFeederContainerSigs)
 
 }
 

@@ -4,9 +4,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"os"
+	"os/signal"
 	"runtime/debug"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"pw_bordercontrol/lib/logging"
@@ -191,7 +193,9 @@ func runServer(ctx *cli.Context) error {
 	go startFeederContainers(ctx, containersToStart)
 
 	// start goroutine to check feed-in containers
-	go checkFeederContainers(ctx)
+	checkFeederContainerSigs := make(chan os.Signal, 1)
+	signal.Notify(checkFeederContainerSigs, syscall.SIGUSR1)
+	go checkFeederContainers(ctx, checkFeederContainerSigs)
 
 	var wg sync.WaitGroup
 	connNum := connectionNumber{}
