@@ -67,12 +67,12 @@ func checkFeederContainers(ctx *cli.Context) {
 			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
 				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
+			} else {
+				// avoid killing lots of containers in a short duration
+				cfcLog.Info().Msg("sleep 30 seconds")
+				time.Sleep(30 * time.Second)
 			}
 		}
-
-		// avoid killing lots of containers in a short duration
-		cfcLog.Info().Msg("sleep 30 seconds")
-		time.Sleep(30 * time.Second)
 	}
 
 	// re-launch this goroutine in 5 mins
