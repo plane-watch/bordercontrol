@@ -99,7 +99,14 @@ This will stop and remove multiplexer and bordercontrol containers. After approx
 
 From the root of the repository, run `docker compose up -d --build`.
 
-Any updated containers will be re-created. For the feed-in containers, bordercontrol will update these one at a time to hopefully prevent any visible impact on the web UI.
+Any updated containers will be re-created.
+
+For the feed-in containers, bordercontrol checks these every 5 minutes. Containers are updated one at a time. After updating a container, bordercontrol waits 30 seconds, to hopefully prevent any visible impact on the web UI. These timeouts/sleeps can be skipped by sending a `SIGUSR1` signal to bordercontrol. This is shown in the logs:
+
+```
+Mon Nov  6 20:51:43 UTC 2023 INF caught signal, proceeding immediately goroutine=checkFeederContainers signal="user defined signal 1"
+Mon Nov  6 20:51:43 UTC 2023 INF out of date container being killed for recreation container=feed-in-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx goroutine=checkFeederContainers
+```
 
 ### Re-reading SSL certificates
 
