@@ -31,6 +31,9 @@ type startContainerRequest struct {
 }
 
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) {
+
+	var sigCaught bool
+
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Str("goroutine", "checkFeederContainers").Logger()
 	// cfcLog.Info().Msg("started")
@@ -75,6 +78,7 @@ ContainerLoop:
 				select {
 				case s := <-checkFeederContainerSigs:
 					cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
+					sigCaught = true
 					break ContainerLoop
 				case <-time.After(30 * time.Second):
 				}
@@ -84,11 +88,13 @@ ContainerLoop:
 
 	// re-launch this goroutine in 5 mins
 	// cfcLog.Info().Msg("sleep 5 mins or await signal")
-	select {
-	case s := <-checkFeederContainerSigs:
-		cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
-		break
-	case <-time.After(300 * time.Second):
+	if !sigCaught {
+		select {
+		case s := <-checkFeederContainerSigs:
+			cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
+			break
+		case <-time.After(300 * time.Second):
+		}
 	}
 
 	// cfcLog.Info().Msg("launching new instance")
