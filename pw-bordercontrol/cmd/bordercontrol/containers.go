@@ -31,8 +31,15 @@ type startContainerRequest struct {
 }
 
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) {
+	// Checks feed-in-* containers are running the latest image. If they aren't remove them.
+	// They will be recreated using the latest image when the client reconnects.
 
-	var sigCaught bool
+	// TODO: One instance of this goroutine per region/mux would be good.
+
+	var (
+		containerRemoved bool          // was a container removed this run
+		sleepTime        time.Duration // how long to sleep for between runs
+	)
 
 	// cycles through feed-in containers and recreates if needed
 	cfcLog := log.With().Str("goroutine", "checkFeederContainers").Logger()
@@ -68,33 +75,37 @@ ContainerLoop:
 
 		// check containers are running latest feed-in image
 		if container.Image != ctx.String("feedinimage") {
+
+			// If a container is found running an out-of-date image, then remove it.
+			// It should be recreated automatically when the client reconnects
 			cfcLog.Info().Str("container", container.Names[0][1:]).Msg("out of date container being killed for recreation")
 			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
 				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
 			} else {
-				// avoid killing lots of containers in a short duration
-				// cfcLog.Info().Msg("sleep 30 seconds or await signal")
-				select {
-				case s := <-checkFeederContainerSigs:
-					cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
-					sigCaught = true
-					break ContainerLoop
-				case <-time.After(30 * time.Second):
-				}
+
+				// If container was removed successfully, then break out of this loop
+				containerRemoved = true
+				break ContainerLoop
 			}
 		}
 	}
 
-	// re-launch this goroutine in 5 mins
-	// cfcLog.Info().Msg("sleep 5 mins or await signal")
-	if !sigCaught {
-		select {
-		case s := <-checkFeederContainerSigs:
-			cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
-			break
-		case <-time.After(300 * time.Second):
-		}
+	// determine how long to sleep
+	if containerRemoved {
+		// if a container has been removed, only wait 30 seconds
+		sleepTime = 30
+	} else {
+		// if no containers have been removed, wait 5 minutes before checking again
+		sleepTime = 300
+	}
+
+	// sleep unless/until siguser1 is caught
+	select {
+	case s := <-checkFeederContainerSigs:
+		cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
+		break
+	case <-time.After(sleepTime * time.Second):
 	}
 
 	// cfcLog.Info().Msg("launching new instance")
