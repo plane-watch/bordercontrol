@@ -75,6 +75,13 @@ var (
 )
 
 func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto string) int {
+
+	// log := log.With().
+	// 	Strs("func", []string{"stats.go", "getNumConnections"}).
+	// 	Str("uuid", uuid.String()).
+	// 	Str("proto", proto).
+	// 	Logger()
+
 	proto = strings.ToUpper(proto)
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
@@ -84,6 +91,14 @@ func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto string) int {
 func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
 	// increment byte counters of a feeder
 	//   - sets time_last_updated to now
+
+	// log := log.With().
+	// 	Strs("func", []string{"stats.go", "incrementByteCounters"}).
+	// 	Str("uuid", uuid.String()).
+	// 	Uint("connNum", connNum).
+	//  Uint64("bytesIn", bytesIn).
+	//  Uint64("bytesOut", bytesOut).
+	// 	Logger()
 
 	stats.initFeederStats(uuid)
 
@@ -123,6 +138,11 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	// does stats var have an entry for uuid?
 	// if not, create it
 
+	// log := log.With().
+	// 	Strs("func", []string{"stats.go", "initFeederStats"}).
+	// 	Str("uuid", uuid.String()).
+	// 	Logger()
+
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
@@ -142,6 +162,14 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 
 func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon float64) {
 	// updates the details of a feeder
+
+	// log := log.With().
+	// 	Strs("func", []string{"stats.go", "setFeederDetails"}).
+	// 	Str("uuid", uuid.String()).
+	//  Str("label", label).
+	//  Float64("lat", lat).
+	//  Float64("lon", lon)/
+	// 	Logger()
 
 	stats.initFeederStats(uuid)
 
@@ -163,6 +191,12 @@ func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon
 
 func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 	// updates the connected status of a feeder
+
+	// log := log.With().
+	// 	Strs("func", []string{"stats.go", "delConnection"}).
+	// 	Str("uuid", uuid.String()).
+	// 	Uint("connNum", connNum).
+	// 	Logger()
 
 	stats.initFeederStats(uuid)
 
@@ -208,6 +242,15 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
 
 func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {
 	// updates the connected status of a feeder
+
+	log := log.With().
+		Strs("func", []string{"stats.go", "addConnection"}).
+		Str("uuid", uuid.String()).
+		Str("src", src.String()).
+		Str("dst", dst.String()).
+		Str("proto", proto).
+		Uint("connNum", connNum).
+		Logger()
 
 	stats.initFeederStats(uuid)
 
@@ -283,6 +326,13 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
+	log := log.With().
+		Strs("func", []string{"stats.go", "httpRenderStats"}).
+		Str("RemoteAddr", r.RemoteAddr).
+		Str("url", r.URL.Path).
+		Str("RequestURI", r.RequestURI).
+		Logger()
+
 	// Template helper functions
 	funcMap := template.FuncMap{
 
@@ -330,7 +380,7 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	// Make and parse the HTML template
 	t, err := template.New("stats").Funcs(funcMap).Parse(statsTemplate)
 	if err != nil {
-		log.Panic().AnErr("err", err).Str("api", "httpRenderStats").Str("reqURI", r.RequestURI).Msg("could not render statsTemplate")
+		log.Panic().AnErr("err", err).Msg("could not render statsTemplate")
 	}
 
 	// Render the data
@@ -339,11 +389,15 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	err = t.Execute(w, stats.Feeders)
 	if err != nil {
 		fmt.Println(err)
-		log.Panic().AnErr("err", err).Str("api", "httpRenderStats").Str("reqURI", r.RequestURI).Msg("could not execute statsTemplate")
+		log.Panic().AnErr("err", err).Msg("could not execute statsTemplate")
 	}
 }
 
 func statsEvictor() {
+
+	// log := log.With().
+	// 	Strs("func", []string{"stats.go", "statsEvictor"}).
+	// 	Logger()
 
 	// loop through stats data, evict any feeders that have been inactive for over 60 seconds
 	for {
@@ -358,15 +412,6 @@ func statsEvictor() {
 				if time.Now().Sub(stats.Feeders[u].TimeUpdated) > (time.Second * 60) {
 					toEvict = append(toEvict, u)
 				}
-				// } else {
-				// 	for p, _ := range stats.Feeders[u].Connections {
-				// 		switch p {
-				// 		case protoBeast:
-				// 			activeBeast++
-				// 		case protoMLAT:
-				// 			activeMLAT++
-				// 		}
-				// 	}
 			}
 		}
 
@@ -386,6 +431,14 @@ func statsEvictor() {
 
 func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
+	log := log.With().
+		Strs("func", []string{"stats.go", "apiReturnAllFeeders"}).
+		Str("RemoteAddr", r.RemoteAddr).
+		Str("url", r.URL.Path).
+		Str("RequestURI", r.RequestURI).
+		Str("api", "apiReturnAllFeeders").
+		Logger()
+
 	// get a read lock on stats
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
@@ -399,7 +452,7 @@ func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 	// prepare response
 	output, err := json.Marshal(resp)
 	if err != nil {
-		log.Error().Any("resp", resp).Str("api", "apiReturnAllFeeders").Str("reqURI", r.RequestURI).Msg("could not marshall resp into json")
+		log.Error().Any("resp", resp).Msg("could not marshall resp into json")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -413,6 +466,13 @@ func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
 func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
+	log := log.With().
+		Strs("func", []string{"stats.go", "apiReturnSingleFeeder"}).
+		Str("RemoteAddr", r.RemoteAddr).
+		Str("url", r.URL.Path).
+		Str("RequestURI", r.RequestURI).
+		Logger()
+
 	// prepare response variable
 	var resp APIResponse
 
@@ -423,7 +483,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		// try to extract uuid from path
 		clientApiKey, err := uuid.Parse((string(matchUUID.Find([]byte(strings.ToLower(r.URL.Path))))))
 		if err != nil {
-			log.Err(err).Str("url", r.URL.Path).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("could not get uuid from url")
+			log.Err(err).Msg("could not get uuid from url")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -433,7 +493,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		defer stats.mu.RUnlock()
 		val, ok := stats.Feeders[clientApiKey]
 		if !ok {
-			log.Error().Any("resp", resp).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("feeder not found")
+			log.Error().Any("resp", resp).Msg("feeder not found")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		} else {
@@ -443,7 +503,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		// prepare response
 		output, err := json.Marshal(resp)
 		if err != nil {
-			log.Error().Any("resp", resp).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("could not marshall resp into json")
+			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -453,7 +513,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		return
 
 	} else {
-		log.Error().Str("url", r.URL.Path).Str("api", "apiReturnSingleFeeder").Str("reqURI", r.RequestURI).Msg("path did not match single feeder")
+		log.Error().Msg("path did not match single feeder")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -461,6 +521,10 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 }
 
 func statsManager() {
+
+	log := log.With().
+		Strs("func", []string{"stats.go", "statsManager"}).
+		Logger()
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)

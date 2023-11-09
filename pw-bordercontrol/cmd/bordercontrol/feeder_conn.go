@@ -63,6 +63,12 @@ const (
 )
 
 func (connNum *connectionNumber) GetNum() (num uint) {
+
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "GetNum"}).
+	// 	Uint("num", num).
+	// 	Logger()
+
 	connNum.mu.Lock()
 	defer connNum.mu.Unlock()
 	connNum.num++
@@ -74,6 +80,10 @@ func (connNum *connectionNumber) GetNum() (num uint) {
 
 func (t *incomingConnectionTracker) evict() {
 	// evicts connections from the tracker if older than 10 seconds
+
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "evict"}).
+	// 	Logger()
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -96,6 +106,11 @@ func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 	// allows 'maxIncomingConnectionRequestsPerProto' connections every 10 seconds
 
 	var connCount uint
+
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "check"}).
+	// 	IPAddr("srcIP", net.IP).
+	// 	Logger()
 
 	// count number of connections from this source IP
 	t.mu.RLock()
@@ -128,6 +143,12 @@ func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 
 func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "dialContainerTCP"}).
+	// 	Str("container", container).
+	// 	Int("port", port).
+	// 	Logger()
+
 	// perform DNS lookup
 	var dstIP net.IP
 	dstIPs, err := net.LookupIP(container)
@@ -155,6 +176,10 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
 func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (clientApiKey uuid.UUID, refLat, refLon float64, mux, label string, err error) {
 	// authenticates a feeder
+
+	log = log.With().
+		Strs("func", []string{"feeder_conn.go", "authenticateFeeder"}).
+		Logger()
 
 	// check TLS handshake
 	tlscon := connIn.(*tls.Conn)
@@ -200,6 +225,10 @@ func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (
 func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 	// reads data from incoming client connection
 
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "readFromClient"}).
+	// 	Logger()
+
 	n, err = c.Read(buf)
 	if err != nil {
 		if err.Error() == "tls: first record does not look like a TLS handshake" {
@@ -219,7 +248,11 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config, connNum uint) {
 	// handles incoming MLAT connections
 
-	cLog := log.With().Str("listener", protoMLAT).Uint("conn#", connNum).Logger()
+	log := log.With().
+		Strs("func", []string{"feeder_conn.go", "clientMLATConnection"}).
+		Str("listener", protoMLAT).
+		Uint("connNum", connNum).
+		Logger()
 
 	defer clientConn.Close()
 
@@ -237,12 +270,12 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(clientConn.RemoteAddr().String(), ":")[0])
-	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
+	log = log.With().IPAddr("src", remoteIP).Logger()
 
 	// check for too-frequent incoming connections
 	err = incomingConnTracker.check(remoteIP)
 	if err != nil {
-		cLog.Err(err).Msg("dropping connection")
+		log.Err(err).Msg("dropping connection")
 		return
 	}
 
@@ -259,25 +292,25 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// read data from client
 		bytesRead, err = readFromClient(clientConn, inBuf)
 		if err != nil {
-			cLog.Err(err).Msg("error reading from client")
+			log.Err(err).Msg("error reading from client")
 			break
 		}
 
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
 		if connectionState == stateMLATNotAuthenticated {
-			clientApiKey, _, _, mux, label, err = authenticateFeeder(ctx, clientConn, cLog)
+			clientApiKey, _, _, mux, label, err = authenticateFeeder(ctx, clientConn, log)
 			if err != nil {
-				cLog.Err(err)
+				log.Err(err)
 				break
 			}
 
 			// update logger
-			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
+			log = log.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// check number of connections, and drop connection if limit exceeded
 			if stats.getNumConnections(clientApiKey, protoMLAT) > maxConnectionsPerProto {
-				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoMLAT].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+				log.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoMLAT].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
 				break
 			}
 
@@ -290,7 +323,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		if connectionState == stateMLATAuthenticated {
 
 			// update log context
-			cLog.With().Str("dst", fmt.Sprintf("%s:12346", mux))
+			log.With().Str("dst", fmt.Sprintf("%s:12346", mux))
 
 			// attempt to connect to the mux container
 			muxConn, muxConnErr = dialContainerTCP(mux, 12346)
@@ -298,7 +331,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 				// handle connection errors to feed-in container
 
-				cLog.Warn().AnErr("error", muxConnErr).Msg("error connecting to mux container")
+				log.Warn().AnErr("error", muxConnErr).Msg("error connecting to mux container")
 				time.Sleep(1 * time.Second)
 
 				e := clientConn.Close()
@@ -315,7 +348,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// attempt to set tcp keepalive with 1 sec interval
 				err := muxConn.SetKeepAlive(true)
 				if err != nil {
-					cLog.Err(err).Msg("error setting keep alive")
+					log.Err(err).Msg("error setting keep alive")
 					e := clientConn.Close()
 					if e != nil {
 						log.Err(e).Caller().Msg("error closing client connection")
@@ -324,7 +357,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				}
 				err = muxConn.SetKeepAlivePeriod(1 * time.Second)
 				if err != nil {
-					cLog.Err(err).Msg("error setting keep alive period")
+					log.Err(err).Msg("error setting keep alive period")
 					e := clientConn.Close()
 					if e != nil {
 						log.Err(e).Caller().Msg("error closing client connection")
@@ -335,7 +368,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// update state
 				connectionState = stateMLATMuxContainerConnected
 
-				cLog.Info().Msg("connected to mux")
+				log.Info().Msg("connected to mux")
 
 			}
 		}
@@ -354,7 +387,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// write outstanding data
 		_, err := muxConn.Write(inBuf[:bytesRead])
 		if err != nil {
-			cLog.Err(err).Msg("error writing to client")
+			log.Err(err).Msg("error writing to client")
 		}
 
 		// update stats
@@ -373,14 +406,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// read from feeder client
 				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
-					cLog.Err(err).Msg("error reading from client")
+					log.Err(err).Msg("error reading from client")
 					return
 				}
 
 				// write to mlat server
 				_, err = muxConn.Write(buf[:bytesRead])
 				if err != nil {
-					cLog.Err(err).Msg("error writing to mux")
+					log.Err(err).Msg("error writing to mux")
 					return
 				}
 
@@ -390,7 +423,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// check feeder is still valid (every 60 secs)
 				if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
 					if !isValidApiKey(clientApiKey) {
-						cLog.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+						log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
 						return
 					}
 					lastAuthCheck = time.Now()
@@ -408,14 +441,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// read from mlat server
 				bytesRead, err := muxConn.Read(buf)
 				if err != nil {
-					cLog.Err(err).Msg("error reading from mux")
+					log.Err(err).Msg("error reading from mux")
 					return
 				}
 
 				// write to feeder client
 				_, err = clientConn.Write(buf[:bytesRead])
 				if err != nil {
-					cLog.Err(err).Msg("error writing to feeder")
+					log.Err(err).Msg("error writing to feeder")
 					return
 				}
 
@@ -434,7 +467,11 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
 	// handles incoming BEAST connections
 
-	cLog := log.With().Str("listener", protoBeast).Uint("conn#", connNum).Logger()
+	log := log.With().
+		Strs("func", []string{"feeder_conn.go", "clientBEASTConnection"}).
+		Str("listener", protoBeast).
+		Uint("connNum", connNum).
+		Logger()
 
 	defer connIn.Close()
 
@@ -452,12 +489,12 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
-	cLog = cLog.With().IPAddr("src", remoteIP).Logger()
+	log = log.With().IPAddr("src", remoteIP).Logger()
 
 	// check for too-frequent incoming connections
 	err = incomingConnTracker.check(remoteIP)
 	if err != nil {
-		cLog.Err(err).Msg("dropping connection")
+		log.Err(err).Msg("dropping connection")
 		return
 	}
 
@@ -474,26 +511,26 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		if os.IsTimeout(err) {
 			break // suppress constant i/o timeout messages
 		} else if err != nil {
-			cLog.Err(err).Msg("error reading from client")
+			log.Err(err).Msg("error reading from client")
 			break
 		}
 
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
 		if connectionState == stateBeastNotAuthenticated {
-			clientApiKey, refLat, refLon, mux, label, err = authenticateFeeder(ctx, connIn, cLog)
+			clientApiKey, refLat, refLon, mux, label, err = authenticateFeeder(ctx, connIn, log)
 			if err != nil {
-				cLog.Err(err)
+				log.Err(err)
 				break
 			}
 			lastAuthCheck = time.Now()
 
 			// update logger
-			cLog = cLog.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
+			log = log.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
 
 			// check number of connections, and drop connection if limit exceeded
 			if stats.getNumConnections(clientApiKey, protoBeast) > maxConnectionsPerProto {
-				cLog.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoBeast].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+				log.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoBeast].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
 				break
 			}
 
@@ -518,12 +555,12 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		// If the client has been authenticated, then we can do stuff with the data
 		if connectionState == stateBeastAuthenticated {
 
-			cLog = cLog.With().Str("dst", fmt.Sprintf("feed-in-%s", clientApiKey.String())).Logger()
+			log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientApiKey.String())).Logger()
 			connOut, connOutErr = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientApiKey.String()), 12345)
 			if connOutErr != nil {
 
 				// handle connection errors to feed-in container
-				cLog.Warn().AnErr("error", connOutErr).Msg("error connecting to feed-in container")
+				log.Warn().AnErr("error", connOutErr).Msg("error connecting to feed-in container")
 				time.Sleep(1 * time.Second)
 
 				break
@@ -537,16 +574,16 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				// attempt to set tcp keepalive with 1 sec interval
 				err := connOut.SetKeepAlive(true)
 				if err != nil {
-					cLog.Err(err).Msg("error setting keep alive")
+					log.Err(err).Msg("error setting keep alive")
 					break
 				}
 				err = connOut.SetKeepAlivePeriod(1 * time.Second)
 				if err != nil {
-					cLog.Err(err).Msg("error setting keep alive period")
+					log.Err(err).Msg("error setting keep alive period")
 					break
 				}
 
-				cLog.Info().Msg("connected to feed-in")
+				log.Info().Msg("connected to feed-in")
 
 				// update state
 				connectionState = stateBeastFeedInContainerConnected
@@ -570,14 +607,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				// set deadline of 5 second
 				wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
 				if wdErr != nil {
-					cLog.Err(wdErr).Msg("error setting deadline on connection")
+					log.Err(wdErr).Msg("error setting deadline on connection")
 					break
 				}
 
 				// attempt to write data in buf (that was read from client connection earlier)
 				_, err := connOut.Write(buf[:bytesRead])
 				if err != nil {
-					cLog.Err(err).Msg("error writing to feed-in container")
+					log.Err(err).Msg("error writing to feed-in container")
 					break
 				}
 
@@ -589,7 +626,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		// check feeder is still valid (every 60 secs)
 		if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
 			if !isValidApiKey(clientApiKey) {
-				cLog.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
 				break
 			}
 			lastAuthCheck = time.Now()

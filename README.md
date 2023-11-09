@@ -110,7 +110,7 @@ Mon Nov  6 20:51:43 UTC 2023 INF out of date container being killed for recreati
 
 ### Re-reading SSL certificates
 
-Bordercontrol will non-disruptively re-read SSL certificate(s) if it receives a SIGHUP.
+Bordercontrol will non-disruptively re-read SSL certificate(s) if it receives a `SIGHUP`.
 
 The easiest way to do this is `docker exec bordercontrol pkill -HUP bordercontrol`.
 
