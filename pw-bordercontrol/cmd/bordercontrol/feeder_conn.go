@@ -259,7 +259,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// read data from client
 		bytesRead, err = readFromClient(clientConn, inBuf)
 		if err != nil {
-			cLog.Err(err).Msg("could not read from client")
+			cLog.Err(err).Msg("error reading from client")
 			break
 		}
 
@@ -373,7 +373,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// read from feeder client
 				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
-					cLog.Err(err).Msg("could not read from client")
+					cLog.Err(err).Msg("error reading from client")
 					return
 				}
 
@@ -474,7 +474,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		if os.IsTimeout(err) {
 			break // suppress constant i/o timeout messages
 		} else if err != nil {
-			cLog.Err(err).Msg("could not read from client")
+			cLog.Err(err).Msg("error reading from client")
 			break
 		}
 
