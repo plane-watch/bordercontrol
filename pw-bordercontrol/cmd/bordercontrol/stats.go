@@ -501,9 +501,9 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// prepare response
-		output, err := json.Marshal(resp)
+		output, err := json.MarshalIndent(resp, "", "  ")
 		if err != nil {
-			log.Error().Any("resp", resp).Msg("could not marshall resp into json")
+			log.Error().Any("resp", resp).Msg("error marshalling response into json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
