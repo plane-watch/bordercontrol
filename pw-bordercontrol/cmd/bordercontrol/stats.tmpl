@@ -10,7 +10,7 @@
         font-family: "Lucida Console", "Courier New", monospace;
       }
     </style>
-    <meta http-equiv="Refresh" content="5"> 
+    <!-- <meta http-equiv="Refresh" content="5">  -->
   </head>
   <body>
     <table style="width:100%">
@@ -28,7 +28,7 @@
         {{range $pindex, $pelement := .Connections}}
           {{range $cindex, $celement := $pelement.ConnectionDetails}}
             <tr>
-                <td>{{ $felement.Label }}</td>
+                <td><a href="/api/v1/feeder/{{ $felement.Label }}">{{ $felement.Label }}</a></td>
                 <td>{{ $index }}</td>
                 <td style="text-align: center;">{{ $pindex }}</td>
                 <td style="text-align: center;">{{ $cindex }}</td>
