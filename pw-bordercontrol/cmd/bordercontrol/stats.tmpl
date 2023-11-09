@@ -29,7 +29,7 @@
           {{range $cindex, $celement := $pelement.ConnectionDetails}}
             <tr>
                 <td>{{ $felement.Label }}</td>
-                <td><a href="/api/v1/feeder/{{ $index }}"></a>{{ $index }}</a></td>
+                <td><a href="/api/v1/feeder/{{ $index }}">{{ $index }}</a></td>
                 <td style="text-align: center;">{{ $pindex }}</td>
                 <td style="text-align: center;">{{ $cindex }}</td>
                 <td>{{ $celement.Src }}</td>
