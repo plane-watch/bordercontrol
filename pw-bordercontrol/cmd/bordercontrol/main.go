@@ -198,7 +198,6 @@ func runServer(ctx *cli.Context) error {
 	go checkFeederContainers(ctx, checkFeederContainerSigs)
 
 	var wg sync.WaitGroup
-	connNum := connectionNumber{}
 
 	// prepare incoming connection tracker (to allow dropping too-frequent connections)
 	// start evictor for incoming connection tracker
@@ -211,11 +210,11 @@ func runServer(ctx *cli.Context) error {
 
 	// start listening for incoming BEAST connections
 	wg.Add(1)
-	go listenBEAST(ctx, &wg, containersToStart, &connNum)
+	go listenBEAST(ctx, &wg, containersToStart)
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
-	go listenMLAT(ctx, &wg, &connNum)
+	go listenMLAT(ctx, &wg)
 
 	// wait for all listeners to finish / serve forever
 	wg.Wait()
@@ -223,7 +222,7 @@ func runServer(ctx *cli.Context) error {
 	return nil
 }
 
-func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest, connNum *connectionNumber) {
+func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
 	// BEAST listener
 
 	// start TLS server
@@ -241,13 +240,13 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		go clientBEASTConnection(ctx, conn, containersToStart, connNum.GetNum())
+		go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.GetNum())
 	}
 
 	wg.Done()
 }
 
-func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, connNum *connectionNumber) {
+func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 	// MLAT listener
 
 	// start TLS server
@@ -265,7 +264,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, connNum *connectionNumber)
 			log.Err(err).Msg("tlsListener.Accept")
 			continue
 		}
-		go clientMLATConnection(ctx, conn, &tlsConfig, connNum.GetNum())
+		go clientMLATConnection(ctx, conn, &tlsConfig, incomingConnTracker.GetNum())
 	}
 
 	wg.Done()

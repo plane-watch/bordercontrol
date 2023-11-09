@@ -22,20 +22,16 @@ type (
 	stateBeast int64
 	stateMLAT  int64
 
-	// struct to allocate connection numbers
-	connectionNumber struct {
-		mu  sync.RWMutex
-		num uint
-	}
-
 	// structs to hold incoming connection data
 	incomingConnectionTracker struct {
-		mu          sync.RWMutex
-		connections []incomingConnection
+		mu               sync.RWMutex
+		connections      []incomingConnection
+		connectionNumber uint // to allocate connection numbers
 	}
 	incomingConnection struct {
 		srcIP    net.IP
 		connTime time.Time
+		connNum  uint
 	}
 )
 
@@ -62,20 +58,51 @@ const (
 	stateMLATMuxContainerConnected
 )
 
-func (connNum *connectionNumber) GetNum() (num uint) {
+// func (connNum *connectionNumber) GetNum() (num uint) {
 
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "GetNum"}).
-	// 	Uint("num", num).
-	// 	Logger()
+// 	// log := log.With().
+// 	// 	Strs("func", []string{"feeder_conn.go", "GetNum"}).
+// 	// 	Uint("num", num).
+// 	// 	Logger()
 
-	connNum.mu.Lock()
-	defer connNum.mu.Unlock()
-	connNum.num++
-	if connNum.num == 0 {
-		connNum.num++
+// 	connNum.mu.Lock()
+// 	defer connNum.mu.Unlock()
+// 	connNum.num++
+// 	if connNum.num == 0 {
+// 		connNum.num++
+// 	}
+// 	return connNum.num
+// }
+
+func (t *incomingConnectionTracker) GetNum() (num uint) {
+
+	var dupe bool
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for {
+
+		t.connectionNumber++
+		if t.connectionNumber == 0 {
+			t.connectionNumber++
+		}
+
+		dupe = false
+
+		for _, c := range t.connections {
+			if t.connectionNumber == c.connNum {
+				dupe = true
+				break
+			}
+		}
+
+		if !dupe {
+			break
+		}
 	}
-	return connNum.num
+
+	return t.connectionNumber
 }
 
 func (t *incomingConnectionTracker) evict() {
@@ -101,7 +128,7 @@ func (t *incomingConnectionTracker) evict() {
 	t.connections = t.connections[:i]
 }
 
-func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
+func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error) {
 	// checks an incoming connection
 	// allows 'maxIncomingConnectionRequestsPerProto' connections every 10 seconds
 
@@ -134,6 +161,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP) (err error) {
 		t.connections = append(t.connections, incomingConnection{
 			srcIP:    srcIP,
 			connTime: time.Now(),
+			connNum:  connNum,
 		})
 		t.mu.Unlock()
 	}
@@ -273,7 +301,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	log = log.With().IPAddr("src", remoteIP).Logger()
 
 	// check for too-frequent incoming connections
-	err = incomingConnTracker.check(remoteIP)
+	err = incomingConnTracker.check(remoteIP, connNum)
 	if err != nil {
 		log.Err(err).Msg("dropping connection")
 		return
@@ -492,7 +520,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	log = log.With().IPAddr("src", remoteIP).Logger()
 
 	// check for too-frequent incoming connections
-	err = incomingConnTracker.check(remoteIP)
+	err = incomingConnTracker.check(remoteIP, connNum)
 	if err != nil {
 		log.Err(err).Msg("dropping connection")
 		return
