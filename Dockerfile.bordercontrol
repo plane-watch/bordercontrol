@@ -5,6 +5,6 @@ RUN go mod tidy && \
     go build ./... && \
     go install ./...
 
-FROM debian:bookworm-20231009-slim
+FROM debian:bookworm-20231030-slim
 COPY --from=builder /go/bin/bordercontrol /usr/local/bin/bordercontrol
 ENTRYPOINT [ "/usr/local/bin/bordercontrol" ]
