@@ -20,11 +20,19 @@ type keypairReloader struct {
 
 func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
+
 	result := &keypairReloader{
 		certPath: certPath,
 		keyPath:  keyPath,
 	}
-	log.Info().Str("cert", certPath).Str("key", keyPath).Msg("loading TLS certificate and key")
+
+	log := log.With().
+		Strs("func", []string{"tls.go", "NewKeypairReloader"}).
+		Str("certPath", certPath).
+		Str("keyPath", keyPath).
+		Logger()
+
+	log.Info().Msg("loading TLS certificate and key")
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return nil, err
@@ -34,9 +42,9 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGHUP)
 		for range c {
-			log.Info().Str("cert", certPath).Str("key", keyPath).Msg("Received SIGHUP, reloading TLS certificate and key")
+			log.Info().Msg("received SIGHUP, reloading TLS certificate and key")
 			if err := result.maybeReload(); err != nil {
-				log.Err(err).Msg("Keeping old TLS certificate because the new one could not be loaded")
+				log.Err(err).Msg("error loading TLS certificate, continuing to use old TLS certificate")
 			}
 		}
 	}()

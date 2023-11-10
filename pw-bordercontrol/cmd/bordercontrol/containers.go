@@ -41,47 +41,51 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 		sleepTime        time.Duration // how long to sleep for between runs
 	)
 
+	log := log.With().
+		Strs("func", []string{"containers.go", "checkFeederContainers"}).
+		Logger()
+
 	// cycles through feed-in containers and recreates if needed
-	cfcLog := log.With().Str("goroutine", "checkFeederContainers").Logger()
-	// cfcLog.Info().Msg("started")
 
 	// set up docker client
-	// cfcLog.Info().Msg("set up docker client")
+	// log.Info().Msg("set up docker client")
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		cfcLog.Err(err).Msg("Could not create docker client")
+		log.Err(err).Msg("error creating docker client")
 		panic(err)
 	}
 	defer cli.Close()
 
 	// prepare filters to find feed-in containers
-	// cfcLog.Info().Msg("prepare filter to find feed-in containers")
+	// log.Info().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
 	filterFeedIn.Add("name", "feed-in-*")
 
 	// find containers
-	// cfcLog.Info().Msg("find containers")
+	// log.Info().Msg("find containers")
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
-		panic(err)
+		log.Panic().AnErr("err", err)
 	}
 
 	// for each container...
 ContainerLoop:
 	for _, container := range containers {
 
-		// cfcLog.Info().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
+		// log.Info().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
 
 		// check containers are running latest feed-in image
 		if container.Image != ctx.String("feedinimage") {
 
+			log = log.With().Str("container", container.Names[0][1:]).Logger()
+
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
-			cfcLog.Info().Str("container", container.Names[0][1:]).Msg("out of date container being killed for recreation")
+			log.Info().Msg("out of date container being killed for recreation")
 			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
-				cfcLog.Err(err).Str("container", container.Names[0]).Msg("could not kill out of date container")
+				log.Err(err).Msg("error killing out of date container")
 			} else {
 
 				// If container was removed successfully, then break out of this loop
@@ -103,7 +107,7 @@ ContainerLoop:
 	// sleep unless/until siguser1 is caught
 	select {
 	case s := <-checkFeederContainerSigs:
-		cfcLog.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
+		log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
 		break
 	case <-time.After(sleepTime * time.Second):
 	}
@@ -116,14 +120,15 @@ ContainerLoop:
 func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
 	// reads startContainerRequests from channel containersToStart and starts container
 
-	sfcLog := log.With().Logger()
+	log := log.With().
+		Strs("func", []string{"containers.go", "startFeederContainers"}).
+		Logger()
 
 	// set up docker client
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		sfcLog.Err(err).Msg("Could not create docker client")
-		panic(err)
+		log.Panic().AnErr("err", err).Msg("error creating docker client")
 	}
 	defer cli.Close()
 
@@ -132,18 +137,25 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		containerToStart := <-containersToStart
 
 		// prepare logger
-		cLog := log.With().Float64("lat", containerToStart.refLat).Float64("lon", containerToStart.refLon).Str("mux", containerToStart.mux).Str("label", containerToStart.label).Str("uuid", containerToStart.uuid.String()).IPAddr("src", containerToStart.srcIP).Logger()
+		log := log.With().
+			Float64("lat", containerToStart.refLat).
+			Float64("lon", containerToStart.refLon).
+			Str("mux", containerToStart.mux).
+			Str("label", containerToStart.label).
+			Str("uuid", containerToStart.uuid.String()).
+			IPAddr("src", containerToStart.srcIP).
+			Logger()
 
 		// determine if container is already running
 		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
 		if err != nil {
-			sfcLog.Err(err).Msg("Could not list docker containers")
+			log.Err(err).Msg("error listing docker containers")
+			break
 		}
 		foundContainer := false
 		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
 		for _, container := range containers {
 			for _, cn := range container.Names {
-				log.Info().Str("looking", fmt.Sprintf("/%s", feederContainerName)).Str("cn", cn)
 				if cn == fmt.Sprintf("/%s", feederContainerName) {
 					foundContainer = true
 					break
@@ -215,7 +227,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			}
 
 			// logging
-			cLog.Info().Str("container_id", resp.ID).Msg("started feed-in container")
+			log.Info().Str("container_id", resp.ID).Msg("started feed-in container")
 		}
 	}
 }

@@ -60,6 +60,10 @@ func getFeederInfo(feederApiKey uuid.UUID) (refLat float64, refLon float64, mux 
 func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 	// updates validFeeders with data from atc
 
+	log := log.With().
+		Strs("func", []string{"feeder_meta.go", "updateFeederDB"}).
+		Logger()
+
 	firstRun := true
 
 	for {
