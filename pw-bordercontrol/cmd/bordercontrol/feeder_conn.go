@@ -50,6 +50,7 @@ const (
 	stateBeastNotAuthenticated stateBeast = iota
 	stateBeastAuthenticated
 	stateBeastFeedInContainerConnected
+	stateBeastCloseConnection
 )
 
 const (
@@ -501,6 +502,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		Uint("connNum", connNum).
 		Logger()
 
+	log.Info().Msg("started")
+
 	defer connIn.Close()
 
 	var (
@@ -540,6 +543,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			break // suppress constant i/o timeout messages
 		} else if err != nil {
 			log.Err(err).Msg("error reading from client")
+			connectionState = stateBeastCloseConnection
 			break
 		}
 
@@ -549,6 +553,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			clientApiKey, refLat, refLon, mux, label, err = authenticateFeeder(ctx, connIn, log)
 			if err != nil {
 				log.Err(err)
+				connectionState = stateBeastCloseConnection
 				break
 			}
 			lastAuthCheck = time.Now()
@@ -559,6 +564,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			// check number of connections, and drop connection if limit exceeded
 			if stats.getNumConnections(clientApiKey, protoBeast) > maxConnectionsPerProto {
 				log.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoBeast].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+				connectionState = stateBeastCloseConnection
 				break
 			}
 
@@ -590,24 +596,26 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				// handle connection errors to feed-in container
 				log.Warn().AnErr("error", connOutErr).Msg("error connecting to feed-in container")
 				time.Sleep(1 * time.Second)
-
+				connectionState = stateBeastCloseConnection
 				break
 
 			} else {
 
 				// connected OK...
 
-				//defer connOut.Close()
+				defer connOut.Close()
 
 				// attempt to set tcp keepalive with 1 sec interval
 				err := connOut.SetKeepAlive(true)
 				if err != nil {
 					log.Err(err).Msg("error setting keep alive")
+					connectionState = stateBeastCloseConnection
 					break
 				}
 				err = connOut.SetKeepAlivePeriod(1 * time.Second)
 				if err != nil {
 					log.Err(err).Msg("error setting keep alive period")
+					connectionState = stateBeastCloseConnection
 					break
 				}
 
@@ -618,7 +626,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// update stats
 				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
-				//defer stats.delConnection(clientApiKey, connNum)
+				defer stats.delConnection(clientApiKey, connNum)
 
 				// reset deadline
 				connIn.SetDeadline(time.Time{})
@@ -636,6 +644,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
 				if wdErr != nil {
 					log.Err(wdErr).Msg("error setting deadline on connection")
+					connectionState = stateBeastCloseConnection
 					break
 				}
 
@@ -643,6 +652,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				_, err := connOut.Write(buf[:bytesRead])
 				if err != nil {
 					log.Err(err).Msg("error writing to feed-in container")
+					connectionState = stateBeastCloseConnection
 					break
 				}
 
@@ -655,15 +665,11 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
 			if !isValidApiKey(clientApiKey) {
 				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+				connectionState = stateBeastCloseConnection
 				break
 			}
 			lastAuthCheck = time.Now()
 		}
 	}
-	err = connOut.Close()
-	if err != nil {
-		log.Err(err).Msg("error closing connection")
-	}
-	stats.delConnection(clientApiKey, connNum)
-	log.Info().Msg("deleted connection from stats")
+	log.Info().Msg("finished")
 }
