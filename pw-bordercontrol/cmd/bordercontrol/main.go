@@ -204,7 +204,7 @@ func runServer(ctx *cli.Context) error {
 	signal.Notify(checkFeederContainerSigs, syscall.SIGUSR1)
 	go func() {
 		for {
-			checkFeederContainers(ctx, checkFeederContainerSigs)
+			_ = checkFeederContainers(ctx, checkFeederContainerSigs)
 		}
 	}()
 
