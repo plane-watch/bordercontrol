@@ -414,10 +414,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	// if we are ready to output data to the feed-in container...
 	if connectionState == stateMLATMuxContainerConnected {
 
-		// reset deadlines
-		clientConn.SetDeadline(time.Now().Add(time.Second * 2))
-		muxConn.SetDeadline(time.Now().Add(time.Second * 2))
-
 		// write outstanding data
 		_, err := muxConn.Write(inBuf[:bytesRead])
 		if err != nil {
@@ -438,6 +434,11 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			for {
 
 				// read from feeder client
+				err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
+				if err != nil {
+					log.Err(err).Msg("error setting read deadline on clientConn")
+					return
+				}
 				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
 					if !errors.Is(err, os.ErrDeadlineExceeded) {
@@ -447,6 +448,11 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				} else {
 
 					// write to mlat server
+					err := muxConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+					if err != nil {
+						log.Err(err).Msg("error setting write deadline on muxConn")
+						return
+					}
 					_, err = muxConn.Write(buf[:bytesRead])
 					if err != nil {
 						log.Err(err).Msg("error writing to mux")
@@ -476,6 +482,11 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			for {
 
 				// read from mlat server
+				err := muxConn.SetReadDeadline(time.Now().Add(time.Second * 2))
+				if err != nil {
+					log.Err(err).Msg("error setting read deadline on muxConn")
+					return
+				}
 				bytesRead, err := muxConn.Read(buf)
 				if err != nil {
 					if !errors.Is(err, os.ErrDeadlineExceeded) {
@@ -485,6 +496,11 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				} else {
 
 					// write to feeder client
+					err := clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+					if err != nil {
+						log.Err(err).Msg("error setting write deadline on clientConn")
+						return
+					}
 					_, err = clientConn.Write(buf[:bytesRead])
 					if err != nil {
 						log.Err(err).Msg("error writing to feeder")
