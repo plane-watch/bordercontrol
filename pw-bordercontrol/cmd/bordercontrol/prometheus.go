@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -122,7 +123,9 @@ var (
 			n := float64(0)
 			for u := range stats.Feeders {
 				if stats.Feeders[u].Connections[protoMLAT].Status == true {
-					n++
+					if stats.Feeders[u].TimeUpdated.After(time.Now().Add(time.Duration(-30) * time.Second)) {
+						n++
+					}
 				}
 			}
 			return n
