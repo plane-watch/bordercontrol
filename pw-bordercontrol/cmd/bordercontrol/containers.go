@@ -167,7 +167,10 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		// check if container found
 		if len(containers) > 0 {
 			// if container found
-			log.Info().Msg("feed-in container exists")
+			log.Info().
+				Str("state", containers[0].State).
+				Str("status", containers[0].Status).
+				Msg("feed-in container exists")
 
 			// no need to check if started as container created with AutoRemove set to true
 
