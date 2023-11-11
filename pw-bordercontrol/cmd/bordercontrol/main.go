@@ -176,7 +176,7 @@ func runServer(ctx *cli.Context) error {
 	// load SSL cert/key
 	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
+		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
