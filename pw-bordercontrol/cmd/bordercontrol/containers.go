@@ -31,7 +31,7 @@ type startContainerRequest struct {
 }
 
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) {
-	// Checks feed-in-* containers are running the latest image. If they aren't remove them.
+	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
 	// TODO: One instance of this goroutine per region/mux would be good.
@@ -60,7 +60,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	// prepare filters to find feed-in containers
 	// log.Info().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
-	filterFeedIn.Add("name", "feed-in-*")
+	filterFeedIn.Add("name", ctx.String("feedinprefix"))
 
 	// find containers
 	// log.Info().Msg("find containers")
@@ -153,7 +153,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			break
 		}
 		foundContainer := false
-		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
+		feederContainerName := fmt.Sprintf("%s%s", ctx.String("feedinprefix"), containerToStart.uuid.String())
 		for _, container := range containers {
 			for _, cn := range container.Names {
 				if cn == fmt.Sprintf("/%s", feederContainerName) {
