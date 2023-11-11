@@ -174,8 +174,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		} else {
 			// if container is not running, create it
 
-			containerStartDelay := true
-			containerToStart.containerStartDelay = &containerStartDelay
+			*containerToStart.containerStartDelay = true
 
 			// prepare environment variables for container
 			envVars := [...]string{
