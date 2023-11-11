@@ -424,7 +424,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		stats.addConnection(clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
 		defer stats.delConnection(clientApiKey, protoMLAT, connNum)
 
+		// prep waitgroup to hold function execution until all goroutines finish
 		wg := sync.WaitGroup{}
+
+		// method to signal goroutines to exit
 		runProxy := true
 		var runProxyMu sync.RWMutex
 
@@ -435,6 +438,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			buf := make([]byte, sendRecvBufferSize)
 			for {
 
+				// quit if directed by other goroutine
 				runProxyMu.RLock()
 				if !runProxy {
 					runProxyMu.RUnlock()
@@ -481,6 +485,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					lastAuthCheck = time.Now()
 				}
 			}
+
+			// tell other goroutine to exit
 			runProxyMu.Lock()
 			defer runProxyMu.Unlock()
 			runProxy = false
@@ -493,6 +499,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			buf := make([]byte, sendRecvBufferSize)
 			for {
 
+				// quit if directed by other goroutine
 				runProxyMu.RLock()
 				if !runProxy {
 					runProxyMu.RUnlock()
@@ -530,13 +537,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					stats.incrementByteCounters(clientApiKey, connNum, 0, uint64(bytesRead))
 				}
 			}
+
+			// tell other goroutine to exit
 			runProxyMu.Lock()
 			defer runProxyMu.Unlock()
 			runProxy = false
 		}()
 
-		// todo: find a way to kill above goroutines if one finishes
-
+		// wait for goroutines to finish
 		wg.Wait()
 
 	}
