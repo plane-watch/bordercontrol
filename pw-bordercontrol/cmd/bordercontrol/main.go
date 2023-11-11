@@ -148,12 +148,10 @@ func main() {
 		app.Version = fmt.Sprintf("%s (%s)", commithash, committime)
 	}
 
-	app.Before = func(c *cli.Context) error {
-		// Set logging level
-		logging.SetLoggingLevel(c)
+	app.Before = func(ctx *cli.Context) error {
 
 		// set global var containing feed-in image name
-		feedInImage = c.String("feedinimage")
+		feedInImage = ctx.String("feedinimage")
 
 		return nil
 	}
@@ -167,6 +165,9 @@ func main() {
 }
 
 func runServer(ctx *cli.Context) error {
+
+	// Set logging level
+	logging.SetLoggingLevel(ctx)
 
 	// show banner
 	log.Info().Msg(banner)
