@@ -440,7 +440,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// read from feeder client
 				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
-					if err != os.ErrDeadlineExceeded {
+					if !errors.Is(err, os.ErrDeadlineExceeded) {
 						log.Err(err).Msg("error reading from client")
 						return
 					}
@@ -477,7 +477,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// read from mlat server
 				bytesRead, err := muxConn.Read(buf)
 				if err != nil {
-					if err != os.ErrDeadlineExceeded {
+					if !errors.Is(err, os.ErrDeadlineExceeded) {
 						log.Err(err).Msg("error reading from mux")
 						return
 					}
