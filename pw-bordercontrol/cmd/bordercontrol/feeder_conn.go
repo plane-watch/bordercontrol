@@ -37,12 +37,12 @@ type (
 
 const (
 	// limits maximum number of connections per feeder, per protocol to this many:
-	maxConnectionsPerProto = 2
+	maxConnectionsPerProto = 1
 
 	// limits connection attempts to
 	//   "maxIncomingConnectionRequestsPerProto" (2) attempts in a
 	//   "maxIncomingConnectionRequestSeconds" (10) second period
-	maxIncomingConnectionRequestsPerProto = 2
+	maxIncomingConnectionRequestsPerProto = 3
 	maxIncomingConnectionRequestSeconds   = 10
 )
 
