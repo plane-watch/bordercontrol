@@ -189,55 +189,71 @@ func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon
 	stats.Feeders[uuid] = y
 }
 
-func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
+func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uint) {
 	// updates the connected status of a feeder
 
-	// log := log.With().
-	// 	Strs("func", []string{"stats.go", "delConnection"}).
-	// 	Str("uuid", uuid.String()).
-	// 	Uint("connNum", connNum).
-	// 	Logger()
+	log := log.With().
+		Strs("func", []string{"stats.go", "delConnection"}).
+		Str("uuid", uuid.String()).
+		Str("proto", proto).
+		Uint("connNum", connNum).
+		Logger()
+
+	log.Info().Msg("started")
 
 	stats.initFeederStats(uuid)
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
-	// copy stats entry
-	y := stats.Feeders[uuid]
+	_, found := stats.Feeders[uuid]
+	if !found {
+		log.Error().Msg("uuid not found in stats.Feeders")
+		return
+	}
 
-	// find connection to update
-	for proto, p := range y.Connections {
-		for cn, _ := range p.ConnectionDetails {
-			if cn == connNum {
+	_, found = stats.Feeders[uuid].Connections[proto]
+	if !found {
+		log.Error().Msg("proto not found in stats.Feeders[uuid].Connections")
+		return
+	}
 
-				// unregister prom metrics
-				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
-				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
+	_, found = stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum]
+	if !found {
+		log.Error().Msg("connNum not found in stats.Feeders[uuid].Connections[proto].ConnectionDetails")
+		return
+	}
 
-				// delete the connection
-				delete(y.Connections[proto].ConnectionDetails, connNum)
+	// unregister prom metrics
+	_ = prometheus.Unregister(stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
+	_ = prometheus.Unregister(stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
 
-				// update connection state
-				pd := y.Connections[proto]
-				pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
-				if len(y.Connections[proto].ConnectionDetails) > 0 {
-					pd.Status = true
-				} else {
-					pd.Status = false
-				}
+	// delete the connection
+	delete(stats.Feeders[uuid].Connections[proto].ConnectionDetails, connNum)
 
-				y.Connections[proto] = pd
+	// update connection status & count
+	conn, _ := stats.Feeders[uuid].Connections[proto]
+	conn.ConnectionCount = len(stats.Feeders[uuid].Connections[proto].ConnectionDetails)
+	if len(stats.Feeders[uuid].Connections[proto].ConnectionDetails) > 0 {
+		conn.Status = true
+	} else {
+		conn.Status = false
+	}
+	stats.Feeders[uuid].Connections[proto] = conn
 
-				// update time last updated
-				y.TimeUpdated = time.Now()
+	// update time last updated
+	feeder, _ := stats.Feeders[uuid]
+	feeder.TimeUpdated = time.Now()
+	stats.Feeders[uuid] = feeder
 
-				// write stats entry
-				stats.Feeders[uuid] = y
-
-			}
+	// do we completely remove the entry?
+	if stats.Feeders[uuid].Connections[protoBeast].ConnectionCount == 0 {
+		if stats.Feeders[uuid].Connections[protoMLAT].ConnectionCount == 0 {
+			delete(stats.Feeders, uuid)
 		}
 	}
+
+	log.Info().Msg("finished")
 }
 
 func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {

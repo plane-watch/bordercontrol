@@ -423,7 +423,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 		// update stats
 		stats.addConnection(clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
-		defer stats.delConnection(clientApiKey, connNum)
+		defer stats.delConnection(clientApiKey, protoMLAT, connNum)
 
 		wg := sync.WaitGroup{}
 
@@ -641,7 +641,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// update stats
 				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
-				defer stats.delConnection(clientApiKey, connNum)
+				defer stats.delConnection(clientApiKey, protoBeast, connNum)
 
 				// reset deadline
 				connIn.SetDeadline(time.Time{})
