@@ -153,16 +153,20 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 		// determine if container is already running
 
+		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
+
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
-		filterFeedIn.Add("name", fmt.Sprintf("feed-in-%s", containerToStart.uuid.String()))
+		filterFeedIn.Add("name", feederContainerName)
 
 		// find container
 		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 		if err != nil {
 			log.Err(err).Msg("error finding feed-in container")
 		}
+
 		if len(containers) > 0 {
+			// if container found
 			foundContainer = true
 			log.Info().Msg("feed-in container exists")
 		} else {
