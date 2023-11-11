@@ -157,7 +157,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
 		filterFeedIn.Add("name", feederContainerName)
-		filterFeedIn.Add("state", "running")
+		filterFeedIn.Add("status", "running")
 
 		// find container
 		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
