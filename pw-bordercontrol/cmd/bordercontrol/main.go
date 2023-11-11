@@ -105,12 +105,6 @@ func main() {
 				EnvVars: []string{"FEED_IN_IMAGE"},
 			},
 			&cli.StringFlag{
-				Name:    "feedinprefix",
-				Usage:   "feed-in container prefix",
-				Value:   "feed-in-",
-				EnvVars: []string{"FEED_IN_PREFIX"},
-			},
-			&cli.StringFlag{
 				Name:     "pwingestpublish",
 				Usage:    "pw_ingest --sink setting in feed-in containers",
 				Required: true,

@@ -60,7 +60,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	// prepare filters to find feed-in containers
 	// log.Info().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
-	filterFeedIn.Add("name", ctx.String("feedinprefix"))
+	filterFeedIn.Add("name", "feed-in-*")
 
 	// find containers
 	// log.Info().Msg("find containers")
@@ -151,7 +151,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			break
 		}
 		foundContainer := false
-		feederContainerName := fmt.Sprintf("%s%s", ctx.String("feedinprefix"), containerToStart.uuid.String())
+		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
 		for _, container := range containers {
 			for _, cn := range container.Names {
 				if cn == fmt.Sprintf("/%s", feederContainerName) {
