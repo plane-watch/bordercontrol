@@ -13,6 +13,7 @@ import (
 
 	"pw_bordercontrol/lib/logging"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
@@ -172,6 +173,8 @@ func runServer(ctx *cli.Context) error {
 	// show banner
 	log.Info().Msg(banner)
 	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
+
+	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
 
 	// set up TLS
 	// load SSL cert/key
