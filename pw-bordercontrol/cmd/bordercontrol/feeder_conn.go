@@ -444,17 +444,18 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 						log.Err(err).Msg("error reading from client")
 						return
 					}
-				}
+				} else {
 
-				// write to mlat server
-				_, err = muxConn.Write(buf[:bytesRead])
-				if err != nil {
-					log.Err(err).Msg("error writing to mux")
-					return
-				}
+					// write to mlat server
+					_, err = muxConn.Write(buf[:bytesRead])
+					if err != nil {
+						log.Err(err).Msg("error writing to mux")
+						return
+					}
 
-				// update stats
-				stats.incrementByteCounters(clientApiKey, connNum, uint64(bytesRead), 0)
+					// update stats
+					stats.incrementByteCounters(clientApiKey, connNum, uint64(bytesRead), 0)
+				}
 
 				// check feeder is still valid (every 60 secs)
 				if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
@@ -481,17 +482,18 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 						log.Err(err).Msg("error reading from mux")
 						return
 					}
-				}
+				} else {
 
-				// write to feeder client
-				_, err = clientConn.Write(buf[:bytesRead])
-				if err != nil {
-					log.Err(err).Msg("error writing to feeder")
-					return
-				}
+					// write to feeder client
+					_, err = clientConn.Write(buf[:bytesRead])
+					if err != nil {
+						log.Err(err).Msg("error writing to feeder")
+						return
+					}
 
-				// update stats
-				stats.incrementByteCounters(clientApiKey, connNum, 0, uint64(bytesRead))
+					// update stats
+					stats.incrementByteCounters(clientApiKey, connNum, 0, uint64(bytesRead))
+				}
 			}
 		}()
 
