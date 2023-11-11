@@ -574,20 +574,25 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 			// start the container
 			// used a chan here so it blocks while waiting for the request to be popped off the chan
+			containerStartDelay := false
 			wg.Add(1)
 			containersToStart <- startContainerRequest{
-				uuid:   clientApiKey,
-				refLat: refLat,
-				refLon: refLon,
-				mux:    mux,
-				label:  label,
-				srcIP:  remoteIP,
-				wg:     &wg,
+				uuid:                clientApiKey,
+				refLat:              refLat,
+				refLon:              refLon,
+				mux:                 mux,
+				label:               label,
+				srcIP:               remoteIP,
+				wg:                  &wg,
+				containerStartDelay: &containerStartDelay,
 			}
 
-			// wait for container start
-			// time.Sleep(5 * time.Second)
 			wg.Wait()
+			if containerStartDelay {
+				// wait for container start
+				log.Info().Msg("sleeping")
+				time.Sleep(5 * time.Second)
+			}
 
 			// update state
 			connectionState = stateBeastAuthenticated

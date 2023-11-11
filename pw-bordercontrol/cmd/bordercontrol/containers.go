@@ -23,13 +23,14 @@ import (
 
 // struct for requesting that the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	uuid   uuid.UUID       // feeder uuid
-	refLat float64         // feeder lat
-	refLon float64         // feeder lon
-	mux    string          // the multiplexer to upstream the data to
-	label  string          // the label of the feeder
-	srcIP  net.IP          // client IP address
-	wg     *sync.WaitGroup // waitgroup for when container has started
+	uuid                uuid.UUID       // feeder uuid
+	refLat              float64         // feeder lat
+	refLon              float64         // feeder lon
+	mux                 string          // the multiplexer to upstream the data to
+	label               string          // the label of the feeder
+	srcIP               net.IP          // client IP address
+	wg                  *sync.WaitGroup // waitgroup for when container has started
+	containerStartDelay *bool           // do we need to wait for container services to start?
 }
 
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) error {
@@ -136,8 +137,6 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 	for {
 
-		foundContainer := false
-
 		// read from channel (this blocks until a request comes in)
 		containerToStart := <-containersToStart
 
@@ -165,34 +164,18 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			log.Err(err).Msg("error finding feed-in container")
 		}
 
+		// check if container found
 		if len(containers) > 0 {
 			// if container found
-			foundContainer = true
 			log.Info().Msg("feed-in container exists")
+
+			// no need to check if started as container created with AutoRemove set to true
+
 		} else {
-			foundContainer = false
-		}
-
-		// 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
-		// 	if err != nil {
-		// 		log.Err(err).Msg("error listing docker containers")
-		// 		break
-		// 	}
-		// 	foundContainer := false
-		// 	feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
-		// Outerloop:
-		// 	for _, container := range containers {
-		// 		for _, cn := range container.Names {
-		// 			if cn == fmt.Sprintf("/%s", feederContainerName) {
-		// 				foundContainer = true
-		// 				break Outerloop
-		// 			}
-		// 		}
-		// 	}
-
-		if !foundContainer {
-
 			// if container is not running, create it
+
+			containerStartDelay := true
+			containerToStart.containerStartDelay = &containerStartDelay
 
 			// prepare environment variables for container
 			envVars := [...]string{
