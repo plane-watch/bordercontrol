@@ -216,16 +216,17 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			// create feed-in container
 			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
 			if err != nil {
-				panic(err)
+				log.Err(err).Msg("could not create container")
+			} else {
+				log.Info().Str("container_id", resp.ID).Msg("created feed-in container")
 			}
 
 			// start container
 			if err := cli.ContainerStart(dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
-				panic(err)
+				log.Err(err).Msg("could not start container")
+			} else {
+				log.Info().Str("container_id", resp.ID).Msg("started feed-in container")
 			}
-
-			// logging
-			log.Info().Str("container_id", resp.ID).Msg("started feed-in container")
 		}
 	}
 }
