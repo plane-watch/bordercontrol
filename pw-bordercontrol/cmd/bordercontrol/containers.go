@@ -30,7 +30,7 @@ type startContainerRequest struct {
 	srcIP  net.IP    // client IP address
 }
 
-func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) {
+func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) error {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
@@ -53,7 +53,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
-		panic(err)
+		return err
 	}
 	defer cli.Close()
 
@@ -66,7 +66,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	// log.Info().Msg("find containers")
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
-		log.Panic().AnErr("err", err)
+		log.Err(err).Msg("error finding containers")
 	}
 
 	// for each container...
@@ -112,9 +112,7 @@ ContainerLoop:
 	case <-time.After(sleepTime * time.Second):
 	}
 
-	// cfcLog.Info().Msg("launching new instance")
-	go checkFeederContainers(ctx, checkFeederContainerSigs)
-
+	return nil
 }
 
 func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {

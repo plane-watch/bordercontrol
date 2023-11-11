@@ -202,7 +202,11 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to check feed-in containers
 	checkFeederContainerSigs := make(chan os.Signal, 1)
 	signal.Notify(checkFeederContainerSigs, syscall.SIGUSR1)
-	go checkFeederContainers(ctx, checkFeederContainerSigs)
+	go func() {
+		for {
+			checkFeederContainers(ctx, checkFeederContainerSigs)
+		}
+	}()
 
 	var wg sync.WaitGroup
 
