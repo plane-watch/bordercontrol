@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -22,12 +23,13 @@ import (
 
 // struct for requesting that the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	uuid   uuid.UUID // feeder uuid
-	refLat float64   // feeder lat
-	refLon float64   // feeder lon
-	mux    string    // the multiplexer to upstream the data to
-	label  string    // the label of the feeder
-	srcIP  net.IP    // client IP address
+	uuid   uuid.UUID       // feeder uuid
+	refLat float64         // feeder lat
+	refLon float64         // feeder lon
+	mux    string          // the multiplexer to upstream the data to
+	label  string          // the label of the feeder
+	srcIP  net.IP          // client IP address
+	wg     *sync.WaitGroup // waitgroup for when container has started
 }
 
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) error {
@@ -122,6 +124,8 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
 
+	log.Info().Msg("started")
+
 	// set up docker client
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -152,11 +156,12 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		}
 		foundContainer := false
 		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
+	Outerloop:
 		for _, container := range containers {
 			for _, cn := range container.Names {
 				if cn == fmt.Sprintf("/%s", feederContainerName) {
 					foundContainer = true
-					break
+					break Outerloop
 				}
 			}
 		}
@@ -228,5 +233,8 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				log.Info().Str("container_id", resp.ID).Msg("started feed-in container")
 			}
 		}
+
+		containerToStart.wg.Done()
 	}
+	log.Info().Msg("finished")
 }

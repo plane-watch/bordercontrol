@@ -519,6 +519,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		mux, label         string
 		lastAuthCheck      time.Time
 		err                error
+		wg                 sync.WaitGroup
 	)
 
 	// update log context with client IP
@@ -573,6 +574,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 			// start the container
 			// used a chan here so it blocks while waiting for the request to be popped off the chan
+			wg.Add(1)
 			containersToStart <- startContainerRequest{
 				uuid:   clientApiKey,
 				refLat: refLat,
@@ -580,10 +582,12 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				mux:    mux,
 				label:  label,
 				srcIP:  remoteIP,
+				wg:     &wg,
 			}
 
 			// wait for container start
-			time.Sleep(5 * time.Second)
+			// time.Sleep(5 * time.Second)
+			wg.Wait()
 
 			// update state
 			connectionState = stateBeastAuthenticated
