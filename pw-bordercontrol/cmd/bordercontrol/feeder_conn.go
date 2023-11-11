@@ -587,9 +587,11 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				containerStartDelay: &containerStartDelay,
 			}
 
+			// wait for request to be actioned
 			wg.Wait()
+
+			// wait for container start if needed
 			if containerStartDelay {
-				// wait for container start
 				log.Info().Msg("sleeping")
 				time.Sleep(5 * time.Second)
 			}
