@@ -597,7 +597,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// connected OK...
 
-				defer connOut.Close()
+				//defer connOut.Close()
 
 				// attempt to set tcp keepalive with 1 sec interval
 				err := connOut.SetKeepAlive(true)
@@ -618,7 +618,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// update stats
 				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
-				defer stats.delConnection(clientApiKey, connNum)
+				//defer stats.delConnection(clientApiKey, connNum)
 
 				// reset deadline
 				connIn.SetDeadline(time.Time{})
@@ -660,4 +660,10 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			lastAuthCheck = time.Now()
 		}
 	}
+	err = connOut.Close()
+	if err != nil {
+		log.Err(err).Msg("error closing connection")
+	}
+	stats.delConnection(clientApiKey, connNum)
+	log.Info().Msg("deleted connection from stats")
 }
