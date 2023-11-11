@@ -283,6 +283,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		Uint("connNum", connNum).
 		Logger()
 
+	log.Info().Msg("started")
+
 	defer clientConn.Close()
 
 	var (
@@ -491,6 +493,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		wg.Wait()
 
 	}
+	log.Info().Msg("finished")
 }
 
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
