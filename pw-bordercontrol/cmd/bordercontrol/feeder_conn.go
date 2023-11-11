@@ -593,7 +593,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 			// wait for container start if needed
 			if containerStartDelay {
-				log.Info().Msg("sleeping")
+				log.Info().Msg("waiting for feed-in container to start")
 				time.Sleep(5 * time.Second)
 			}
 
