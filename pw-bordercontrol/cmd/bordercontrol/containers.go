@@ -78,7 +78,7 @@ ContainerLoop:
 		// check containers are running latest feed-in image
 		if container.Image != ctx.String("feedinimage") {
 
-			log = log.With().Str("container", container.Names[0][1:]).Logger()
+			log := log.With().Str("container", container.Names[0][1:]).Logger()
 
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
