@@ -99,9 +99,16 @@ func main() {
 				EnvVars:  []string{"ATC_PASS"},
 			},
 			&cli.StringFlag{
-				Name:  "feedinimage",
-				Usage: "feed-in image name",
-				Value: "feed-in",
+				Name:    "feedinimage",
+				Usage:   "feed-in image name",
+				Value:   "feed-in",
+				EnvVars: []string{"FEED_IN_IMAGE"},
+			},
+			&cli.StringFlag{
+				Name:    "feedinprefix",
+				Usage:   "feed-in container prefix",
+				Value:   "feed-in-",
+				EnvVars: []string{"FEED_IN_PREFIX"},
 			},
 			&cli.StringFlag{
 				Name:     "pwingestpublish",
