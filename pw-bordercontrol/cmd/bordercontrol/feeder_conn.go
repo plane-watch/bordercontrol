@@ -425,6 +425,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		defer stats.delConnection(clientApiKey, protoMLAT, connNum)
 
 		wg := sync.WaitGroup{}
+		runProxy := true
+		var runProxyMu sync.RWMutex
 
 		// handle data from feeder client to mlat server
 		wg.Add(1)
@@ -433,17 +435,24 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			buf := make([]byte, sendRecvBufferSize)
 			for {
 
+				runProxyMu.RLock()
+				if !runProxy {
+					runProxyMu.Unlock()
+					break
+				}
+				runProxyMu.Unlock()
+
 				// read from feeder client
 				err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
 				if err != nil {
 					log.Err(err).Msg("error setting read deadline on clientConn")
-					return
+					break
 				}
 				bytesRead, err := clientConn.Read(buf)
 				if err != nil {
 					if !errors.Is(err, os.ErrDeadlineExceeded) {
 						log.Err(err).Msg("error reading from client")
-						return
+						break
 					}
 				} else {
 
@@ -451,12 +460,12 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					err := muxConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 					if err != nil {
 						log.Err(err).Msg("error setting write deadline on muxConn")
-						return
+						break
 					}
 					_, err = muxConn.Write(buf[:bytesRead])
 					if err != nil {
 						log.Err(err).Msg("error writing to mux")
-						return
+						break
 					}
 
 					// update stats
@@ -467,11 +476,14 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
 					if !isValidApiKey(clientApiKey) {
 						log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-						return
+						break
 					}
 					lastAuthCheck = time.Now()
 				}
 			}
+			runProxyMu.Lock()
+			defer runProxyMu.Unlock()
+			runProxy = false
 		}()
 
 		// handle data from mlat server to feeder client
@@ -481,17 +493,24 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			buf := make([]byte, sendRecvBufferSize)
 			for {
 
+				runProxyMu.RLock()
+				if !runProxy {
+					runProxyMu.Unlock()
+					break
+				}
+				runProxyMu.Unlock()
+
 				// read from mlat server
 				err := muxConn.SetReadDeadline(time.Now().Add(time.Second * 2))
 				if err != nil {
 					log.Err(err).Msg("error setting read deadline on muxConn")
-					return
+					break
 				}
 				bytesRead, err := muxConn.Read(buf)
 				if err != nil {
 					if !errors.Is(err, os.ErrDeadlineExceeded) {
 						log.Err(err).Msg("error reading from mux")
-						return
+						break
 					}
 				} else {
 
@@ -499,18 +518,21 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					err := clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 					if err != nil {
 						log.Err(err).Msg("error setting write deadline on clientConn")
-						return
+						break
 					}
 					_, err = clientConn.Write(buf[:bytesRead])
 					if err != nil {
 						log.Err(err).Msg("error writing to feeder")
-						return
+						break
 					}
 
 					// update stats
 					stats.incrementByteCounters(clientApiKey, connNum, 0, uint64(bytesRead))
 				}
 			}
+			runProxyMu.Lock()
+			defer runProxyMu.Unlock()
+			runProxy = false
 		}()
 
 		// todo: find a way to kill above goroutines if one finishes
