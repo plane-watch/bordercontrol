@@ -318,6 +318,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		if connectionState == stateMLATNotAuthenticated {
 			// give the unauthenticated client 10 seconds to perform TLS handshake
 			clientConn.SetDeadline(time.Now().Add(time.Second * 10))
+		} else {
+
 		}
 
 		// read data from client
@@ -365,9 +367,9 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				log.Warn().AnErr("error", muxConnErr).Msg("error connecting to mux container")
 				time.Sleep(1 * time.Second)
 
-				e := clientConn.Close()
-				if e != nil {
-					log.Err(e).Caller().Msg("error closing clientConn")
+				err := clientConn.Close()
+				if err != nil {
+					log.Err(err).Caller().Msg("error closing clientConn")
 				}
 				break
 
@@ -412,8 +414,9 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	// if we are ready to output data to the feed-in container...
 	if connectionState == stateMLATMuxContainerConnected {
 
-		// reset deadline
-		clientConn.SetDeadline(time.Time{})
+		// reset deadlines
+		clientConn.SetDeadline(time.Now().Add(time.Second * 2))
+		muxConn.SetDeadline(time.Now().Add(time.Second * 2))
 
 		// write outstanding data
 		_, err := muxConn.Write(inBuf[:bytesRead])
