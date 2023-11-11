@@ -437,10 +437,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 				runProxyMu.RLock()
 				if !runProxy {
-					runProxyMu.Unlock()
+					runProxyMu.RUnlock()
 					break
 				}
-				runProxyMu.Unlock()
+				runProxyMu.RUnlock()
 
 				// read from feeder client
 				err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
@@ -495,10 +495,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 				runProxyMu.RLock()
 				if !runProxy {
-					runProxyMu.Unlock()
+					runProxyMu.RUnlock()
 					break
 				}
-				runProxyMu.Unlock()
+				runProxyMu.RUnlock()
 
 				// read from mlat server
 				err := muxConn.SetReadDeadline(time.Now().Add(time.Second * 2))
