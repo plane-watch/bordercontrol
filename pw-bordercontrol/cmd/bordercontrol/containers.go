@@ -135,6 +135,9 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	defer cli.Close()
 
 	for {
+
+		foundContainer := false
+
 		// read from channel (this blocks until a request comes in)
 		containerToStart := <-containersToStart
 
@@ -149,22 +152,39 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			Logger()
 
 		// determine if container is already running
-		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
+
+		// prepare filter to find feed-in container
+		filterFeedIn := filters.NewArgs()
+		filterFeedIn.Add("name", fmt.Sprintf("feed-in-%s", containerToStart.uuid.String()))
+
+		// find container
+		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 		if err != nil {
-			log.Err(err).Msg("error listing docker containers")
-			break
+			log.Err(err).Msg("error finding feed-in container")
 		}
-		foundContainer := false
-		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
-	Outerloop:
-		for _, container := range containers {
-			for _, cn := range container.Names {
-				if cn == fmt.Sprintf("/%s", feederContainerName) {
-					foundContainer = true
-					break Outerloop
-				}
-			}
+		if len(containers) > 0 {
+			foundContainer = true
+			log.Info().Msg("feed-in container exists")
+		} else {
+			foundContainer = false
 		}
+
+		// 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{})
+		// 	if err != nil {
+		// 		log.Err(err).Msg("error listing docker containers")
+		// 		break
+		// 	}
+		// 	foundContainer := false
+		// 	feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
+		// Outerloop:
+		// 	for _, container := range containers {
+		// 		for _, cn := range container.Names {
+		// 			if cn == fmt.Sprintf("/%s", feederContainerName) {
+		// 				foundContainer = true
+		// 				break Outerloop
+		// 			}
+		// 		}
+		// 	}
 
 		if !foundContainer {
 
@@ -221,14 +241,14 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			// create feed-in container
 			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
 			if err != nil {
-				log.Err(err).Msg("could not create container")
+				log.Err(err).Msg("could not create feed-in container")
 			} else {
 				log.Info().Str("container_id", resp.ID).Msg("created feed-in container")
 			}
 
 			// start container
 			if err := cli.ContainerStart(dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
-				log.Err(err).Msg("could not start container")
+				log.Err(err).Msg("could not start feed-in container")
 			} else {
 				log.Info().Str("container_id", resp.ID).Msg("started feed-in container")
 			}
