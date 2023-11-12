@@ -205,7 +205,7 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	}
 
 	// dial feed-in container
-	log.Debug().Msg("performing DialTCP to IP")
+	log.Trace().Msg("performing DialTCP to IP")
 	c, err = net.DialTCP("tcp", nil, &dstTCPAddr)
 
 	return c, err
