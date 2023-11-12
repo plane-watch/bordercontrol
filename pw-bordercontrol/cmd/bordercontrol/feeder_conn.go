@@ -196,7 +196,7 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	} else {
 		return c, errors.New("container DNS lookup returned no IPs")
 	}
-	log.With().IPAddr("ip", dstIP).Logger()
+	log = log.With().IPAddr("ip", dstIP).Logger()
 
 	// prep address to connect to
 	dstTCPAddr := net.TCPAddr{
