@@ -272,14 +272,8 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	stats.initFeederStats(uuid)
 
-	// make protocol uppercase
-	proto = strings.ToUpper(proto)
-
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
-
-	// copy stats entry
-	y := stats.Feeders[uuid]
 
 	// add connection
 	c := ConnectionDetail{
@@ -323,22 +317,23 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	}
 
 	// add connection to feeder connections map
-	y.Connections[proto].ConnectionDetails[connNum] = c
+	stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum] = c
 
 	// update connection state
-	if len(y.Connections[proto].ConnectionDetails) > 0 {
-		pd := y.Connections[proto]
+	if len(stats.Feeders[uuid].Connections[proto].ConnectionDetails) > 0 {
+		pd := stats.Feeders[uuid].Connections[proto]
 		pd.Status = true
 		pd.MostRecentConnection = c.TimeConnected
-		pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
-		y.Connections[proto] = pd
+		pd.ConnectionCount = len(stats.Feeders[uuid].Connections[proto].ConnectionDetails)
+		stats.Feeders[uuid].Connections[proto] = pd
 	}
 
 	// update time updated
-	y.TimeUpdated = time.Now()
+	s := stats.Feeders[uuid]
+	s.TimeUpdated = time.Now()
 
 	// write stats entry
-	stats.Feeders[uuid] = y
+	stats.Feeders[uuid] = s
 
 	log.Debug()
 
