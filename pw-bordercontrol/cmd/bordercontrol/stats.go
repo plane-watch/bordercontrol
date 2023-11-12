@@ -199,7 +199,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 		Uint("connNum", connNum).
 		Logger()
 
-	log.Info().Msg("started")
+	// log.Debug().Msg("started")
 
 	stats.initFeederStats(uuid)
 
@@ -253,7 +253,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 		}
 	}
 
-	log.Info().Msg("finished")
+	// log.Debug().Msg("finished")
 }
 
 func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {
