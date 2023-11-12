@@ -234,11 +234,17 @@ func runServer(ctx *cli.Context) error {
 func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
 	// BEAST listener
 
+	log := log.With().
+		Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).
+		Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).
+		Logger()
+
 	// start TLS server
-	log.Info().Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).Msg("starting BEAST listener")
+	log.Info().Msg("starting BEAST listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
 	if err != nil {
-		log.Err(err).Msg("tls.Listen")
+		log.Err(err).Msg("error with tls.Listen")
+		os.Exit(1)
 	}
 	defer tlsListener.Close()
 
@@ -246,7 +252,7 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 	for {
 		conn, err := tlsListener.Accept()
 		if err != nil {
-			log.Err(err).Msg("tlsListener.Accept")
+			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
 		go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.GetNum())
@@ -262,7 +268,8 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 	log.Info().Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).Msg("starting MLAT listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenmlat"), &tlsConfig)
 	if err != nil {
-		log.Err(err).Msg("tls.Listen")
+		log.Err(err).Msg("error with tls.Listen")
+		os.Exit(1)
 	}
 	defer tlsListener.Close()
 
@@ -270,7 +277,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 	for {
 		conn, err := tlsListener.Accept()
 		if err != nil {
-			log.Err(err).Msg("tlsListener.Accept")
+			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
 		go clientMLATConnection(ctx, conn, &tlsConfig, incomingConnTracker.GetNum())

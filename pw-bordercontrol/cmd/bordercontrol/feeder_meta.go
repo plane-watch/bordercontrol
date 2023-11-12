@@ -104,6 +104,6 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 		validFeeders.Feeders = f.Feeders
 		validFeeders.mu.Unlock()
 
-		// log.Info().Int("feeders", count).Msg("updated feeder cache from atc")
+		log.Debug().Int("feeders", count).Msg("updated feeder cache from atc")
 	}
 }

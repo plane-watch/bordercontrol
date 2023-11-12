@@ -70,6 +70,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
+		return err
 	}
 
 	// for each container...
@@ -85,10 +86,10 @@ ContainerLoop:
 
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
-			log.Info().Msg("out of date container being killed for recreation")
+			log.Info().Msg("out of date feed-in container being killed for recreation")
 			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
-				log.Err(err).Msg("error killing out of date container")
+				log.Err(err).Msg("error killing out of date feed-in container")
 			} else {
 
 				// If container was removed successfully, then break out of this loop
@@ -131,7 +132,8 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		log.Panic().AnErr("err", err).Msg("error creating docker client")
+		log.Err(err).Msg("error creating docker client")
+		os.Exit(1)
 	}
 	defer cli.Close()
 
@@ -168,7 +170,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		// check if container found
 		if len(containers) > 0 {
 			// if container found
-			log.Info().
+			log.Debug().
 				Str("state", containers[0].State).
 				Str("status", containers[0].Status).
 				Msg("feed-in container exists")
@@ -233,14 +235,14 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			if err != nil {
 				log.Err(err).Msg("could not create feed-in container")
 			} else {
-				log.Info().Str("container_id", resp.ID).Msg("created feed-in container")
+				log.Debug().Str("container_id", resp.ID).Msg("created feed-in container")
 			}
 
 			// start container
 			if err := cli.ContainerStart(dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
 				log.Err(err).Msg("could not start feed-in container")
 			} else {
-				log.Info().Str("container_id", resp.ID).Msg("started feed-in container")
+				log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
 			}
 		}
 

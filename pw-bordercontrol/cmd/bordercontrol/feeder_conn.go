@@ -109,9 +109,11 @@ func (t *incomingConnectionTracker) GetNum() (num uint) {
 func (t *incomingConnectionTracker) evict() {
 	// evicts connections from the tracker if older than 10 seconds
 
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "evict"}).
-	// 	Logger()
+	log := log.With().
+		Strs("func", []string{"feeder_conn.go", "evict"}).
+		Logger()
+
+	log.Debug().Msg("started")
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -127,6 +129,8 @@ func (t *incomingConnectionTracker) evict() {
 		}
 	}
 	t.connections = t.connections[:i]
+
+	log.Debug().Int("active_connections", i).Msg("finished")
 }
 
 func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error) {
@@ -135,10 +139,12 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 
 	var connCount uint
 
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "check"}).
-	// 	IPAddr("srcIP", net.IP).
-	// 	Logger()
+	log := log.With().
+		Strs("func", []string{"feeder_conn.go", "check"}).
+		IPAddr("srcIP", srcIP).
+		Logger()
+
+	log.Debug().Msg("started")
 
 	// count number of connections from this source IP
 	t.mu.RLock()
@@ -166,17 +172,18 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		})
 		t.mu.Unlock()
 	}
+	log.Debug().Uint("connection_count", connCount).AnErr("err", err).Msg("finished")
 
 	return err
 }
 
 func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "dialContainerTCP"}).
-	// 	Str("container", container).
-	// 	Int("port", port).
-	// 	Logger()
+	log := log.With().
+		Strs("func", []string{"feeder_conn.go", "dialContainerTCP"}).
+		Str("container", container).
+		Int("port", port).
+		Logger()
 
 	// perform DNS lookup
 	var dstIP net.IP
@@ -189,6 +196,7 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	} else {
 		return c, errors.New("container DNS lookup returned no IPs")
 	}
+	log.With().IPAddr("ip", dstIP).Logger()
 
 	// prep address to connect to
 	dstTCPAddr := net.TCPAddr{
@@ -197,10 +205,10 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	}
 
 	// dial feed-in container
+	log.Debug().Msg("performing DialTCP to IP")
 	c, err = net.DialTCP("tcp", nil, &dstTCPAddr)
 
 	return c, err
-
 }
 
 func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (clientApiKey uuid.UUID, refLat, refLon float64, mux, label string, err error) {
@@ -283,7 +291,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		Uint("connNum", connNum).
 		Logger()
 
-	log.Info().Msg("started")
+	log.Debug().Msg("started")
 
 	defer clientConn.Close()
 
@@ -548,7 +556,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		wg.Wait()
 
 	}
-	log.Info().Msg("finished")
+	log.Debug().Msg("finished")
 }
 
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
@@ -560,7 +568,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		Uint("connNum", connNum).
 		Logger()
 
-	log.Info().Msg("started")
+	log.Debug().Msg("started")
 
 	defer connIn.Close()
 
@@ -648,7 +656,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 			// wait for container start if needed
 			if containerStartDelay {
-				log.Info().Msg("waiting for feed-in container to start")
+				log.Debug().Msg("waiting for feed-in container to start")
 				time.Sleep(5 * time.Second)
 			}
 
@@ -741,5 +749,5 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			lastAuthCheck = time.Now()
 		}
 	}
-	log.Info().Msg("finished")
+	log.Debug().Msg("finished")
 }
