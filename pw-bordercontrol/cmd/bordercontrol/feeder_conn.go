@@ -584,7 +584,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	)
 
 	log = log.With().Any("connectionState", connectionState).Logger()
-	log.Debug().Msg("started")
+	log.Trace().Msg("started")
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
@@ -760,5 +760,5 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			lastAuthCheck = time.Now()
 		}
 	}
-	log.Debug().Msg("finished")
+	log.Trace().Msg("finished")
 }
