@@ -234,7 +234,7 @@ func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (
 
 			// update log context with client uuid
 			log = log.With().Str("uuid", clientApiKey.String()).Logger()
-			log.Info().Msg("client connected")
+			log.Debug().Msg("client connected")
 
 			// get feeder info (lat/lon/mux/label) from atc cache
 			refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
@@ -697,7 +697,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 					break
 				}
 
-				log.Info().Msg("connected to feed-in")
+				log.Info().Msg("connected to feed-in container")
 
 				// update state
 				connectionState = stateBeastFeedInContainerConnected
