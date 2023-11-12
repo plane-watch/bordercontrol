@@ -253,6 +253,8 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 		}
 	}
 
+	log.Debug()
+
 	// log.Debug().Msg("finished")
 }
 
@@ -337,6 +339,8 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	// write stats entry
 	stats.Feeders[uuid] = y
+
+	log.Debug()
 
 }
 

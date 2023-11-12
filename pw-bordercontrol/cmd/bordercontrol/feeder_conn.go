@@ -144,7 +144,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		IPAddr("srcIP", srcIP).
 		Logger()
 
-	log.Debug().Msg("started")
+	log.Trace().Msg("started")
 
 	// count number of connections from this source IP
 	t.mu.RLock()
@@ -172,7 +172,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		})
 		t.mu.Unlock()
 	}
-	log.Debug().Uint("connection_count", connCount).AnErr("err", err).Msg("finished")
+	log.Trace().Uint("connection_count", connCount).AnErr("err", err).Msg("finished")
 
 	return err
 }
