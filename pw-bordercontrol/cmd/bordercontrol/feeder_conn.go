@@ -409,7 +409,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// update state
 				connectionState = stateMLATMuxContainerConnected
 
-				log.Info().Msg("connected to mux")
+				log.Info().Msg("client connected to mux")
 
 			}
 		}
@@ -697,7 +697,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 					break
 				}
 
-				log.Info().Msg("connected to feed-in container")
+				log.Info().Msg("client connected to feed-in container")
 
 				// update state
 				connectionState = stateBeastFeedInContainerConnected
