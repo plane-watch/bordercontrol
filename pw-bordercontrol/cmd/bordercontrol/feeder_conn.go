@@ -568,8 +568,6 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		Uint("connNum", connNum).
 		Logger()
 
-	log.Debug().Msg("started")
-
 	defer connIn.Close()
 
 	var (
@@ -584,6 +582,9 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		err                error
 		wg                 sync.WaitGroup
 	)
+
+	log = log.With().Any("connectionState", connectionState).Logger()
+	log.Debug().Msg("started")
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
@@ -611,6 +612,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		} else if err != nil {
 			log.Err(err).Msg("error reading from client")
 			connectionState = stateBeastCloseConnection
+			log = log.With().Any("connectionState", connectionState).Logger()
 			break
 		}
 
@@ -621,6 +623,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			if err != nil {
 				log.Err(err)
 				connectionState = stateBeastCloseConnection
+				log = log.With().Any("connectionState", connectionState).Logger()
 				break
 			}
 			lastAuthCheck = time.Now()
@@ -632,6 +635,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			if stats.getNumConnections(clientApiKey, protoBeast) > maxConnectionsPerProto {
 				log.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoBeast].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
 				connectionState = stateBeastCloseConnection
+				log = log.With().Any("connectionState", connectionState).Logger()
 				break
 			}
 
@@ -662,6 +666,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 			// update state
 			connectionState = stateBeastAuthenticated
+			log = log.With().Any("connectionState", connectionState).Logger()
 		}
 
 		// If the client has been authenticated, then we can do stuff with the data
@@ -675,6 +680,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				log.Warn().AnErr("error", connOutErr).Msg("error connecting to feed-in container")
 				time.Sleep(1 * time.Second)
 				connectionState = stateBeastCloseConnection
+				log = log.With().Any("connectionState", connectionState).Logger()
 				break
 
 			} else {
@@ -688,12 +694,14 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				if err != nil {
 					log.Err(err).Msg("error setting keep alive")
 					connectionState = stateBeastCloseConnection
+					log = log.With().Any("connectionState", connectionState).Logger()
 					break
 				}
 				err = connOut.SetKeepAlivePeriod(1 * time.Second)
 				if err != nil {
 					log.Err(err).Msg("error setting keep alive period")
 					connectionState = stateBeastCloseConnection
+					log = log.With().Any("connectionState", connectionState).Logger()
 					break
 				}
 
@@ -701,6 +709,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 
 				// update state
 				connectionState = stateBeastFeedInContainerConnected
+				log = log.With().Any("connectionState", connectionState).Logger()
 
 				// update stats
 				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
@@ -723,6 +732,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				if wdErr != nil {
 					log.Err(wdErr).Msg("error setting deadline on connection")
 					connectionState = stateBeastCloseConnection
+					log = log.With().Any("connectionState", connectionState).Logger()
 					break
 				}
 
@@ -731,6 +741,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				if err != nil {
 					log.Err(err).Msg("error writing to feed-in container")
 					connectionState = stateBeastCloseConnection
+					log = log.With().Any("connectionState", connectionState).Logger()
 					break
 				}
 
@@ -744,6 +755,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			if !isValidApiKey(clientApiKey) {
 				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
 				connectionState = stateBeastCloseConnection
+				log = log.With().Any("connectionState", connectionState).Logger()
 				break
 			}
 			lastAuthCheck = time.Now()
