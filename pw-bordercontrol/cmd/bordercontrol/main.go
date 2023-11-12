@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -183,6 +184,17 @@ func runServer(ctx *cli.Context) error {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// display number active goroutines
+	go func() {
+		last := runtime.NumGoroutine()
+		for {
+			time.Sleep(5 * time.Minute)
+			now := runtime.NumGoroutine()
+			log.Debug().Int("goroutunes", now).Int("delta", now-last).Msg("number of goroutines")
+			last = now
+		}
+	}()
 
 	// start statistics manager
 	go statsManager()
