@@ -113,7 +113,7 @@ func (t *incomingConnectionTracker) evict() {
 		Strs("func", []string{"feeder_conn.go", "evict"}).
 		Logger()
 
-	log.Debug().Msg("started")
+	log.Trace().Msg("started")
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -130,7 +130,7 @@ func (t *incomingConnectionTracker) evict() {
 	}
 	t.connections = t.connections[:i]
 
-	log.Debug().Int("active_connections", i).Msg("finished")
+	log.Trace().Int("active_connections", i).Msg("evicted connections")
 }
 
 func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error) {
