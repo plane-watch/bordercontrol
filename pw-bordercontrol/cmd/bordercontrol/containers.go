@@ -126,7 +126,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
 
-	log.Info().Msg("started")
+	log.Debug().Msg("started")
 
 	// set up docker client
 	dockerCtx := context.Background()
@@ -248,5 +248,5 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 		containerToStart.wg.Done()
 	}
-	log.Info().Msg("finished")
+	log.Debug().Msg("finished")
 }
