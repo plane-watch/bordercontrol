@@ -705,11 +705,10 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 					break
 				}
 
-				log.Info().Msg("client connected to feed-in container")
-
 				// update state
 				connectionState = stateBeastFeedInContainerConnected
 				log = log.With().Any("connectionState", connectionState).Logger()
+				log.Info().Msg("client connected to feed-in container")
 
 				// update stats
 				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
