@@ -191,7 +191,7 @@ func runServer(ctx *cli.Context) error {
 		for {
 			time.Sleep(5 * time.Minute)
 			now := runtime.NumGoroutine()
-			log.Debug().Int("goroutunes", now).Int("delta", now-last).Msg("number of goroutines")
+			log.Debug().Int("goroutines", now).Int("delta", now-last).Msg("number of goroutines")
 			last = now
 		}
 	}()
