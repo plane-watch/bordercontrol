@@ -234,7 +234,7 @@ func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (
 
 			// update log context with client uuid
 			log = log.With().Str("uuid", clientApiKey.String()).Logger()
-			log.Debug().Msg("client connected")
+			log.Trace().Msg("client connected")
 
 			// get feeder info (lat/lon/mux/label) from atc cache
 			refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
