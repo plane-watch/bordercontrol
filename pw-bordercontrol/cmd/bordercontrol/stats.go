@@ -293,7 +293,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		ConstLabels: prometheus.Labels{
 			"protocol": strings.ToLower(proto),
 			"uuid":     uuid.String(),
-			"label":    y.Label,
+			"label":    stats.Feeders[uuid].Label,
 			"connnum":  fmt.Sprintf("%d", connNum),
 		}})
 	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
@@ -304,7 +304,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		ConstLabels: prometheus.Labels{
 			"protocol": strings.ToLower(proto),
 			"uuid":     uuid.String(),
-			"label":    y.Label,
+			"label":    stats.Feeders[uuid].Label,
 			"connnum":  fmt.Sprintf("%d", connNum),
 		}})
 	err := prometheus.Register(c.promMetricBytesIn)
