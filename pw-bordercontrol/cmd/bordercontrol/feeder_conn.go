@@ -291,8 +291,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		Uint("connNum", connNum).
 		Logger()
 
-	log.Debug().Msg("started")
-
 	defer clientConn.Close()
 
 	var (
@@ -306,6 +304,9 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		err                error
 		lastAuthCheck      time.Time
 	)
+
+	log = log.With().Any("connectionState", connectionState).Logger()
+	log.Trace().Msg("started")
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(clientConn.RemoteAddr().String(), ":")[0])
@@ -357,6 +358,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 			// update state
 			connectionState = stateMLATAuthenticated
+			log = log.With().Any("connectionState", connectionState).Logger()
 			lastAuthCheck = time.Now()
 		}
 
@@ -409,6 +411,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				// update state
 				connectionState = stateMLATMuxContainerConnected
 
+				log = log.With().Any("connectionState", connectionState).Logger()
 				log.Info().Msg("client connected to mux")
 
 			}
@@ -556,7 +559,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		wg.Wait()
 
 	}
-	log.Debug().Msg("finished")
+	log.Trace().Msg("finished")
 }
 
 func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
