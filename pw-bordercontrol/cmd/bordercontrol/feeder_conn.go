@@ -467,6 +467,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		bytesRead     int
 		err           error
 		lastAuthCheck time.Time
+		wg            sync.WaitGroup
 	)
 
 	log.Trace().Msg("started")
@@ -560,9 +561,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	// update stats
 	stats.addConnection(clientDetails.clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
 	defer stats.delConnection(clientDetails.clientApiKey, protoMLAT, connNum)
-
-	// prep waitgroup to hold function execution until all goroutines finish
-	wg := sync.WaitGroup{}
 
 	// method to signal goroutines to exit
 	proxyStatusMLAT := proxyStatus{
@@ -729,15 +727,12 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	stats.addConnection(clientDetails.clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
 	defer stats.delConnection(clientDetails.clientApiKey, protoBeast, connNum)
 
-	// prep waitgroup to hold function execution until all goroutines finish
-	// wg := sync.WaitGroup{}
-
 	// method to signal goroutines to exit
 	proxyStatusBEAST := proxyStatus{
 		run: true,
 	}
 
-	// handle data from feeder client to mlat server
+	// handle data from feeder client to feed-in container
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -749,7 +744,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		proxyStatusBEAST.run = false
 	}()
 
-	// handle data from mlat server to feeder client
+	// handle data from feed-in container to feeder client
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
