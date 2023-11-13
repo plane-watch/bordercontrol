@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
@@ -40,6 +41,12 @@ type (
 		refLat, refLon float64
 		mux, label     string
 	}
+
+	// struct for proxy goroutines
+	proxyStatus struct {
+		mu  sync.RWMutex
+		run bool
+	}
 )
 
 const (
@@ -51,6 +58,9 @@ const (
 	//   "maxIncomingConnectionRequestSeconds" (10) second period
 	maxIncomingConnectionRequestsPerSrcIP = 3
 	maxIncomingConnectionRequestSeconds   = 10
+
+	// network send/recv buffer size
+	sendRecvBufferSize = 256 * 1024 // 256kB
 )
 
 const (
@@ -341,6 +351,105 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 	return n, err
 }
 
+func proxyClientToServer(clientConn net.Conn, serverConn *net.TCPConn, connNum uint, clientApiKey uuid.UUID, proxyStatus *proxyStatus, lastAuthCheck *time.Time, log zerolog.Logger) {
+	log = log.With().Str("proxy", "ClientToServer").Logger()
+	buf := make([]byte, sendRecvBufferSize)
+	for {
+
+		// quit if directed by other goroutine
+		proxyStatus.mu.RLock()
+		if !proxyStatus.run {
+			proxyStatus.mu.RUnlock()
+			break
+		}
+		proxyStatus.mu.RUnlock()
+
+		// read from feeder client
+		err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
+		if err != nil {
+			log.Err(err).Msg("error setting read deadline on clientConn")
+			break
+		}
+		bytesRead, err := clientConn.Read(buf)
+		if err != nil {
+			if !errors.Is(err, os.ErrDeadlineExceeded) {
+				log.Err(err).Msg("error reading from client")
+				break
+			}
+		} else {
+
+			// write to server
+			err := serverConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+			if err != nil {
+				log.Err(err).Msg("error setting write deadline on serverConn")
+				break
+			}
+			_, err = serverConn.Write(buf[:bytesRead])
+			if err != nil {
+				log.Err(err).Msg("error writing to server")
+				break
+			}
+
+			// update stats
+			stats.incrementByteCounters(clientApiKey, connNum, uint64(bytesRead), 0)
+		}
+
+		// check feeder is still valid (every 60 secs)
+		if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
+			if !isValidApiKey(clientApiKey) {
+				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+				break
+			}
+			*lastAuthCheck = time.Now()
+		}
+	}
+}
+
+func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum uint, clientApiKey uuid.UUID, proxyStatus *proxyStatus, lastAuthCheck *time.Time, log zerolog.Logger) {
+	log = log.With().Str("proxy", "ServerToClient").Logger()
+	buf := make([]byte, sendRecvBufferSize)
+	for {
+
+		// quit if directed by other goroutine
+		proxyStatus.mu.RLock()
+		if !proxyStatus.run {
+			proxyStatus.mu.RUnlock()
+			break
+		}
+		proxyStatus.mu.RUnlock()
+
+		// read from mlat server
+		err := serverConn.SetReadDeadline(time.Now().Add(time.Second * 2))
+		if err != nil {
+			log.Err(err).Msg("error setting read deadline on muxConn")
+			break
+		}
+		bytesRead, err := serverConn.Read(buf)
+		if err != nil {
+			if !errors.Is(err, os.ErrDeadlineExceeded) {
+				log.Err(err).Msg("error reading from mux")
+				break
+			}
+		} else {
+
+			// write to feeder client
+			err := clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+			if err != nil {
+				log.Err(err).Msg("error setting write deadline on clientConn")
+				break
+			}
+			_, err = clientConn.Write(buf[:bytesRead])
+			if err != nil {
+				log.Err(err).Msg("error writing to feeder")
+				break
+			}
+
+			// update stats
+			stats.incrementByteCounters(clientApiKey, connNum, 0, uint64(bytesRead))
+		}
+	}
+}
+
 func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config, connNum uint) error {
 	// handles incoming MLAT connections
 
@@ -353,16 +462,13 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	defer clientConn.Close()
 
 	var (
-		connectionState    = stateMLATNotAuthenticated
-		sendRecvBufferSize = 256 * 1024 // 256kB
-		muxConn            *net.TCPConn
-		clientDetails      *feederClient
-		bytesRead          int
-		err                error
-		lastAuthCheck      time.Time
+		muxConn       *net.TCPConn
+		clientDetails *feederClient
+		bytesRead     int
+		err           error
+		lastAuthCheck time.Time
 	)
 
-	log = log.With().Any("connectionState", connectionState).Logger()
 	log.Trace().Msg("started")
 
 	// update log context with client IP
@@ -460,127 +566,37 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	wg := sync.WaitGroup{}
 
 	// method to signal goroutines to exit
-	runProxy := true
-	var runProxyMu sync.RWMutex
+	proxyStatus := proxyStatus{
+		run: true,
+	}
 
 	// handle data from feeder client to mlat server
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		buf := make([]byte, sendRecvBufferSize)
-		for {
-
-			// quit if directed by other goroutine
-			runProxyMu.RLock()
-			if !runProxy {
-				runProxyMu.RUnlock()
-				break
-			}
-			runProxyMu.RUnlock()
-
-			// read from feeder client
-			err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
-			if err != nil {
-				log.Err(err).Msg("error setting read deadline on clientConn")
-				break
-			}
-			bytesRead, err := clientConn.Read(buf)
-			if err != nil {
-				if !errors.Is(err, os.ErrDeadlineExceeded) {
-					log.Err(err).Msg("error reading from client")
-					break
-				}
-			} else {
-
-				// write to mlat server
-				err := muxConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
-				if err != nil {
-					log.Err(err).Msg("error setting write deadline on muxConn")
-					break
-				}
-				_, err = muxConn.Write(buf[:bytesRead])
-				if err != nil {
-					log.Err(err).Msg("error writing to mux")
-					break
-				}
-
-				// update stats
-				stats.incrementByteCounters(clientDetails.clientApiKey, connNum, uint64(bytesRead), 0)
-			}
-
-			// check feeder is still valid (every 60 secs)
-			if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
-				if !isValidApiKey(clientDetails.clientApiKey) {
-					log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-					break
-				}
-				lastAuthCheck = time.Now()
-			}
-		}
+		proxyClientToServer(clientConn, muxConn, connNum, clientDetails.clientApiKey, &proxyStatus, &lastAuthCheck, log)
 
 		// tell other goroutine to exit
-		runProxyMu.Lock()
-		defer runProxyMu.Unlock()
-		runProxy = false
+		proxyStatus.mu.Lock()
+		defer proxyStatus.mu.Unlock()
+		proxyStatus.run = false
 	}()
 
 	// handle data from mlat server to feeder client
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		buf := make([]byte, sendRecvBufferSize)
-		for {
-
-			// quit if directed by other goroutine
-			runProxyMu.RLock()
-			if !runProxy {
-				runProxyMu.RUnlock()
-				break
-			}
-			runProxyMu.RUnlock()
-
-			// read from mlat server
-			err := muxConn.SetReadDeadline(time.Now().Add(time.Second * 2))
-			if err != nil {
-				log.Err(err).Msg("error setting read deadline on muxConn")
-				break
-			}
-			bytesRead, err := muxConn.Read(buf)
-			if err != nil {
-				if !errors.Is(err, os.ErrDeadlineExceeded) {
-					log.Err(err).Msg("error reading from mux")
-					break
-				}
-			} else {
-
-				// write to feeder client
-				err := clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
-				if err != nil {
-					log.Err(err).Msg("error setting write deadline on clientConn")
-					break
-				}
-				_, err = clientConn.Write(buf[:bytesRead])
-				if err != nil {
-					log.Err(err).Msg("error writing to feeder")
-					break
-				}
-
-				// update stats
-				stats.incrementByteCounters(clientDetails.clientApiKey, connNum, 0, uint64(bytesRead))
-			}
-		}
+		proxyServerToClient(clientConn, muxConn, connNum, clientDetails.clientApiKey, &proxyStatus, &lastAuthCheck, log)
 
 		// tell other goroutine to exit
-		runProxyMu.Lock()
-		defer runProxyMu.Unlock()
-		runProxy = false
+		proxyStatus.mu.Lock()
+		defer proxyStatus.mu.Unlock()
+		proxyStatus.run = false
 	}()
 
 	// wait for goroutines to finish
 	wg.Wait()
-
 	log.Trace().Msg("finished")
-
 	return nil
 }
 
@@ -596,14 +612,13 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	defer connIn.Close()
 
 	var (
-		connectionState    = stateBeastNotAuthenticated
-		sendRecvBufferSize = 256 * 1024 // 256kB
-		connOut            *net.TCPConn
-		connOutErr         error
-		clientDetails      *feederClient
-		lastAuthCheck      time.Time
-		err                error
-		wg                 sync.WaitGroup
+		connectionState = stateBeastNotAuthenticated
+		connOut         *net.TCPConn
+		connOutErr      error
+		clientDetails   *feederClient
+		lastAuthCheck   time.Time
+		err             error
+		wg              sync.WaitGroup
 	)
 
 	log = log.With().Any("connectionState", connectionState).Logger()
