@@ -11,6 +11,7 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
       * [Human Readable](#human-readable)
       * [API](#api)
     * [Configuring the environment](#configuring-the-environment)
+    * [Signals](#signals)
     * [Starting the environment](#starting-the-environment)
     * [Stopping the environment](#stopping-the-environment)
     * [Updating the environment](#updating-the-environment)
@@ -80,6 +81,15 @@ PW_INGEST_SINK=nats://nats-ingest.plane.watch:4222
 ```
 
 Create a the `docker-compose-local.yml` file (see the example), under `services:` -> `bordercontrol:`, ensure the path holding SSL certs/keys is mapped as a volume.
+
+### Signals
+
+Bordercontrol supports receiving some signals:
+
+| Signal    | What it Does |
+| --------- | ------------ |
+| `SIGHUP`  | Reload SSL certificate(s) |
+| `SIGUSR1` | Skip feed-in container update delay |
 
 ### Starting the environment
 
