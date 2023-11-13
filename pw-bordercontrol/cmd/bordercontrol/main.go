@@ -235,7 +235,7 @@ func runServer(ctx *cli.Context) error {
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
-	go listenMLAT(ctx, &wg)
+	go listenMLAT(ctx, &wg, containersToStart)
 
 	// wait for all listeners to finish / serve forever
 	wg.Wait()
@@ -267,13 +267,14 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.getNum())
+		// go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.getNum())
+		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStart)
 	}
 
 	wg.Done()
 }
 
-func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
+func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
 	// MLAT listener
 
 	// start TLS server
@@ -292,7 +293,8 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go clientMLATConnection(ctx, conn, incomingConnTracker.getNum())
+		// go clientMLATConnection(ctx, conn, incomingConnTracker.getNum())
+		go proxyClientConnection(conn, protoMLAT, incomingConnTracker.getNum(), containersToStart)
 	}
 
 	wg.Done()
