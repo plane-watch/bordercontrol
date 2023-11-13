@@ -267,7 +267,6 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		// go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.getNum())
 		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStart)
 	}
 
@@ -293,7 +292,6 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan sta
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		// go clientMLATConnection(ctx, conn, incomingConnTracker.getNum())
 		go proxyClientConnection(conn, protoMLAT, incomingConnTracker.getNum(), containersToStart)
 	}
 
