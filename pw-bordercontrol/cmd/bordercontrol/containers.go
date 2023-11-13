@@ -14,8 +14,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 
-	"github.com/google/uuid"
-
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
@@ -23,11 +21,12 @@ import (
 
 // struct for requesting that the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	uuid                uuid.UUID       // feeder uuid
-	refLat              float64         // feeder lat
-	refLon              float64         // feeder lon
-	mux                 string          // the multiplexer to upstream the data to
-	label               string          // the label of the feeder
+	clientDetails *feederClient
+	// uuid                uuid.UUID       // feeder uuid
+	// refLat              float64         // feeder lat
+	// refLon              float64         // feeder lon
+	// mux                 string          // the multiplexer to upstream the data to
+	// label               string          // the label of the feeder
 	srcIP               net.IP          // client IP address
 	wg                  *sync.WaitGroup // waitgroup for when container has started (pointer to allow calling function to read data)
 	containerStartDelay *bool           // do we need to wait for container services to start? (pointer to allow calling function to read data)
@@ -144,17 +143,17 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 		// prepare logger
 		log := log.With().
-			Float64("lat", containerToStart.refLat).
-			Float64("lon", containerToStart.refLon).
-			Str("mux", containerToStart.mux).
-			Str("label", containerToStart.label).
-			Str("uuid", containerToStart.uuid.String()).
+			Float64("lat", containerToStart.clientDetails.refLat).
+			Float64("lon", containerToStart.clientDetails.refLon).
+			Str("mux", containerToStart.clientDetails.mux).
+			Str("label", containerToStart.clientDetails.label).
+			Str("uuid", containerToStart.clientDetails.clientApiKey.String()).
 			IPAddr("src", containerToStart.srcIP).
 			Logger()
 
 		// determine if container is already running
 
-		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.uuid.String())
+		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.clientDetails.clientApiKey.String())
 
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
@@ -185,26 +184,26 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 			// prepare environment variables for container
 			envVars := [...]string{
-				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.refLat),
-				fmt.Sprintf("FEEDER_LON=%f", containerToStart.refLon),
-				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.uuid),
+				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.clientDetails.refLat),
+				fmt.Sprintf("FEEDER_LON=%f", containerToStart.clientDetails.refLon),
+				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
 				"READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",
 				"READSB_NET_ONLY=true",
-				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", containerToStart.mux),
+				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", containerToStart.clientDetails.mux),
 				"PW_INGEST_PUBLISH=location-updates",
 				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
 			}
 
 			// prepare labels
 			containerLabels := make(map[string]string)
-			containerLabels["plane.watch.label"] = containerToStart.label
-			containerLabels["plane.watch.mux"] = containerToStart.mux
-			containerLabels["plane.watch.lat"] = fmt.Sprintf("%f", containerToStart.refLat)
-			containerLabels["plane.watch.lon"] = fmt.Sprintf("%f", containerToStart.refLon)
-			containerLabels["plane.watch.uuid"] = containerToStart.uuid.String()
+			containerLabels["plane.watch.label"] = containerToStart.clientDetails.label
+			containerLabels["plane.watch.mux"] = containerToStart.clientDetails.mux
+			containerLabels["plane.watch.lat"] = fmt.Sprintf("%f", containerToStart.clientDetails.refLat)
+			containerLabels["plane.watch.lon"] = fmt.Sprintf("%f", containerToStart.clientDetails.refLon)
+			containerLabels["plane.watch.uuid"] = containerToStart.clientDetails.clientApiKey.String()
 
 			// prepare container config
 			containerConfig := container.Config{

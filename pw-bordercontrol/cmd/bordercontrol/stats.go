@@ -160,7 +160,7 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	}
 }
 
-func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon float64) {
+func (stats *Statistics) setFeederDetails(f *feederClient) {
 	// updates the details of a feeder
 
 	// log := log.With().
@@ -171,22 +171,22 @@ func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon
 	//  Float64("lon", lon)/
 	// 	Logger()
 
-	stats.initFeederStats(uuid)
+	stats.initFeederStats(f.clientApiKey)
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
 	// copy stats entry
-	y := stats.Feeders[uuid]
+	y := stats.Feeders[f.clientApiKey]
 
 	// update label, lat, lon and time last updated
-	y.Label = label
-	y.Lat = lat
-	y.Lon = lon
+	y.Label = f.label
+	y.Lat = f.refLat
+	y.Lon = f.refLon
 	y.TimeUpdated = time.Now()
 
 	// write stats entry
-	stats.Feeders[uuid] = y
+	stats.Feeders[f.clientApiKey] = y
 }
 
 func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uint) {

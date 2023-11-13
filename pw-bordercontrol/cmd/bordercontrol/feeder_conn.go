@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
@@ -33,6 +32,13 @@ type (
 		srcIP    net.IP
 		connTime time.Time
 		connNum  uint
+	}
+
+	// struct to hold feeder client information
+	feederClient struct {
+		clientApiKey   uuid.UUID
+		refLat, refLon float64
+		mux, label     string
 	}
 )
 
@@ -265,51 +271,55 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	return c, err
 }
 
-func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (clientApiKey uuid.UUID, refLat, refLon float64, mux, label string, err error) {
+func checkConnTLSHandshakeComplete(c net.Conn) bool {
+	return c.(*tls.Conn).ConnectionState().HandshakeComplete
+}
+
+func getUUIDfromSNI(c net.Conn) (u uuid.UUID, err error) {
+	return uuid.Parse(c.(*tls.Conn).ConnectionState().ServerName)
+}
+
+func authenticateFeeder(ctx *cli.Context, connIn net.Conn) (clientDetails *feederClient, err error) {
 	// authenticates a feeder
 
-	log = log.With().
+	clientDetails = &feederClient{}
+
+	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "authenticateFeeder"}).
 		Logger()
 
 	// check TLS handshake
-	if connIn.(*tls.Conn).ConnectionState().HandshakeComplete {
-
-		// check valid uuid was returned as ServerName (sni)
-		clientApiKey, err = uuid.Parse(connIn.(*tls.Conn).ConnectionState().ServerName)
-		if err != nil {
-			err := errors.New("client sent invalid SNI")
-			return clientApiKey, refLat, refLon, mux, label, err
-		}
-
-		// check valid api key
-		if isValidApiKey(clientApiKey) {
-
-			// update log context with client uuid
-			log = log.With().Str("uuid", clientApiKey.String()).Logger()
-			log.Trace().Msg("client connected")
-
-			// get feeder info (lat/lon/mux/label) from atc cache
-			refLat, refLon, mux, label, err = getFeederInfo(clientApiKey)
-			if err != nil {
-				return clientApiKey, refLat, refLon, mux, label, err
-			}
-
-			// update stats
-			stats.setFeederDetails(clientApiKey, label, refLat, refLon)
-
-		} else {
-			// if API is not valid, then kill the connection
-			err := errors.New("client sent invalid api key")
-			return clientApiKey, refLat, refLon, mux, label, err
-		}
-
-	} else {
+	if !checkConnTLSHandshakeComplete(connIn) {
 		// if TLS handshake is not complete, then kill the connection
 		err := errors.New("data received before tls handshake")
-		return clientApiKey, refLat, refLon, mux, label, err
+		return clientDetails, err
 	}
-	return clientApiKey, refLat, refLon, mux, label, err
+	log = log.With().Bool("TLSHandshakeComplete", true).Logger()
+	log.Trace().Msg("TLS handshake complete")
+
+	// check valid uuid was returned as ServerName (sni)
+	clientDetails.clientApiKey, err = getUUIDfromSNI(connIn)
+	if err != nil {
+		return clientDetails, err
+	}
+	log = log.With().Str("uuid", clientDetails.clientApiKey.String()).Logger()
+	log.Trace().Msg("feeder API key received from SNI")
+
+	// check valid api key against atc
+	if !isValidApiKey(clientDetails.clientApiKey) {
+		// if API is not valid, then kill the connection
+		err := errors.New("client sent invalid api key")
+		return clientDetails, err
+	}
+	log.Trace().Msg("feeder API key valid")
+
+	// get feeder info (lat/lon/mux/label) from atc cache
+	err = getFeederInfo(clientDetails)
+
+	// update stats
+	stats.setFeederDetails(clientDetails)
+
+	return clientDetails, err
 }
 
 func readFromClient(c net.Conn, buf []byte) (n int, err error) {
@@ -351,8 +361,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		sendRecvBufferSize = 256 * 1024 // 256kB
 		muxConn            *net.TCPConn
 		muxConnErr         error
-		clientApiKey       uuid.UUID
-		mux, label         string
+		clientDetails      *feederClient
 		bytesRead          int
 		err                error
 		lastAuthCheck      time.Time
@@ -394,18 +403,25 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
 		if connectionState == stateMLATNotAuthenticated {
-			clientApiKey, _, _, mux, label, err = authenticateFeeder(ctx, clientConn, log)
+			clientDetails, err = authenticateFeeder(ctx, clientConn)
 			if err != nil {
 				log.Err(err)
 				break
 			}
 
 			// update logger
-			log = log.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
+			log = log.With().
+				Str("uuid", clientDetails.clientApiKey.String()).
+				Str("mux", clientDetails.mux).
+				Str("label", clientDetails.label).
+				Logger()
 
 			// check number of connections, and drop connection if limit exceeded
-			if stats.getNumConnections(clientApiKey, protoMLAT) > maxConnectionsPerProto {
-				log.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoMLAT].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+			if stats.getNumConnections(clientDetails.clientApiKey, protoMLAT) > maxConnectionsPerProto {
+				log.Warn().
+					Int("connections", stats.Feeders[clientDetails.clientApiKey].Connections[protoMLAT].ConnectionCount).
+					Int("max", maxConnectionsPerProto).
+					Msg("dropping connection as limit of connections exceeded")
 				break
 			}
 
@@ -419,10 +435,10 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		if connectionState == stateMLATAuthenticated {
 
 			// update log context
-			log.With().Str("dst", fmt.Sprintf("%s:12346", mux))
+			log.With().Str("dst", fmt.Sprintf("%s:12346", clientDetails.mux))
 
 			// attempt to connect to the mux container
-			muxConn, muxConnErr = dialContainerTCP(mux, 12346)
+			muxConn, muxConnErr = dialContainerTCP(clientDetails.mux, 12346)
 			if muxConnErr != nil {
 
 				// handle connection errors to feed-in container
@@ -485,8 +501,8 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		}
 
 		// update stats
-		stats.addConnection(clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
-		defer stats.delConnection(clientApiKey, protoMLAT, connNum)
+		stats.addConnection(clientDetails.clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
+		defer stats.delConnection(clientDetails.clientApiKey, protoMLAT, connNum)
 
 		// prep waitgroup to hold function execution until all goroutines finish
 		wg := sync.WaitGroup{}
@@ -537,12 +553,12 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					}
 
 					// update stats
-					stats.incrementByteCounters(clientApiKey, connNum, uint64(bytesRead), 0)
+					stats.incrementByteCounters(clientDetails.clientApiKey, connNum, uint64(bytesRead), 0)
 				}
 
 				// check feeder is still valid (every 60 secs)
 				if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
-					if !isValidApiKey(clientApiKey) {
+					if !isValidApiKey(clientDetails.clientApiKey) {
 						log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
 						break
 					}
@@ -598,7 +614,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					}
 
 					// update stats
-					stats.incrementByteCounters(clientApiKey, connNum, 0, uint64(bytesRead))
+					stats.incrementByteCounters(clientDetails.clientApiKey, connNum, 0, uint64(bytesRead))
 				}
 			}
 
@@ -631,9 +647,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		sendRecvBufferSize = 256 * 1024 // 256kB
 		connOut            *net.TCPConn
 		connOutErr         error
-		clientApiKey       uuid.UUID
-		refLat, refLon     float64
-		mux, label         string
+		clientDetails      *feederClient
 		lastAuthCheck      time.Time
 		err                error
 		wg                 sync.WaitGroup
@@ -675,7 +689,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
 		if connectionState == stateBeastNotAuthenticated {
-			clientApiKey, refLat, refLon, mux, label, err = authenticateFeeder(ctx, connIn, log)
+			clientDetails, err = authenticateFeeder(ctx, connIn)
 			if err != nil {
 				log.Err(err)
 				connectionState = stateBeastCloseConnection
@@ -685,11 +699,18 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			lastAuthCheck = time.Now()
 
 			// update logger
-			log = log.With().Str("uuid", clientApiKey.String()).Str("mux", mux).Str("label", label).Logger()
+			log = log.With().
+				Str("uuid", clientDetails.clientApiKey.String()).
+				Str("mux", clientDetails.mux).
+				Str("label", clientDetails.label).
+				Logger()
 
 			// check number of connections, and drop connection if limit exceeded
-			if stats.getNumConnections(clientApiKey, protoBeast) > maxConnectionsPerProto {
-				log.Warn().Int("connections", stats.Feeders[clientApiKey].Connections[protoBeast].ConnectionCount).Int("max", maxConnectionsPerProto).Msg("dropping connection as limit of connections exceeded")
+			if stats.getNumConnections(clientDetails.clientApiKey, protoBeast) > maxConnectionsPerProto {
+				log.Warn().
+					Int("connections", stats.Feeders[clientDetails.clientApiKey].Connections[protoBeast].ConnectionCount).
+					Int("max", maxConnectionsPerProto).
+					Msg("dropping connection as limit of connections exceeded")
 				connectionState = stateBeastCloseConnection
 				log = log.With().Any("connectionState", connectionState).Logger()
 				break
@@ -701,11 +722,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 			containerStartDelay := false
 			wg.Add(1)
 			containersToStart <- startContainerRequest{
-				uuid:                clientApiKey,
-				refLat:              refLat,
-				refLon:              refLon,
-				mux:                 mux,
-				label:               label,
+				clientDetails:       clientDetails,
 				srcIP:               remoteIP,
 				wg:                  &wg,
 				containerStartDelay: &containerStartDelay,
@@ -728,8 +745,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		// If the client has been authenticated, then we can do stuff with the data
 		if connectionState == stateBeastAuthenticated {
 
-			log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientApiKey.String())).Logger()
-			connOut, connOutErr = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientApiKey.String()), 12345)
+			log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
+			connOut, connOutErr = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String()), 12345)
 			if connOutErr != nil {
 
 				// handle connection errors to feed-in container
@@ -767,8 +784,8 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				log.Info().Msg("client connected to feed-in container")
 
 				// update stats
-				stats.addConnection(clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
-				defer stats.delConnection(clientApiKey, protoBeast, connNum)
+				stats.addConnection(clientDetails.clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
+				defer stats.delConnection(clientDetails.clientApiKey, protoBeast, connNum)
 
 				// reset deadline
 				connIn.SetDeadline(time.Time{})
@@ -801,13 +818,13 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 				}
 
 				// update stats
-				stats.incrementByteCounters(clientApiKey, connNum, uint64(bytesRead), 0)
+				stats.incrementByteCounters(clientDetails.clientApiKey, connNum, uint64(bytesRead), 0)
 			}
 		}
 
 		// check feeder is still valid (every 60 secs)
 		if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
-			if !isValidApiKey(clientApiKey) {
+			if !isValidApiKey(clientDetails.clientApiKey) {
 				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
 				connectionState = stateBeastCloseConnection
 				log = log.With().Any("connectionState", connectionState).Logger()

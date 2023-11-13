@@ -36,25 +36,25 @@ func isValidApiKey(clientApiKey uuid.UUID) bool {
 	return false
 }
 
-func getFeederInfo(feederApiKey uuid.UUID) (refLat float64, refLon float64, mux string, label string, err error) {
+func getFeederInfo(f *feederClient) error {
 	// return feeder info from atc, specifically: lat, lon, mux and label
 	found := false
 	validFeeders.mu.RLock()
 	defer validFeeders.mu.RUnlock()
 	for _, v := range validFeeders.Feeders {
-		if v.ApiKey == feederApiKey {
-			refLat = v.Latitude
-			refLon = v.Longitude
-			mux = v.Mux
-			label = v.Label
+		if v.ApiKey == f.clientApiKey {
+			f.refLat = v.Latitude
+			f.refLon = v.Longitude
+			f.mux = v.Mux
+			f.label = v.Label
 			found = true
 			break
 		}
 	}
 	if !found {
-		err = errors.New("could not find feeder")
+		return errors.New("could not find feeder")
 	}
-	return refLat, refLon, mux, label, err
+	return nil
 }
 
 func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
