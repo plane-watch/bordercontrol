@@ -19,6 +19,7 @@ import (
 )
 
 type (
+	// for connection state machines, see consts below
 	stateBeast int64
 	stateMLAT  int64
 
@@ -28,7 +29,7 @@ type (
 		connections      []incomingConnection
 		connectionNumber uint // to allocate connection numbers
 	}
-	incomingConnection struct {
+	incomingConnection struct { // used to limit the number of connections over time from a single source IP
 		srcIP    net.IP
 		connTime time.Time
 		connNum  uint
@@ -59,23 +60,8 @@ const (
 	stateMLATMuxContainerConnected
 )
 
-// func (connNum *connectionNumber) GetNum() (num uint) {
-
-// 	// log := log.With().
-// 	// 	Strs("func", []string{"feeder_conn.go", "GetNum"}).
-// 	// 	Uint("num", num).
-// 	// 	Logger()
-
-// 	connNum.mu.Lock()
-// 	defer connNum.mu.Unlock()
-// 	connNum.num++
-// 	if connNum.num == 0 {
-// 		connNum.num++
-// 	}
-// 	return connNum.num
-// }
-
 func (t *incomingConnectionTracker) GetNum() (num uint) {
+	// return a non-duplicate connection number
 
 	var dupe bool
 
@@ -84,13 +70,14 @@ func (t *incomingConnectionTracker) GetNum() (num uint) {
 
 	for {
 
+		// determine next available connection number
 		t.connectionNumber++
 		if t.connectionNumber == 0 {
 			t.connectionNumber++
 		}
 
+		// is the connection number already in use
 		dupe = false
-
 		for _, c := range t.connections {
 			if t.connectionNumber == c.connNum {
 				dupe = true
@@ -98,6 +85,7 @@ func (t *incomingConnectionTracker) GetNum() (num uint) {
 			}
 		}
 
+		// if not a duplicate, break out of loop
 		if !dupe {
 			break
 		}
