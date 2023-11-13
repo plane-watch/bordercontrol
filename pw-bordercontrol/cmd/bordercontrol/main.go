@@ -267,7 +267,7 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.GetNum())
+		go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.getNum())
 	}
 
 	wg.Done()
@@ -292,7 +292,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go clientMLATConnection(ctx, conn, &tlsConfig, incomingConnTracker.GetNum())
+		go clientMLATConnection(ctx, conn, &tlsConfig, incomingConnTracker.getNum())
 	}
 
 	wg.Done()
