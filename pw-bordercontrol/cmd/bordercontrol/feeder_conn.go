@@ -421,13 +421,13 @@ func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum u
 		// read from mlat server
 		err := serverConn.SetReadDeadline(time.Now().Add(time.Second * 2))
 		if err != nil {
-			log.Err(err).Msg("error setting read deadline on muxConn")
+			log.Err(err).Msg("error setting read deadline on serverConn")
 			break
 		}
 		bytesRead, err := serverConn.Read(buf)
 		if err != nil {
 			if !errors.Is(err, os.ErrDeadlineExceeded) {
-				log.Err(err).Msg("error reading from mux")
+				log.Err(err).Msg("error reading from server")
 				break
 			}
 		} else {
