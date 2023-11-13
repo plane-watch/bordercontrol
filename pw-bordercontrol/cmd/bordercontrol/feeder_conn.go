@@ -450,7 +450,7 @@ func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum u
 	}
 }
 
-func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.Config, connNum uint) error {
+func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, connNum uint) error {
 	// handles incoming MLAT connections
 
 	log := log.With().
@@ -629,6 +629,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		return err
 	}
 
+	// make buffer to hold data read from client
 	buf := make([]byte, sendRecvBufferSize)
 
 	// give the unauthenticated client 10 seconds to perform TLS handshake

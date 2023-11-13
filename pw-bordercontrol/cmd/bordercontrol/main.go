@@ -292,7 +292,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go clientMLATConnection(ctx, conn, &tlsConfig, incomingConnTracker.getNum())
+		go clientMLATConnection(ctx, conn, incomingConnTracker.getNum())
 	}
 
 	wg.Done()
