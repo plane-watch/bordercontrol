@@ -351,18 +351,18 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 	return n, err
 }
 
-func proxyClientToServer(clientConn net.Conn, serverConn *net.TCPConn, connNum uint, clientApiKey uuid.UUID, proxyStatus *proxyStatus, lastAuthCheck *time.Time, log zerolog.Logger) {
+func proxyClientToServer(clientConn net.Conn, serverConn *net.TCPConn, connNum uint, clientApiKey uuid.UUID, pStatus *proxyStatus, lastAuthCheck *time.Time, log zerolog.Logger) {
 	log = log.With().Str("proxy", "ClientToServer").Logger()
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
 		// quit if directed by other goroutine
-		proxyStatus.mu.RLock()
-		if !proxyStatus.run {
-			proxyStatus.mu.RUnlock()
+		pStatus.mu.RLock()
+		if !pStatus.run {
+			pStatus.mu.RUnlock()
 			break
 		}
-		proxyStatus.mu.RUnlock()
+		pStatus.mu.RUnlock()
 
 		// read from feeder client
 		err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
@@ -405,18 +405,18 @@ func proxyClientToServer(clientConn net.Conn, serverConn *net.TCPConn, connNum u
 	}
 }
 
-func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum uint, clientApiKey uuid.UUID, proxyStatus *proxyStatus, lastAuthCheck *time.Time, log zerolog.Logger) {
+func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum uint, clientApiKey uuid.UUID, pStatus *proxyStatus, lastAuthCheck *time.Time, log zerolog.Logger) {
 	log = log.With().Str("proxy", "ServerToClient").Logger()
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
 		// quit if directed by other goroutine
-		proxyStatus.mu.RLock()
-		if !proxyStatus.run {
-			proxyStatus.mu.RUnlock()
+		pStatus.mu.RLock()
+		if !pStatus.run {
+			pStatus.mu.RUnlock()
 			break
 		}
-		proxyStatus.mu.RUnlock()
+		pStatus.mu.RUnlock()
 
 		// read from mlat server
 		err := serverConn.SetReadDeadline(time.Now().Add(time.Second * 2))
@@ -520,7 +520,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		return err
 	}
 
-	// update state
 	lastAuthCheck = time.Now()
 
 	// If the client has been authenticated, then we can do stuff with the data
@@ -549,7 +548,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		return err
 	}
 
-	log.Info().Msg("client connected to mux")
+	log.Info().Msg("connected to mux")
 
 	// write any outstanding data
 	_, err = muxConn.Write(inBuf[:bytesRead])
@@ -566,7 +565,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	wg := sync.WaitGroup{}
 
 	// method to signal goroutines to exit
-	proxyStatus := proxyStatus{
+	proxyStatusMLAT := proxyStatus{
 		run: true,
 	}
 
@@ -574,24 +573,24 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		proxyClientToServer(clientConn, muxConn, connNum, clientDetails.clientApiKey, &proxyStatus, &lastAuthCheck, log)
+		proxyClientToServer(clientConn, muxConn, connNum, clientDetails.clientApiKey, &proxyStatusMLAT, &lastAuthCheck, log)
 
 		// tell other goroutine to exit
-		proxyStatus.mu.Lock()
-		defer proxyStatus.mu.Unlock()
-		proxyStatus.run = false
+		proxyStatusMLAT.mu.Lock()
+		defer proxyStatusMLAT.mu.Unlock()
+		proxyStatusMLAT.run = false
 	}()
 
 	// handle data from mlat server to feeder client
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		proxyServerToClient(clientConn, muxConn, connNum, clientDetails.clientApiKey, &proxyStatus, &lastAuthCheck, log)
+		proxyServerToClient(clientConn, muxConn, connNum, clientDetails.clientApiKey, &proxyStatusMLAT, &lastAuthCheck, log)
 
 		// tell other goroutine to exit
-		proxyStatus.mu.Lock()
-		defer proxyStatus.mu.Unlock()
-		proxyStatus.run = false
+		proxyStatusMLAT.mu.Lock()
+		defer proxyStatusMLAT.mu.Unlock()
+		proxyStatusMLAT.run = false
 	}()
 
 	// wait for goroutines to finish
@@ -600,7 +599,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	return nil
 }
 
-func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) {
+func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart chan startContainerRequest, connNum uint) error {
 	// handles incoming BEAST connections
 
 	log := log.With().
@@ -612,16 +611,13 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	defer connIn.Close()
 
 	var (
-		connectionState = stateBeastNotAuthenticated
-		connOut         *net.TCPConn
-		connOutErr      error
-		clientDetails   *feederClient
-		lastAuthCheck   time.Time
-		err             error
-		wg              sync.WaitGroup
+		connOut       *net.TCPConn
+		clientDetails *feederClient
+		lastAuthCheck time.Time
+		err           error
+		wg            sync.WaitGroup
 	)
 
-	log = log.With().Any("connectionState", connectionState).Logger()
 	log.Trace().Msg("started")
 
 	// update log context with client IP
@@ -632,174 +628,141 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 	err = incomingConnTracker.check(remoteIP, connNum)
 	if err != nil {
 		log.Err(err).Msg("dropping connection")
-		return
+		return err
 	}
 
 	buf := make([]byte, sendRecvBufferSize)
-	for {
 
-		if connectionState == stateBeastNotAuthenticated {
-			// give the unauthenticated client 10 seconds to perform TLS handshake
-			connIn.SetDeadline(time.Now().Add(time.Second * 10))
-		}
+	// give the unauthenticated client 10 seconds to perform TLS handshake
+	connIn.SetDeadline(time.Now().Add(time.Second * 10))
 
-		// read data from client
-		bytesRead, err := readFromClient(connIn, buf)
-		if os.IsTimeout(err) {
-			break // suppress constant i/o timeout messages
-		} else if err != nil {
-			log.Err(err).Msg("error reading from client")
-			connectionState = stateBeastCloseConnection
-			log = log.With().Any("connectionState", connectionState).Logger()
-			break
-		}
-
-		// When the first data is sent, the TLS handshake should take place.
-		// Accordingly, we need to track the state...
-		if connectionState == stateBeastNotAuthenticated {
-			clientDetails, err = authenticateFeeder(connIn)
-			if err != nil {
-				log.Err(err)
-				connectionState = stateBeastCloseConnection
-				log = log.With().Any("connectionState", connectionState).Logger()
-				break
-			}
-			lastAuthCheck = time.Now()
-
-			// update logger
-			log = log.With().
-				Str("uuid", clientDetails.clientApiKey.String()).
-				Str("mux", clientDetails.mux).
-				Str("label", clientDetails.label).
-				Logger()
-
-			// check number of connections, and drop connection if limit exceeded
-			if stats.getNumConnections(clientDetails.clientApiKey, protoBeast) > maxConnectionsPerProto {
-				log.Warn().
-					Int("connections", stats.Feeders[clientDetails.clientApiKey].Connections[protoBeast].ConnectionCount).
-					Int("max", maxConnectionsPerProto).
-					Msg("dropping connection as limit of connections exceeded")
-				connectionState = stateBeastCloseConnection
-				log = log.With().Any("connectionState", connectionState).Logger()
-				break
-			}
-
-			// start the container
-			// used a chan here so it blocks while waiting for the request to be popped off the chan
-
-			containerStartDelay := false
-			wg.Add(1)
-			containersToStart <- startContainerRequest{
-				clientDetails:       clientDetails,
-				srcIP:               remoteIP,
-				wg:                  &wg,
-				containerStartDelay: &containerStartDelay,
-			}
-
-			// wait for request to be actioned
-			wg.Wait()
-
-			// wait for container start if needed
-			if containerStartDelay {
-				log.Debug().Msg("waiting for feed-in container to start")
-				time.Sleep(5 * time.Second)
-			}
-
-			// update state
-			connectionState = stateBeastAuthenticated
-			log = log.With().Any("connectionState", connectionState).Logger()
-		}
-
-		// If the client has been authenticated, then we can do stuff with the data
-		if connectionState == stateBeastAuthenticated {
-
-			log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
-			connOut, connOutErr = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String()), 12345)
-			if connOutErr != nil {
-
-				// handle connection errors to feed-in container
-				log.Warn().AnErr("error", connOutErr).Msg("error connecting to feed-in container")
-				time.Sleep(1 * time.Second)
-				connectionState = stateBeastCloseConnection
-				log = log.With().Any("connectionState", connectionState).Logger()
-				break
-
-			} else {
-
-				// connected OK...
-
-				defer connOut.Close()
-
-				// attempt to set tcp keepalive with 1 sec interval
-				err := connOut.SetKeepAlive(true)
-				if err != nil {
-					log.Err(err).Msg("error setting keep alive")
-					connectionState = stateBeastCloseConnection
-					log = log.With().Any("connectionState", connectionState).Logger()
-					break
-				}
-				err = connOut.SetKeepAlivePeriod(1 * time.Second)
-				if err != nil {
-					log.Err(err).Msg("error setting keep alive period")
-					connectionState = stateBeastCloseConnection
-					log = log.With().Any("connectionState", connectionState).Logger()
-					break
-				}
-
-				// update state
-				connectionState = stateBeastFeedInContainerConnected
-				log = log.With().Any("connectionState", connectionState).Logger()
-				log.Info().Msg("client connected to feed-in container")
-
-				// update stats
-				stats.addConnection(clientDetails.clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
-				defer stats.delConnection(clientDetails.clientApiKey, protoBeast, connNum)
-
-				// reset deadline
-				connIn.SetDeadline(time.Time{})
-
-			}
-		}
-
-		// if we are ready to output data to the feed-in container...
-		if connectionState == stateBeastFeedInContainerConnected {
-
-			// if we have data to write...
-			if bytesRead > 0 {
-
-				// set deadline of 5 second
-				wdErr := connOut.SetDeadline(time.Now().Add(5 * time.Second))
-				if wdErr != nil {
-					log.Err(wdErr).Msg("error setting deadline on connection")
-					connectionState = stateBeastCloseConnection
-					log = log.With().Any("connectionState", connectionState).Logger()
-					break
-				}
-
-				// attempt to write data in buf (that was read from client connection earlier)
-				_, err := connOut.Write(buf[:bytesRead])
-				if err != nil {
-					log.Err(err).Msg("error writing to feed-in container")
-					connectionState = stateBeastCloseConnection
-					log = log.With().Any("connectionState", connectionState).Logger()
-					break
-				}
-
-				// update stats
-				stats.incrementByteCounters(clientDetails.clientApiKey, connNum, uint64(bytesRead), 0)
-			}
-		}
-
-		// check feeder is still valid (every 60 secs)
-		if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
-			if !isValidApiKey(clientDetails.clientApiKey) {
-				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-				connectionState = stateBeastCloseConnection
-				log = log.With().Any("connectionState", connectionState).Logger()
-				break
-			}
-			lastAuthCheck = time.Now()
-		}
+	// read data from client
+	bytesRead, err := readFromClient(connIn, buf)
+	if err != nil {
+		log.Err(err).Msg("error reading from client")
+		return err
 	}
+
+	// When the first data is sent, the TLS handshake should take place.
+	// Accordingly, we need to track the state...
+	clientDetails, err = authenticateFeeder(connIn)
+	if err != nil {
+		log.Err(err).Msg("error authenticating feeder")
+		return err
+	}
+
+	// update logger
+	log = log.With().
+		Str("uuid", clientDetails.clientApiKey.String()).
+		Str("mux", clientDetails.mux).
+		Str("label", clientDetails.label).
+		Logger()
+
+	// check number of connections, and drop connection if limit exceeded
+	if stats.getNumConnections(clientDetails.clientApiKey, protoBeast) > maxConnectionsPerProto {
+		err := errors.New("connection limit exceeded")
+		log.Err(err).
+			Int("connections", stats.Feeders[clientDetails.clientApiKey].Connections[protoMLAT].ConnectionCount).
+			Int("max", maxConnectionsPerProto).
+			Msg("dropping connection")
+		return err
+	}
+
+	lastAuthCheck = time.Now()
+
+	// start the container
+	// used a chan here so it blocks while waiting for the request to be popped off the chan
+
+	containerStartDelay := false
+	wg.Add(1)
+	containersToStart <- startContainerRequest{
+		clientDetails:       clientDetails,
+		srcIP:               remoteIP,
+		wg:                  &wg,
+		containerStartDelay: &containerStartDelay,
+	}
+
+	// wait for request to be actioned
+	wg.Wait()
+
+	// wait for container start if needed
+	if containerStartDelay {
+		log.Debug().Msg("waiting for feed-in container to start")
+		time.Sleep(5 * time.Second)
+	}
+
+	// connect to feed-in container
+	log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
+	connOut, err = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String()), 12345)
+	if err != nil {
+		// handle connection errors to feed-in container
+		log.Err(err).Msg("error connecting to feed-in container")
+		return err
+	}
+
+	// connected OK...
+
+	defer connOut.Close()
+
+	// attempt to set tcp keepalive with 1 sec interval
+	err = connOut.SetKeepAlive(true)
+	if err != nil {
+		log.Err(err).Msg("error setting keep alive")
+		return err
+	}
+	err = connOut.SetKeepAlivePeriod(1 * time.Second)
+	if err != nil {
+		log.Err(err).Msg("error setting keep alive period")
+		return err
+	}
+
+	log.Info().Msg("connected to feed-in container")
+
+	// write any outstanding data
+	_, err = connOut.Write(buf[:bytesRead])
+	if err != nil {
+		log.Err(err).Msg("error writing to feed-in container")
+		return err
+	}
+
+	// update stats
+	stats.addConnection(clientDetails.clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), protoBeast, connNum)
+	defer stats.delConnection(clientDetails.clientApiKey, protoBeast, connNum)
+
+	// prep waitgroup to hold function execution until all goroutines finish
+	// wg := sync.WaitGroup{}
+
+	// method to signal goroutines to exit
+	proxyStatusBEAST := proxyStatus{
+		run: true,
+	}
+
+	// handle data from feeder client to mlat server
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyClientToServer(connIn, connOut, connNum, clientDetails.clientApiKey, &proxyStatusBEAST, &lastAuthCheck, log)
+
+		// tell other goroutine to exit
+		proxyStatusBEAST.mu.Lock()
+		defer proxyStatusBEAST.mu.Unlock()
+		proxyStatusBEAST.run = false
+	}()
+
+	// handle data from mlat server to feeder client
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyServerToClient(connIn, connOut, connNum, clientDetails.clientApiKey, &proxyStatusBEAST, &lastAuthCheck, log)
+
+		// tell other goroutine to exit
+		proxyStatusBEAST.mu.Lock()
+		defer proxyStatusBEAST.mu.Unlock()
+		proxyStatusBEAST.run = false
+	}()
+
+	// wait for goroutines to finish
+	wg.Wait()
 	log.Trace().Msg("finished")
+	return nil
 }
