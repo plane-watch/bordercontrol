@@ -418,7 +418,7 @@ func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum u
 		}
 		pStatus.mu.RUnlock()
 
-		// read from mlat server
+		// read from server
 		err := serverConn.SetReadDeadline(time.Now().Add(time.Second * 2))
 		if err != nil {
 			log.Err(err).Msg("error setting read deadline on serverConn")
