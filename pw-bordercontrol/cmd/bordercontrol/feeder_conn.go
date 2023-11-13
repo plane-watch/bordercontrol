@@ -41,9 +41,9 @@ const (
 	maxConnectionsPerProto = 1
 
 	// limits connection attempts to
-	//   "maxIncomingConnectionRequestsPerProto" (2) attempts in a
+	//   "maxIncomingConnectionRequestsPerSrcIP" (2) attempts in a
 	//   "maxIncomingConnectionRequestSeconds" (10) second period
-	maxIncomingConnectionRequestsPerProto = 3
+	maxIncomingConnectionRequestsPerSrcIP = 3
 	maxIncomingConnectionRequestSeconds   = 10
 )
 
@@ -60,8 +60,14 @@ const (
 	stateMLATMuxContainerConnected
 )
 
-func (t *incomingConnectionTracker) GetNum() (num uint) {
+func (t *incomingConnectionTracker) getNum() (num uint) {
 	// return a non-duplicate connection number
+
+	log := log.With().
+		Strs("func", []string{"feeder_conn.go", "getNum"}).
+		Logger()
+
+	log.Trace().Msg("started")
 
 	var dupe bool
 
@@ -76,11 +82,18 @@ func (t *incomingConnectionTracker) GetNum() (num uint) {
 			t.connectionNumber++
 		}
 
+		log.Trace().
+			Uint("connectionNumber", t.connectionNumber).
+			Msg("checking for duplicate connection number")
+
 		// is the connection number already in use
 		dupe = false
 		for _, c := range t.connections {
 			if t.connectionNumber == c.connNum {
 				dupe = true
+				log.Trace().
+					Uint("connectionNumber", t.connectionNumber).
+					Msg("duplicate connection number!")
 				break
 			}
 		}
@@ -90,6 +103,10 @@ func (t *incomingConnectionTracker) GetNum() (num uint) {
 			break
 		}
 	}
+
+	log.Trace().
+		Uint("connectionNumber", t.connectionNumber).
+		Msg("finished")
 
 	return t.connectionNumber
 }
@@ -108,17 +125,23 @@ func (t *incomingConnectionTracker) evict() {
 
 	// slice magic: https://stackoverflow.com/questions/20545743/how-to-remove-items-from-a-slice-while-ranging-over-it
 	i := 0
+	evictedConnections := 0
 	for _, c := range t.connections {
 
 		// keep connections tracked if less than maxIncomingConnectionRequestSeconds seconds old
 		if !c.connTime.Add(time.Second * maxIncomingConnectionRequestSeconds).Before(time.Now()) {
 			t.connections[i] = c
 			i++
+		} else {
+			evictedConnections++
 		}
 	}
 	t.connections = t.connections[:i]
 
-	log.Trace().Int("active_connections", i).Msg("evicted connections")
+	log.Trace().
+		Int("active_connections", i).
+		Int("evicted_connections", evictedConnections).
+		Msg("finished")
 }
 
 func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error) {
@@ -130,6 +153,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "check"}).
 		IPAddr("srcIP", srcIP).
+		Uint("connNum", connNum).
 		Logger()
 
 	log.Trace().Msg("started")
@@ -142,11 +166,14 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		}
 	}
 	t.mu.RUnlock()
+	log.Trace().
+		Uint("connCount", connCount).
+		Msg("connections from this source")
 
-	if connCount >= maxIncomingConnectionRequestsPerProto {
+	if connCount >= maxIncomingConnectionRequestsPerSrcIP {
 		// if connecting too frequently, raise an error
 		err = errors.New(fmt.Sprintf("more than %d connections from src within a %d second period",
-			maxIncomingConnectionRequestsPerProto,
+			maxIncomingConnectionRequestsPerSrcIP,
 			maxIncomingConnectionRequestSeconds,
 		))
 
@@ -160,7 +187,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		})
 		t.mu.Unlock()
 	}
-	log.Trace().Uint("connection_count", connCount).AnErr("err", err).Msg("finished")
+	log.Trace().Uint("connCount", connCount).AnErr("err", err).Msg("finished")
 
 	return err
 }
