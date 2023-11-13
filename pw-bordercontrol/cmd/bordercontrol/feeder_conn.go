@@ -826,6 +826,8 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 		// start the container
 		// used a chan here so it blocks while waiting for the request to be popped off the chan
 
+		log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
+
 		containerStartDelay := false
 		wg.Add(1)
 		containersToStart <- startContainerRequest{
@@ -845,7 +847,6 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 		}
 
 		// connect to feed-in container
-		log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
 		connOut, err = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String()), 12345)
 		if err != nil {
 			// handle connection errors to feed-in container
