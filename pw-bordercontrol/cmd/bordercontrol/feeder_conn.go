@@ -356,7 +356,6 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		connectionState    = stateMLATNotAuthenticated
 		sendRecvBufferSize = 256 * 1024 // 256kB
 		muxConn            *net.TCPConn
-		muxConnErr         error
 		clientDetails      *feederClient
 		bytesRead          int
 		err                error
@@ -374,7 +373,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	err = incomingConnTracker.check(remoteIP, connNum)
 	if err != nil {
 		log.Err(err).Msg("dropping connection")
-		return
+		return err
 	}
 
 	// make buffer to hold data read from client
@@ -387,7 +386,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	bytesRead, err = readFromClient(clientConn, inBuf)
 	if err != nil {
 		log.Err(err).Msg("error reading from client")
-		break MLATOuterLoop
+		return err
 	}
 
 	// When the first data is sent, the TLS handshake should take place.
@@ -643,7 +642,7 @@ func clientBEASTConnection(ctx *cli.Context, connIn net.Conn, containersToStart 
 		// When the first data is sent, the TLS handshake should take place.
 		// Accordingly, we need to track the state...
 		if connectionState == stateBeastNotAuthenticated {
-			clientDetails, err = authenticateFeeder(ctx, connIn)
+			clientDetails, err = authenticateFeeder(connIn)
 			if err != nil {
 				log.Err(err)
 				connectionState = stateBeastCloseConnection
