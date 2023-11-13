@@ -206,25 +206,36 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 	var dstIP net.IP
 	dstIPs, err := net.LookupIP(container)
 	if err != nil {
-		return n, err
-	}
-	if len(dstIPs) > 0 {
-		dstIP = dstIPs[0]
+		// error performing lookup
+		log.Trace().AnErr("err", err).Msg("error performing net.LookupIP")
 	} else {
-		return n, errors.New("container DNS lookup returned no IPs")
-	}
-	log = log.With().IPAddr("ip", dstIP).Logger()
+		// if no error
 
-	// prep address to connect to
-	n = &net.TCPAddr{
-		IP:   dstIP,
-		Port: port,
+		if len(dstIPs) > 0 {
+			// if dstIPs contains at least one element
+
+			// take the first returned address
+			dstIP = dstIPs[0]
+
+			// update logger with IP address
+			log = log.With().IPAddr("ip", dstIP).Logger()
+
+			// prep address to connect to
+			n = &net.TCPAddr{
+				IP:   dstIP,
+				Port: port,
+			}
+
+		} else {
+			// if dstIPs contains no elements
+
+			err = errors.New("container DNS lookup returned no IPs")
+			log.Trace().AnErr("err", err).Msg("no elements in dstIPs")
+		}
 	}
 
 	log.Trace().Msg("finished")
-
 	return n, err
-
 }
 
 func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
@@ -235,12 +246,22 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 		Int("port", port).
 		Logger()
 
+	log.Trace().Msg("started")
+
+	// lookup container IP, return TCP address
 	dstTCPAddr, err := lookupContainerTCP(container, port)
+
+	// update logger
+	log = log.With().IPAddr("dstTCPAddr", dstTCPAddr.IP).Int("port", port).Logger()
 
 	// dial feed-in container
 	log.Trace().Msg("performing DialTCP to IP")
 	c, err = net.DialTCP("tcp", nil, dstTCPAddr)
+	if err != nil {
+		log = log.With().AnErr("err", err).Logger()
+	}
 
+	log.Trace().Msg("finished")
 	return c, err
 }
 

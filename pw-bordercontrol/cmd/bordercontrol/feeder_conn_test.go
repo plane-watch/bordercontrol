@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -92,4 +93,35 @@ func TestCheck(t *testing.T) {
 		err := iCT.check(srcIP, iCT.getNum())
 		assert.Error(t, err)
 	})
+}
+
+func TestLookupContainerTCP(t *testing.T) {
+
+	// test lookup of loopback
+	t.Run("test lookup of loopback", func(t *testing.T) {
+
+		// prepare test data
+		port := 12345
+		n, err := lookupContainerTCP("localhost", port)
+
+		// expect IPv4 or IPv6 loopback
+		expected := []string{
+			fmt.Sprintf("127.0.0.1:%d", port),
+			fmt.Sprintf("%s%d", net.IPv6loopback.String(), port),
+		}
+
+		assert.NoError(t, err)
+		assert.Contains(t, expected, n.String())
+	})
+
+	// test lookup failure
+	t.Run("test lookup failure", func(t *testing.T) {
+
+		// prepare test data
+		port := 12345
+		_, err := lookupContainerTCP("something.invalid", port)
+
+		assert.Error(t, err)
+	})
+
 }
