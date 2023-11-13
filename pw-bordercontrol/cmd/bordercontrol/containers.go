@@ -143,8 +143,8 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 		// prepare logger
 		log := log.With().
-			Float64("lat", containerToStart.clientDetails.refLat).
-			Float64("lon", containerToStart.clientDetails.refLon).
+			// Float64("lat", containerToStart.clientDetails.refLat).
+			// Float64("lon", containerToStart.clientDetails.refLon).
 			Str("mux", containerToStart.clientDetails.mux).
 			Str("label", containerToStart.clientDetails.label).
 			Str("uuid", containerToStart.clientDetails.clientApiKey.String()).
