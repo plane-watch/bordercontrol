@@ -273,11 +273,10 @@ func authenticateFeeder(ctx *cli.Context, connIn net.Conn, log zerolog.Logger) (
 		Logger()
 
 	// check TLS handshake
-	tlscon := connIn.(*tls.Conn)
-	if tlscon.ConnectionState().HandshakeComplete {
+	if connIn.(*tls.Conn).ConnectionState().HandshakeComplete {
 
 		// check valid uuid was returned as ServerName (sni)
-		clientApiKey, err = uuid.Parse(tlscon.ConnectionState().ServerName)
+		clientApiKey, err = uuid.Parse(connIn.(*tls.Conn).ConnectionState().ServerName)
 		if err != nil {
 			err := errors.New("client sent invalid SNI")
 			return clientApiKey, refLat, refLon, mux, label, err
