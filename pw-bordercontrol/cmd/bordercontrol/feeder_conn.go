@@ -380,6 +380,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 	// make buffer to hold data read from client
 	inBuf := make([]byte, sendRecvBufferSize)
 
+MLATOuterLoop:
 	for {
 
 		if connectionState == stateMLATNotAuthenticated {
@@ -391,7 +392,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 		bytesRead, err = readFromClient(clientConn, inBuf)
 		if err != nil {
 			log.Err(err).Msg("error reading from client")
-			break
+			break MLATOuterLoop
 		}
 
 		switch connectionState {
@@ -402,7 +403,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 			clientDetails, err = authenticateFeeder(ctx, clientConn)
 			if err != nil {
 				log.Err(err)
-				break
+				break MLATOuterLoop
 			}
 
 			// update logger
@@ -418,7 +419,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					Int("connections", stats.Feeders[clientDetails.clientApiKey].Connections[protoMLAT].ConnectionCount).
 					Int("max", maxConnectionsPerProto).
 					Msg("dropping connection as limit of connections exceeded")
-				break
+				break MLATOuterLoop
 			}
 
 			// update state
@@ -445,7 +446,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 				if err != nil {
 					log.Err(err).Caller().Msg("error closing clientConn")
 				}
-				break
+				break MLATOuterLoop
 
 			} else {
 
@@ -460,7 +461,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					if e != nil {
 						log.Err(e).Caller().Msg("error closing client connection")
 					}
-					break
+					break MLATOuterLoop
 				}
 				err = muxConn.SetKeepAlivePeriod(1 * time.Second)
 				if err != nil {
@@ -469,7 +470,7 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 					if e != nil {
 						log.Err(e).Caller().Msg("error closing client connection")
 					}
-					break
+					break MLATOuterLoop
 				}
 
 				// update state
@@ -482,141 +483,146 @@ func clientMLATConnection(ctx *cli.Context, clientConn net.Conn, tlsConfig *tls.
 
 		// if we are ready to output data to the feed-in container...
 		case stateMLATMuxContainerConnected:
+			break MLATOuterLoop
+		}
+	}
 
-			// write outstanding data
-			_, err := muxConn.Write(inBuf[:bytesRead])
-			if err != nil {
-				log.Err(err).Msg("error writing to client")
+	// if we are ready to output data to the feed-in container...
+	if connectionState == stateMLATMuxContainerConnected {
+
+		// write outstanding data
+		_, err := muxConn.Write(inBuf[:bytesRead])
+		if err != nil {
+			log.Err(err).Msg("error writing to client")
+		}
+
+		// update stats
+		stats.addConnection(clientDetails.clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
+		defer stats.delConnection(clientDetails.clientApiKey, protoMLAT, connNum)
+
+		// prep waitgroup to hold function execution until all goroutines finish
+		wg := sync.WaitGroup{}
+
+		// method to signal goroutines to exit
+		runProxy := true
+		var runProxyMu sync.RWMutex
+
+		// handle data from feeder client to mlat server
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			buf := make([]byte, sendRecvBufferSize)
+			for {
+
+				// quit if directed by other goroutine
+				runProxyMu.RLock()
+				if !runProxy {
+					runProxyMu.RUnlock()
+					break
+				}
+				runProxyMu.RUnlock()
+
+				// read from feeder client
+				err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
+				if err != nil {
+					log.Err(err).Msg("error setting read deadline on clientConn")
+					break
+				}
+				bytesRead, err := clientConn.Read(buf)
+				if err != nil {
+					if !errors.Is(err, os.ErrDeadlineExceeded) {
+						log.Err(err).Msg("error reading from client")
+						break
+					}
+				} else {
+
+					// write to mlat server
+					err := muxConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+					if err != nil {
+						log.Err(err).Msg("error setting write deadline on muxConn")
+						break
+					}
+					_, err = muxConn.Write(buf[:bytesRead])
+					if err != nil {
+						log.Err(err).Msg("error writing to mux")
+						break
+					}
+
+					// update stats
+					stats.incrementByteCounters(clientDetails.clientApiKey, connNum, uint64(bytesRead), 0)
+				}
+
+				// check feeder is still valid (every 60 secs)
+				if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
+					if !isValidApiKey(clientDetails.clientApiKey) {
+						log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+						break
+					}
+					lastAuthCheck = time.Now()
+				}
 			}
 
-			// update stats
-			stats.addConnection(clientDetails.clientApiKey, clientConn.RemoteAddr(), muxConn.RemoteAddr(), protoMLAT, connNum)
-			defer stats.delConnection(clientDetails.clientApiKey, protoMLAT, connNum)
+			// tell other goroutine to exit
+			runProxyMu.Lock()
+			defer runProxyMu.Unlock()
+			runProxy = false
+		}()
 
-			// prep waitgroup to hold function execution until all goroutines finish
-			wg := sync.WaitGroup{}
+		// handle data from mlat server to feeder client
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			buf := make([]byte, sendRecvBufferSize)
+			for {
 
-			// method to signal goroutines to exit
-			runProxy := true
-			var runProxyMu sync.RWMutex
-
-			// handle data from feeder client to mlat server
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				buf := make([]byte, sendRecvBufferSize)
-				for {
-
-					// quit if directed by other goroutine
-					runProxyMu.RLock()
-					if !runProxy {
-						runProxyMu.RUnlock()
-						break
-					}
+				// quit if directed by other goroutine
+				runProxyMu.RLock()
+				if !runProxy {
 					runProxyMu.RUnlock()
-
-					// read from feeder client
-					err := clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
-					if err != nil {
-						log.Err(err).Msg("error setting read deadline on clientConn")
-						break
-					}
-					bytesRead, err := clientConn.Read(buf)
-					if err != nil {
-						if !errors.Is(err, os.ErrDeadlineExceeded) {
-							log.Err(err).Msg("error reading from client")
-							break
-						}
-					} else {
-
-						// write to mlat server
-						err := muxConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
-						if err != nil {
-							log.Err(err).Msg("error setting write deadline on muxConn")
-							break
-						}
-						_, err = muxConn.Write(buf[:bytesRead])
-						if err != nil {
-							log.Err(err).Msg("error writing to mux")
-							break
-						}
-
-						// update stats
-						stats.incrementByteCounters(clientDetails.clientApiKey, connNum, uint64(bytesRead), 0)
-					}
-
-					// check feeder is still valid (every 60 secs)
-					if time.Now().After(lastAuthCheck.Add(time.Second * 60)) {
-						if !isValidApiKey(clientDetails.clientApiKey) {
-							log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-							break
-						}
-						lastAuthCheck = time.Now()
-					}
+					break
 				}
+				runProxyMu.RUnlock()
 
-				// tell other goroutine to exit
-				runProxyMu.Lock()
-				defer runProxyMu.Unlock()
-				runProxy = false
-			}()
-
-			// handle data from mlat server to feeder client
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				buf := make([]byte, sendRecvBufferSize)
-				for {
-
-					// quit if directed by other goroutine
-					runProxyMu.RLock()
-					if !runProxy {
-						runProxyMu.RUnlock()
-						break
-					}
-					runProxyMu.RUnlock()
-
-					// read from mlat server
-					err := muxConn.SetReadDeadline(time.Now().Add(time.Second * 2))
-					if err != nil {
-						log.Err(err).Msg("error setting read deadline on muxConn")
-						break
-					}
-					bytesRead, err := muxConn.Read(buf)
-					if err != nil {
-						if !errors.Is(err, os.ErrDeadlineExceeded) {
-							log.Err(err).Msg("error reading from mux")
-							break
-						}
-					} else {
-
-						// write to feeder client
-						err := clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
-						if err != nil {
-							log.Err(err).Msg("error setting write deadline on clientConn")
-							break
-						}
-						_, err = clientConn.Write(buf[:bytesRead])
-						if err != nil {
-							log.Err(err).Msg("error writing to feeder")
-							break
-						}
-
-						// update stats
-						stats.incrementByteCounters(clientDetails.clientApiKey, connNum, 0, uint64(bytesRead))
-					}
+				// read from mlat server
+				err := muxConn.SetReadDeadline(time.Now().Add(time.Second * 2))
+				if err != nil {
+					log.Err(err).Msg("error setting read deadline on muxConn")
+					break
 				}
+				bytesRead, err := muxConn.Read(buf)
+				if err != nil {
+					if !errors.Is(err, os.ErrDeadlineExceeded) {
+						log.Err(err).Msg("error reading from mux")
+						break
+					}
+				} else {
 
-				// tell other goroutine to exit
-				runProxyMu.Lock()
-				defer runProxyMu.Unlock()
-				runProxy = false
-			}()
+					// write to feeder client
+					err := clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+					if err != nil {
+						log.Err(err).Msg("error setting write deadline on clientConn")
+						break
+					}
+					_, err = clientConn.Write(buf[:bytesRead])
+					if err != nil {
+						log.Err(err).Msg("error writing to feeder")
+						break
+					}
 
-			// wait for goroutines to finish
-			wg.Wait()
+					// update stats
+					stats.incrementByteCounters(clientDetails.clientApiKey, connNum, 0, uint64(bytesRead))
+				}
+			}
 
-		}
+			// tell other goroutine to exit
+			runProxyMu.Lock()
+			defer runProxyMu.Unlock()
+			runProxy = false
+		}()
+
+		// wait for goroutines to finish
+		wg.Wait()
+
 	}
 	log.Trace().Msg("finished")
 }
