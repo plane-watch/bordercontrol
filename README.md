@@ -10,7 +10,9 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
     * [Statistics](#statistics)
       * [Human Readable](#human-readable)
       * [API](#api)
+      * [Prometheus Metrics](#prometheus-metrics)
     * [Configuring the environment](#configuring-the-environment)
+    * [Signals](#signals)
     * [Starting the environment](#starting-the-environment)
     * [Stopping the environment](#stopping-the-environment)
     * [Updating the environment](#updating-the-environment)
@@ -52,6 +54,10 @@ Bordercontrol supports the following API calls:
 
 These queries return a JSON object with keys `Data` and `Error`. If `Error == ""`, then the `Data` key should contain the requested data. If `Error != ""`, then the error details are contained within `Error` and any data in `Data` should be discarded.
 
+#### Prometheus Metrics
+
+Prometheus metrics are published at `/metrics`.
+
 ### Configuring the environment
 
 In the root of the repository, create a `.env` file containing the following:
@@ -80,6 +86,15 @@ PW_INGEST_SINK=nats://nats-ingest.plane.watch:4222
 ```
 
 Create a the `docker-compose-local.yml` file (see the example), under `services:` -> `bordercontrol:`, ensure the path holding SSL certs/keys is mapped as a volume.
+
+### Signals
+
+Bordercontrol supports receiving some signals:
+
+| Signal    | What it Does |
+| --------- | ------------ |
+| `SIGHUP`  | Reload SSL certificate(s) |
+| `SIGUSR1` | Skip feed-in container update delay |
 
 ### Starting the environment
 
