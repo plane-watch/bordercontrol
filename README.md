@@ -10,6 +10,7 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
     * [Statistics](#statistics)
       * [Human Readable](#human-readable)
       * [API](#api)
+      * [Prometheus Metrics](#prometheus-metrics)
     * [Configuring the environment](#configuring-the-environment)
     * [Signals](#signals)
     * [Starting the environment](#starting-the-environment)
@@ -52,6 +53,10 @@ Bordercontrol supports the following API calls:
 | `GET` | `/api/v1/feeders/` | Statistics for all feeders |
 
 These queries return a JSON object with keys `Data` and `Error`. If `Error == ""`, then the `Data` key should contain the requested data. If `Error != ""`, then the error details are contained within `Error` and any data in `Data` should be discarded.
+
+#### Prometheus Metrics
+
+Prometheus metrics are published at `/metrics`.
 
 ### Configuring the environment
 
