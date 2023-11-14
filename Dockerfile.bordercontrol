@@ -2,6 +2,7 @@ FROM golang:1.21.4-bookworm AS builder
 COPY / /src/pw-bordercontrol
 WORKDIR /src/pw-bordercontrol/pw-bordercontrol
 RUN go mod tidy && \
+    go test -v ./... && \
     go build ./... && \
     go install ./...
 

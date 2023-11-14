@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 
 	"pw_bordercontrol/lib/logging"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
@@ -99,9 +101,10 @@ func main() {
 				EnvVars:  []string{"ATC_PASS"},
 			},
 			&cli.StringFlag{
-				Name:  "feedinimage",
-				Usage: "feed-in image name",
-				Value: "feed-in",
+				Name:    "feedinimage",
+				Usage:   "feed-in image name",
+				Value:   "feed-in",
+				EnvVars: []string{"FEED_IN_IMAGE"},
 			},
 			&cli.StringFlag{
 				Name:     "pwingestpublish",
@@ -147,12 +150,10 @@ func main() {
 		app.Version = fmt.Sprintf("%s (%s)", commithash, committime)
 	}
 
-	app.Before = func(c *cli.Context) error {
-		// Set logging level
-		logging.SetLoggingLevel(c)
+	app.Before = func(ctx *cli.Context) error {
 
 		// set global var containing feed-in image name
-		feedInImage = c.String("feedinimage")
+		feedInImage = ctx.String("feedinimage")
 
 		return nil
 	}
@@ -167,17 +168,33 @@ func main() {
 
 func runServer(ctx *cli.Context) error {
 
+	// Set logging level
+	logging.SetLoggingLevel(ctx)
+
 	// show banner
 	log.Info().Msg(banner)
 	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
+
+	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
 
 	// set up TLS
 	// load SSL cert/key
 	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("Error loading TLS cert and/or key")
+		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// display number active goroutines
+	go func() {
+		last := runtime.NumGoroutine()
+		for {
+			time.Sleep(5 * time.Minute)
+			now := runtime.NumGoroutine()
+			log.Debug().Int("goroutines", now).Int("delta", now-last).Msg("number of goroutines")
+			last = now
+		}
+	}()
 
 	// start statistics manager
 	go statsManager()
@@ -195,7 +212,11 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to check feed-in containers
 	checkFeederContainerSigs := make(chan os.Signal, 1)
 	signal.Notify(checkFeederContainerSigs, syscall.SIGUSR1)
-	go checkFeederContainers(ctx, checkFeederContainerSigs)
+	go func() {
+		for {
+			_ = checkFeederContainers(ctx, checkFeederContainerSigs)
+		}
+	}()
 
 	var wg sync.WaitGroup
 
@@ -214,7 +235,7 @@ func runServer(ctx *cli.Context) error {
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
-	go listenMLAT(ctx, &wg)
+	go listenMLAT(ctx, &wg, containersToStart)
 
 	// wait for all listeners to finish / serve forever
 	wg.Wait()
@@ -225,11 +246,17 @@ func runServer(ctx *cli.Context) error {
 func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
 	// BEAST listener
 
+	log := log.With().
+		Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).
+		Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).
+		Logger()
+
 	// start TLS server
-	log.Info().Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).Msg("starting BEAST listener")
+	log.Info().Msg("starting BEAST listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
 	if err != nil {
-		log.Err(err).Msg("tls.Listen")
+		log.Err(err).Msg("error with tls.Listen")
+		os.Exit(1)
 	}
 	defer tlsListener.Close()
 
@@ -237,23 +264,29 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 	for {
 		conn, err := tlsListener.Accept()
 		if err != nil {
-			log.Err(err).Msg("tlsListener.Accept")
+			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go clientBEASTConnection(ctx, conn, containersToStart, incomingConnTracker.GetNum())
+		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStart)
 	}
 
 	wg.Done()
 }
 
-func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
+func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
 	// MLAT listener
 
+	log := log.With().
+		Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).
+		Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).
+		Logger()
+
 	// start TLS server
-	log.Info().Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).Msg("starting MLAT listener")
+	log.Info().Msg("starting MLAT listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenmlat"), &tlsConfig)
 	if err != nil {
-		log.Err(err).Msg("tls.Listen")
+		log.Err(err).Msg("error with tls.Listen")
+		os.Exit(1)
 	}
 	defer tlsListener.Close()
 
@@ -261,10 +294,10 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup) {
 	for {
 		conn, err := tlsListener.Accept()
 		if err != nil {
-			log.Err(err).Msg("tlsListener.Accept")
+			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go clientMLATConnection(ctx, conn, &tlsConfig, incomingConnTracker.GetNum())
+		go proxyClientConnection(conn, protoMLAT, incomingConnTracker.getNum(), containersToStart)
 	}
 
 	wg.Done()

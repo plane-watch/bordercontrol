@@ -160,7 +160,7 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	}
 }
 
-func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon float64) {
+func (stats *Statistics) setFeederDetails(f *feederClient) {
 	// updates the details of a feeder
 
 	// log := log.With().
@@ -171,73 +171,91 @@ func (stats *Statistics) setFeederDetails(uuid uuid.UUID, label string, lat, lon
 	//  Float64("lon", lon)/
 	// 	Logger()
 
-	stats.initFeederStats(uuid)
+	stats.initFeederStats(f.clientApiKey)
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
 	// copy stats entry
-	y := stats.Feeders[uuid]
+	y := stats.Feeders[f.clientApiKey]
 
 	// update label, lat, lon and time last updated
-	y.Label = label
-	y.Lat = lat
-	y.Lon = lon
+	y.Label = f.label
+	y.Lat = f.refLat
+	y.Lon = f.refLon
 	y.TimeUpdated = time.Now()
 
 	// write stats entry
-	stats.Feeders[uuid] = y
+	stats.Feeders[f.clientApiKey] = y
 }
 
-func (stats *Statistics) delConnection(uuid uuid.UUID, connNum uint) {
+func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uint) {
 	// updates the connected status of a feeder
 
-	// log := log.With().
-	// 	Strs("func", []string{"stats.go", "delConnection"}).
-	// 	Str("uuid", uuid.String()).
-	// 	Uint("connNum", connNum).
-	// 	Logger()
+	log := log.With().
+		Strs("func", []string{"stats.go", "delConnection"}).
+		Str("uuid", uuid.String()).
+		Str("proto", proto).
+		Uint("connNum", connNum).
+		Logger()
+
+	// log.Debug().Msg("started")
 
 	stats.initFeederStats(uuid)
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
-	// copy stats entry
-	y := stats.Feeders[uuid]
+	_, found := stats.Feeders[uuid]
+	if !found {
+		log.Error().Msg("uuid not found in stats.Feeders")
+		return
+	}
 
-	// find connection to update
-	for proto, p := range y.Connections {
-		for cn, _ := range p.ConnectionDetails {
-			if cn == connNum {
+	_, found = stats.Feeders[uuid].Connections[proto]
+	if !found {
+		log.Error().Msg("proto not found in stats.Feeders[uuid].Connections")
+		return
+	}
 
-				// unregister prom metrics
-				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
-				_ = prometheus.Unregister(y.Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
+	_, found = stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum]
+	if !found {
+		log.Error().Msg("connNum not found in stats.Feeders[uuid].Connections[proto].ConnectionDetails")
+		return
+	}
 
-				// delete the connection
-				delete(y.Connections[proto].ConnectionDetails, connNum)
+	// unregister prom metrics
+	_ = prometheus.Unregister(stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
+	_ = prometheus.Unregister(stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
 
-				// update connection state
-				pd := y.Connections[proto]
-				pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
-				if len(y.Connections[proto].ConnectionDetails) > 0 {
-					pd.Status = true
-				} else {
-					pd.Status = false
-				}
+	// delete the connection
+	delete(stats.Feeders[uuid].Connections[proto].ConnectionDetails, connNum)
 
-				y.Connections[proto] = pd
+	// update connection status & count
+	conn, _ := stats.Feeders[uuid].Connections[proto]
+	conn.ConnectionCount = len(stats.Feeders[uuid].Connections[proto].ConnectionDetails)
+	if len(stats.Feeders[uuid].Connections[proto].ConnectionDetails) > 0 {
+		conn.Status = true
+	} else {
+		conn.Status = false
+	}
+	stats.Feeders[uuid].Connections[proto] = conn
 
-				// update time last updated
-				y.TimeUpdated = time.Now()
+	// update time last updated
+	feeder, _ := stats.Feeders[uuid]
+	feeder.TimeUpdated = time.Now()
+	stats.Feeders[uuid] = feeder
 
-				// write stats entry
-				stats.Feeders[uuid] = y
-
-			}
+	// do we completely remove the entry?
+	if stats.Feeders[uuid].Connections[protoBeast].ConnectionCount == 0 {
+		if stats.Feeders[uuid].Connections[protoMLAT].ConnectionCount == 0 {
+			delete(stats.Feeders, uuid)
 		}
 	}
+
+	log.Debug()
+
+	// log.Debug().Msg("finished")
 }
 
 func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {
@@ -254,14 +272,8 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	stats.initFeederStats(uuid)
 
-	// make protocol uppercase
-	proto = strings.ToUpper(proto)
-
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
-
-	// copy stats entry
-	y := stats.Feeders[uuid]
 
 	// add connection
 	c := ConnectionDetail{
@@ -281,7 +293,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		ConstLabels: prometheus.Labels{
 			"protocol": strings.ToLower(proto),
 			"uuid":     uuid.String(),
-			"label":    y.Label,
+			"label":    stats.Feeders[uuid].Label,
 			"connnum":  fmt.Sprintf("%d", connNum),
 		}})
 	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
@@ -292,7 +304,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		ConstLabels: prometheus.Labels{
 			"protocol": strings.ToLower(proto),
 			"uuid":     uuid.String(),
-			"label":    y.Label,
+			"label":    stats.Feeders[uuid].Label,
 			"connnum":  fmt.Sprintf("%d", connNum),
 		}})
 	err := prometheus.Register(c.promMetricBytesIn)
@@ -305,22 +317,23 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	}
 
 	// add connection to feeder connections map
-	y.Connections[proto].ConnectionDetails[connNum] = c
+	stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum] = c
 
 	// update connection state
-	if len(y.Connections[proto].ConnectionDetails) > 0 {
-		pd := y.Connections[proto]
+	if len(stats.Feeders[uuid].Connections[proto].ConnectionDetails) > 0 {
+		pd := stats.Feeders[uuid].Connections[proto]
 		pd.Status = true
 		pd.MostRecentConnection = c.TimeConnected
-		pd.ConnectionCount = len(y.Connections[proto].ConnectionDetails)
-		y.Connections[proto] = pd
+		pd.ConnectionCount = len(stats.Feeders[uuid].Connections[proto].ConnectionDetails)
+		stats.Feeders[uuid].Connections[proto] = pd
 	}
 
 	// update time updated
-	y.TimeUpdated = time.Now()
+	s := stats.Feeders[uuid]
+	s.TimeUpdated = time.Now()
 
 	// write stats entry
-	stats.Feeders[uuid] = y
+	stats.Feeders[uuid] = s
 
 }
 
