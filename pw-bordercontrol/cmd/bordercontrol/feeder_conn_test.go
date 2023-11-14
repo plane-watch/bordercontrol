@@ -107,7 +107,7 @@ func TestLookupContainerTCP(t *testing.T) {
 		// expect IPv4 or IPv6 loopback
 		expected := []string{
 			fmt.Sprintf("127.0.0.1:%d", port),
-			fmt.Sprintf("%s%d", net.IPv6loopback.String(), port),
+			fmt.Sprintf("[%s]:%d", net.IPv6loopback.String(), port),
 		}
 
 		assert.NoError(t, err)
