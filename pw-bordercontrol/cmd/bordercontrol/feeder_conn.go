@@ -474,8 +474,13 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	// read data from client
 	bytesRead, err := readFromClient(connIn, buf)
 	if err != nil {
-		log.Err(err).Msg("error reading from client")
-		return err
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			log.Trace().AnErr("err", err).Msg("error reading from client")
+			return err
+		} else {
+			log.Err(err).Msg("error reading from client")
+			return err
+		}
 	}
 
 	// When the first data is sent, the TLS handshake should take place.
