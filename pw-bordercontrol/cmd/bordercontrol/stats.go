@@ -335,8 +335,6 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	// write stats entry
 	stats.Feeders[uuid] = s
 
-	log.Debug()
-
 }
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
