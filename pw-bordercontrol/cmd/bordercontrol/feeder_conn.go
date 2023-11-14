@@ -614,17 +614,20 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 		pStatus.run = false
 	}()
 
-	// handle data from feed-in container to feeder client
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		proxyServerToClient(connIn, connOut, connNum, clientDetails.clientApiKey, &pStatus, &lastAuthCheck, log)
+	// handle data from server container to feeder client
+	switch connProto {
+	case protoMLAT:
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			proxyServerToClient(connIn, connOut, connNum, clientDetails.clientApiKey, &pStatus, &lastAuthCheck, log)
 
-		// tell other goroutine to exit
-		pStatus.mu.Lock()
-		defer pStatus.mu.Unlock()
-		pStatus.run = false
-	}()
+			// tell other goroutine to exit
+			pStatus.mu.Lock()
+			defer pStatus.mu.Unlock()
+			pStatus.run = false
+		}()
+	}
 
 	// wait for goroutines to finish
 	wg.Wait()
