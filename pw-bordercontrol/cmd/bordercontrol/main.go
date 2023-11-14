@@ -251,13 +251,6 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 		Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).
 		Logger()
 
-	err := syscall.Setuid(100)
-	if err != nil {
-		log.Err(err).Msg("could not drop privileges!")
-	} else {
-		log.Info().Msg("dropping privileges")
-	}
-
 	// start TLS server
 	log.Info().Msg("starting BEAST listener")
 	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
@@ -287,13 +280,6 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan sta
 		Str("ip", strings.Split(ctx.String("listenmlat"), ":")[0]).
 		Str("port", strings.Split(ctx.String("listenmlat"), ":")[1]).
 		Logger()
-
-	err := syscall.Setuid(100)
-	if err != nil {
-		log.Err(err).Msg("could not drop privileges!")
-	} else {
-		log.Info().Msg("dropping privileges")
-	}
 
 	// start TLS server
 	log.Info().Msg("starting MLAT listener")

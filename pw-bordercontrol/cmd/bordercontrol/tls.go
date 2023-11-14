@@ -21,6 +21,22 @@ type keypairReloader struct {
 func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 
+	err := syscall.Seteuid(0)
+	if err != nil {
+		log.Err(err).Msg("could not setuid!")
+	} else {
+		log.Trace().Msg("seteuid to root")
+	}
+
+	defer func() {
+		err := syscall.Seteuid(100)
+		if err != nil {
+			log.Err(err).Msg("could not setuid!")
+		} else {
+			log.Trace().Msg("seteuid to bordercontrol")
+		}
+	}()
+
 	result := &keypairReloader{
 		certPath: certPath,
 		keyPath:  keyPath,
