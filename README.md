@@ -98,8 +98,6 @@ Bordercontrol supports receiving some signals:
 
 ### Starting the environment
 
-From the root of the repo: `git submodule add -f git@github.com:plane-watch/pw-pipeline.git` (note you may need to rmdir the pw-pipeline dir).
-
 From the root of the repository, run `docker compose up -d --build`.
 
 This will build the images, containers and launch bordercontrol.
