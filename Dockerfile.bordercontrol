@@ -17,5 +17,4 @@ RUN set -x && \
         --no-user-group \
         --system \
         bordercontrol
-USER bordercontrol    
 ENTRYPOINT [ "/usr/local/bin/bordercontrol" ]
