@@ -50,7 +50,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	// cycles through feed-in containers and recreates if needed
 
 	// set up docker client
-	log.Trace().Msg("set up docker client")
+	// log.Trace().Msg("set up docker client")
 	dockerCtx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -60,12 +60,12 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	defer cli.Close()
 
 	// prepare filters to find feed-in containers
-	log.Trace().Msg("prepare filter to find feed-in containers")
+	// log.Trace().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
 	filterFeedIn.Add("name", "feed-in-*")
 
 	// find containers
-	log.Trace().Msg("find containers")
+	// log.Trace().Msg("find containers")
 	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
@@ -76,7 +76,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 ContainerLoop:
 	for _, container := range containers {
 
-		log.Trace().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
+		// log.Trace().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
 
 		// check containers are running latest feed-in image
 		if container.Image != ctx.String("feedinimage") {
@@ -125,7 +125,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
 
-	log.Trace().Msg("started")
+	// log.Trace().Msg("started")
 
 	// set up docker client
 	dockerCtx := context.Background()
@@ -249,5 +249,5 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		// set waitgroup done so calling function can proceed
 		containerToStart.wg.Done()
 	}
-	log.Trace().Msg("finished")
+	// log.Trace().Msg("finished")
 }

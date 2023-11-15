@@ -65,7 +65,7 @@ func (t *incomingConnectionTracker) getNum() (num uint) {
 		Strs("func", []string{"feeder_conn.go", "getNum"}).
 		Logger()
 
-	log.Trace().Msg("started")
+	// log.Trace().Msg("started")
 
 	var dupe bool
 
@@ -80,18 +80,18 @@ func (t *incomingConnectionTracker) getNum() (num uint) {
 			t.connectionNumber++
 		}
 
-		log.Trace().
-			Uint("connectionNumber", t.connectionNumber).
-			Msg("checking for duplicate connection number")
+		// log.Trace().
+		// 	Uint("connectionNumber", t.connectionNumber).
+		// 	Msg("checking for duplicate connection number")
 
 		// is the connection number already in use
 		dupe = false
 		for _, c := range t.connections {
 			if t.connectionNumber == c.connNum {
 				dupe = true
-				log.Trace().
-					Uint("connectionNumber", t.connectionNumber).
-					Msg("duplicate connection number!")
+				// log.Trace().
+				// 	Uint("connectionNumber", t.connectionNumber).
+				// 	Msg("duplicate connection number!")
 				break
 			}
 		}
@@ -102,9 +102,9 @@ func (t *incomingConnectionTracker) getNum() (num uint) {
 		}
 	}
 
-	log.Trace().
-		Uint("connectionNumber", t.connectionNumber).
-		Msg("finished")
+	// log.Trace().
+	// 	Uint("connectionNumber", t.connectionNumber).
+	// 	Msg("finished")
 
 	return t.connectionNumber
 }
@@ -116,7 +116,7 @@ func (t *incomingConnectionTracker) evict() {
 		Strs("func", []string{"feeder_conn.go", "evict"}).
 		Logger()
 
-	log.Trace().Msg("started")
+	// log.Trace().Msg("started")
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -136,10 +136,10 @@ func (t *incomingConnectionTracker) evict() {
 	}
 	t.connections = t.connections[:i]
 
-	log.Trace().
-		Int("active_connections", i).
-		Int("evicted_connections", evictedConnections).
-		Msg("finished")
+	// log.Trace().
+	// 	Int("active_connections", i).
+	// 	Int("evicted_connections", evictedConnections).
+	// 	Msg("finished")
 }
 
 func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error) {
@@ -154,7 +154,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		Uint("connNum", connNum).
 		Logger()
 
-	log.Trace().Msg("started")
+	// log.Trace().Msg("started")
 
 	// count number of connections from this source IP
 	t.mu.RLock()
@@ -164,9 +164,9 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		}
 	}
 	t.mu.RUnlock()
-	log.Trace().
-		Uint("connCount", connCount).
-		Msg("connections from this source")
+	// log.Trace().
+	// 	Uint("connCount", connCount).
+	// 	Msg("connections from this source")
 
 	if connCount >= maxIncomingConnectionRequestsPerSrcIP {
 		// if connecting too frequently, raise an error
@@ -185,7 +185,7 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		})
 		t.mu.Unlock()
 	}
-	log.Trace().Uint("connCount", connCount).AnErr("err", err).Msg("finished")
+	// log.Trace().Uint("connCount", connCount).AnErr("err", err).Msg("finished")
 
 	return err
 }
@@ -198,14 +198,14 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 		Int("port", port).
 		Logger()
 
-	log.Trace().Msg("started")
+	// log.Trace().Msg("started")
 
 	// perform DNS lookup
 	var dstIP net.IP
 	dstIPs, err := net.LookupIP(container)
 	if err != nil {
 		// error performing lookup
-		log.Trace().AnErr("err", err).Msg("error performing net.LookupIP")
+		// log.Trace().AnErr("err", err).Msg("error performing net.LookupIP")
 	} else {
 		// if no error
 
@@ -228,11 +228,11 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 			// if dstIPs contains no elements
 
 			err = errors.New("container DNS lookup returned no IPs")
-			log.Trace().AnErr("err", err).Msg("no elements in dstIPs")
+			// log.Trace().AnErr("err", err).Msg("no elements in dstIPs")
 		}
 	}
 
-	log.Trace().Msg("finished")
+	// log.Trace().Msg("finished")
 	return n, err
 }
 
@@ -244,7 +244,7 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 		Int("port", port).
 		Logger()
 
-	log.Trace().Msg("started")
+	// log.Trace().Msg("started")
 
 	// lookup container IP, return TCP address
 	dstTCPAddr, err := lookupContainerTCP(container, port)
@@ -253,13 +253,13 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	log = log.With().IPAddr("dstTCPAddr", dstTCPAddr.IP).Int("port", port).Logger()
 
 	// dial feed-in container
-	log.Trace().Msg("performing DialTCP to IP")
+	// log.Trace().Msg("performing DialTCP to IP")
 	c, err = net.DialTCP("tcp", nil, dstTCPAddr)
 	if err != nil {
 		log = log.With().AnErr("err", err).Logger()
 	}
 
-	log.Trace().Msg("finished")
+	// log.Trace().Msg("finished")
 	return c, err
 }
 
@@ -287,7 +287,7 @@ func authenticateFeeder(connIn net.Conn) (clientDetails *feederClient, err error
 		return clientDetails, err
 	}
 	log = log.With().Bool("TLSHandshakeComplete", true).Logger()
-	log.Trace().Msg("TLS handshake complete")
+	// log.Trace().Msg("TLS handshake complete")
 
 	// check valid uuid was returned as ServerName (sni)
 	clientDetails.clientApiKey, err = getUUIDfromSNI(connIn)
@@ -295,7 +295,7 @@ func authenticateFeeder(connIn net.Conn) (clientDetails *feederClient, err error
 		return clientDetails, err
 	}
 	log = log.With().Str("uuid", clientDetails.clientApiKey.String()).Logger()
-	log.Trace().Msg("feeder API key received from SNI")
+	// log.Trace().Msg("feeder API key received from SNI")
 
 	// check valid api key against atc
 	if !isValidApiKey(clientDetails.clientApiKey) {
@@ -303,7 +303,7 @@ func authenticateFeeder(connIn net.Conn) (clientDetails *feederClient, err error
 		err := errors.New("client sent invalid api key")
 		return clientDetails, err
 	}
-	log.Trace().Msg("feeder API key valid")
+	// log.Trace().Msg("feeder API key valid")
 
 	// get feeder info (lat/lon/mux/label) from atc cache
 	err = getFeederInfo(clientDetails)
@@ -452,7 +452,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 		dstContainerName string
 	)
 
-	log.Trace().Msg("started")
+	// log.Trace().Msg("started")
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(connIn.RemoteAddr().String(), ":")[0])
@@ -475,7 +475,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	bytesRead, err := readFromClient(connIn, buf)
 	if err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
-			log.Trace().AnErr("err", err).Msg("error reading from client")
+			// log.Trace().AnErr("err", err).Msg("error reading from client")
 			return err
 		} else {
 			log.Err(err).Msg("error reading from client")
@@ -631,6 +631,6 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 
 	// wait for goroutines to finish
 	wg.Wait()
-	log.Trace().Msg("finished")
+	// log.Trace().Msg("finished")
 	return nil
 }
