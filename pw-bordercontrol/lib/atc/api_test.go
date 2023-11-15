@@ -283,7 +283,7 @@ func TestGetFeeders_Working(t *testing.T) {
 	assert.NoError(t, err)
 
 	expectedFeeders := Feeders{
-		[]Feeder{Feeder{
+		[]Feeder{{
 			ApiKey:    uuid.MustParse(TestFeederAPIKeyWorking),
 			Label:     TestFeederLabel,
 			Latitude:  TestFeederLatitude,
