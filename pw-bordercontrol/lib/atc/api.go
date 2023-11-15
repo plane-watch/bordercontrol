@@ -90,11 +90,6 @@ func authenticate(server *Server) (authToken string, err error) {
 	}
 	defer response.Body.Close()
 
-	// fmt.Println("response Status:", response.Status)
-	// fmt.Println("response Headers:", response.Header)
-	// body, _ := ioutil.ReadAll(response.Body)
-	// fmt.Println("response Body:", string(body))
-
 	if response.StatusCode == 200 {
 
 		authToken = response.Header.Get("Authorization")
@@ -108,7 +103,6 @@ func authenticate(server *Server) (authToken string, err error) {
 	}
 
 	return authToken, nil
-
 }
 
 func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refLon float64, mux string, label string, err error) {
