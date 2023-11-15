@@ -11,6 +11,7 @@ import (
 )
 
 func TestAuthenticate_Working(t *testing.T) {
+	// test proper functionality
 
 	// prep test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +49,7 @@ func TestAuthenticate_Working(t *testing.T) {
 }
 
 func TestAuthenticate_NoToken(t *testing.T) {
+	// test no auth token returned
 
 	// prep test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +73,7 @@ func TestAuthenticate_NoToken(t *testing.T) {
 }
 
 func TestAuthenticate_BadResponse(t *testing.T) {
+	// test bad server response
 
 	// prep test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -94,6 +97,7 @@ func TestAuthenticate_BadResponse(t *testing.T) {
 }
 
 func TestAuthenticate_NoResponse(t *testing.T) {
+	// test server not responding
 
 	// prep test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
