@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -133,7 +133,7 @@ func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refL
 	// body, _ := ioutil.ReadAll(response.Body)
 	// fmt.Println("response Body:", string(body))
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return refLat, refLon, mux, label, err
 	}
@@ -144,7 +144,6 @@ func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refL
 
 		err := json.Unmarshal(body, &feeder)
 		if err != nil {
-			fmt.Println(err)
 			return refLat, refLon, mux, label, err
 		}
 
@@ -185,7 +184,7 @@ func GetFeeders(server *Server) (feeders Feeders, err error) {
 	}
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return feeders, err
 	}
