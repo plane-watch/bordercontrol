@@ -61,9 +61,9 @@ const (
 func (t *incomingConnectionTracker) getNum() (num uint) {
 	// return a non-duplicate connection number
 
-	log := log.With().
-		Strs("func", []string{"feeder_conn.go", "getNum"}).
-		Logger()
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "getNum"}).
+	// 	Logger()
 
 	// log.Trace().Msg("started")
 
@@ -112,9 +112,9 @@ func (t *incomingConnectionTracker) getNum() (num uint) {
 func (t *incomingConnectionTracker) evict() {
 	// evicts connections from the tracker if older than 10 seconds
 
-	log := log.With().
-		Strs("func", []string{"feeder_conn.go", "evict"}).
-		Logger()
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "evict"}).
+	// 	Logger()
 
 	// log.Trace().Msg("started")
 
@@ -148,11 +148,11 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 
 	var connCount uint
 
-	log := log.With().
-		Strs("func", []string{"feeder_conn.go", "check"}).
-		IPAddr("srcIP", srcIP).
-		Uint("connNum", connNum).
-		Logger()
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "check"}).
+	// 	IPAddr("srcIP", srcIP).
+	// 	Uint("connNum", connNum).
+	// 	Logger()
 
 	// log.Trace().Msg("started")
 
