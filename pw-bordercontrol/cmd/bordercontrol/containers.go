@@ -85,6 +85,13 @@ func checkFeederContainers(feedInImageName string, feedInImagePrefix string, che
 ContainerLoop:
 	for _, container := range containers {
 
+		log.Trace().
+			Str("container_id", container.ID).
+			Str("container_image", container.Image).
+			Str("container_name", container.Names[0]).
+			Str("feedInImageName", feedInImageName).
+			Msg("checking container")
+
 		// check containers are running latest feed-in image
 		if container.Image != feedInImageName {
 
