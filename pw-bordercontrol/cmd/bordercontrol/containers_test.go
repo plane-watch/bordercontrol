@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
@@ -40,6 +42,13 @@ func TestPrepTestEnvironment(t *testing.T) {
 	}()
 
 	testChan := make(chan os.Signal)
+	go func() {
+		for {
+			testChan <- syscall.SIGUSR1
+			time.Sleep(time.Second)
+		}
+	}()
+
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	err := checkFeederContainers("foo", testChan)
