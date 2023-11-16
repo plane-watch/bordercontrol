@@ -24,8 +24,10 @@ type startContainerRequest struct {
 }
 
 type startContainerResponse struct {
-	err                 error // holds error from starting container
-	containerStartDelay bool  // do we need to wait for container services to start? (pointer to allow calling function to read data)
+	err                 error  // holds error from starting container
+	containerStartDelay bool   // do we need to wait for container services to start? (pointer to allow calling function to read data)
+	containerName       string // feed-in container name
+	containerID         string // feed-in container ID
 }
 
 var getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
@@ -161,6 +163,7 @@ func startFeederContainers(
 		// determine if container is already running
 
 		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.clientDetails.clientApiKey.String())
+		response.containerName = feederContainerName
 
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
@@ -245,6 +248,8 @@ func startFeederContainers(
 			} else {
 				log.Debug().Str("container_id", resp.ID).Msg("created feed-in container")
 			}
+
+			response.containerID = resp.ID
 
 			// start container
 			if err := cli.ContainerStart(*dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
