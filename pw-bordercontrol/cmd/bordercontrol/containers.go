@@ -165,7 +165,7 @@ func startFeederContainers(
 
 		select {
 
-		// quit this gorouting if asked to
+		// quit this goroutine if asked to
 		case _ = <-stopChan:
 			return nil
 
