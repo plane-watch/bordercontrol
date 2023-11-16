@@ -91,6 +91,12 @@ func TestContainersWithKill(t *testing.T) {
 	_, err = cli.ImageLoad(*ctx, imageirc, false)
 	assert.NoError(t, err)
 
+	// ensure test network is created
+	t.Log("ensure test network is created")
+	feedInContainerNetwork = "test-feed-in-net"
+	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{})
+	assert.NoError(t, err)
+
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
 	go func() {
