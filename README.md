@@ -1,5 +1,7 @@
 # plane.watch Border Control
 
+[![codecov](https://codecov.io/gh/plane-watch/pw-bordercontrol/graph/badge.svg?token=E60EZBIPZN)](https://codecov.io/gh/plane-watch/pw-bordercontrol)
+
 How plane.watch receives data from feeders.
 
 Designed to be horizontally scalable, sat behind TCP load balancer(s).
