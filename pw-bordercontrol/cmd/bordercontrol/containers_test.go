@@ -238,7 +238,7 @@ func TestContainersWithoutKill(t *testing.T) {
 	t.Log("ensure test network is created")
 	feedInContainerNetwork = "test-feed-in-net"
 	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
-		Driver: "bridge",
+		Driver: "null",
 	})
 	assert.NoError(t, err)
 
