@@ -3,6 +3,15 @@ name: Push
 
 on:
     workflow_dispatch:
+    pull_request:
+        paths-ignore:
+            - '**.md'
+            - '**.MD'
+            - '**.yml'
+            - 'LICENSE'
+            - '.gitattributes'
+            - '.gitignore'
+            - '.dockerignore'
     push:
         paths-ignore:
             - '**.md'
@@ -26,8 +35,8 @@ jobs:
               run: |
                 pushd pw-bordercontrol
                 go test -v -coverprofile=../coverage.out -covermode=atomic ./...
-
-            - name: Upload coverage reports to Codecov
-                uses: codecov/codecov-action@v3
-                env:
-                  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+            - 
+              name: Upload coverage reports to Codecov
+              uses: codecov/codecov-action@v3
+              env:
+                CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
