@@ -85,7 +85,7 @@ func TestContainersWithKill(t *testing.T) {
 	// ensure test network is created
 	t.Log("ensure test network is created")
 	feedInContainerNetwork = "test-feed-in-net"
-	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{})
+	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{CheckDuplicate: false})
 	assert.NoError(t, err)
 
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
