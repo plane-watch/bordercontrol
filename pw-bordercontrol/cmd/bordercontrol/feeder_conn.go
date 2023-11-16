@@ -432,7 +432,7 @@ func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum u
 	}
 }
 
-func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, containersToStart chan startContainerRequest) error {
+func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) error {
 	// handles incoming BEAST connections
 
 	log := log.With().
@@ -520,20 +520,22 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 
 		log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
 
-		containerStartDelay := false
 		wg.Add(1)
-		containersToStart <- startContainerRequest{
-			clientDetails:       clientDetails,
-			srcIP:               remoteIP,
-			wg:                  &wg,
-			containerStartDelay: &containerStartDelay,
+		containersToStartRequests <- startContainerRequest{
+			clientDetails: clientDetails,
+			srcIP:         remoteIP,
 		}
 
 		// wait for request to be actioned
-		wg.Wait()
+		startedContainer := <-containersToStartResponses
+
+		// check for start errors
+		if startedContainer.err != nil {
+			log.Err(startedContainer.err).Msg("error starting feed-in container")
+		}
 
 		// wait for container start if needed
-		if containerStartDelay {
+		if startedContainer.containerStartDelay {
 			log.Debug().Msg("waiting for feed-in container to start")
 			time.Sleep(5 * time.Second)
 		}

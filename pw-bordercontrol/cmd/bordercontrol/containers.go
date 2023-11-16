@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -19,10 +18,14 @@ import (
 
 // struct for requesting that the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	clientDetails       *feederClient   // lat, long, mux, label, api key
-	srcIP               net.IP          // client IP address
-	wg                  *sync.WaitGroup // waitgroup for when container has started (pointer to allow calling function to read data)
-	containerStartDelay *bool           // do we need to wait for container services to start? (pointer to allow calling function to read data)
+	clientDetails *feederClient // lat, long, mux, label, api key
+	srcIP         net.IP        // client IP address
+
+}
+
+type startContainerResponse struct {
+	err                 error // holds error from starting container
+	containerStartDelay bool  // do we need to wait for container services to start? (pointer to allow calling function to read data)
 }
 
 var getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
@@ -115,7 +118,7 @@ ContainerLoop:
 	return nil
 }
 
-func startFeederContainers(feedInImageName, pwIngestPublish string, containersToStart chan startContainerRequest) error {
+func startFeederContainers(feedInImageName, pwIngestPublish string, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) error {
 	// reads startContainerRequests from channel containersToStart and starts container
 
 	log := log.With().
@@ -136,7 +139,9 @@ func startFeederContainers(feedInImageName, pwIngestPublish string, containersTo
 	for {
 
 		// read from channel (this blocks until a request comes in)
-		containerToStart := <-containersToStart
+		containerToStart := <-containersToStartRequests
+
+		response := startContainerResponse{}
 
 		// prepare logger
 		log := log.With().
@@ -177,7 +182,7 @@ func startFeederContainers(feedInImageName, pwIngestPublish string, containersTo
 			// if container is not running, create it
 
 			// tell calling function that it should wait for services to start before proxying connections to the container
-			*containerToStart.containerStartDelay = true
+			response.containerStartDelay = true
 
 			// prepare environment variables for container
 			envVars := [...]string{
@@ -231,6 +236,7 @@ func startFeederContainers(feedInImageName, pwIngestPublish string, containersTo
 			resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
 			if err != nil {
 				log.Err(err).Msg("could not create feed-in container")
+				response.err = err
 			} else {
 				log.Debug().Str("container_id", resp.ID).Msg("created feed-in container")
 			}
@@ -238,13 +244,14 @@ func startFeederContainers(feedInImageName, pwIngestPublish string, containersTo
 			// start container
 			if err := cli.ContainerStart(*dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
 				log.Err(err).Msg("could not start feed-in container")
+				response.err = err
 			} else {
 				log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
 			}
 		}
 
-		// set waitgroup done so calling function can proceed
-		containerToStart.wg.Done()
+		// send response
+		containersToStartResponses <- response
 	}
 	// log.Trace().Msg("finished")
 }

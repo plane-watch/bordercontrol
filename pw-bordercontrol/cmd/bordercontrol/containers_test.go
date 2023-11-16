@@ -16,9 +16,16 @@ import (
 
 const testDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-var testDaemon *daemon.Daemon
+var (
+	testDaemon *daemon.Daemon
+
+	testFeedInImageName = "ubuntu"
+)
 
 func TestPrepTestEnvironment(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// start test docker daemon
 	testDaemon = daemon.New(
@@ -41,6 +48,7 @@ func TestPrepTestEnvironment(t *testing.T) {
 		testDaemon.Cleanup(t)
 	}()
 
+	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
 	go func() {
 		for {
@@ -49,7 +57,11 @@ func TestPrepTestEnvironment(t *testing.T) {
 		}
 	}()
 
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	// prepare channel for container start requests
+	containersToStart := make(chan startContainerRequest)
+	defer close(containersToStart)
+
+	// go startFeederContainers()
 
 	err := checkFeederContainers("foo", testChan)
 	fmt.Println(err)

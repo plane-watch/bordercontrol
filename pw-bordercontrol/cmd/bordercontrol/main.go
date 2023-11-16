@@ -203,11 +203,15 @@ func runServer(ctx *cli.Context) error {
 	go updateFeederDB(ctx, 60*time.Second)
 
 	// prepare channel for container start requests
-	containersToStart := make(chan startContainerRequest)
-	defer close(containersToStart)
+	containersToStartRequests := make(chan startContainerRequest)
+	defer close(containersToStartRequests)
+
+	// prepare channel for container start responses
+	containersToStartResponses := make(chan startContainerResponse)
+	defer close(containersToStartResponses)
 
 	// start goroutine to start feeder containers
-	go startFeederContainers(ctx.String("feedinimage"), ctx.String("pwingestpublish"), containersToStart)
+	go startFeederContainers(ctx.String("feedinimage"), ctx.String("pwingestpublish"), containersToStartRequests, containersToStartResponses)
 
 	// start goroutine to check feed-in containers
 	checkFeederContainerSigs := make(chan os.Signal, 1)
@@ -231,11 +235,11 @@ func runServer(ctx *cli.Context) error {
 
 	// start listening for incoming BEAST connections
 	wg.Add(1)
-	go listenBEAST(ctx, &wg, containersToStart)
+	go listenBEAST(ctx, &wg, containersToStartRequests, containersToStartResponses)
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
-	go listenMLAT(ctx, &wg, containersToStart)
+	go listenMLAT(ctx, &wg, containersToStartRequests, containersToStartResponses)
 
 	// wait for all listeners to finish / serve forever
 	wg.Wait()
@@ -243,7 +247,7 @@ func runServer(ctx *cli.Context) error {
 	return nil
 }
 
-func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
+func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) {
 	// BEAST listener
 
 	log := log.With().
@@ -267,13 +271,13 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStart)
+		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStartRequests, containersToStartResponses)
 	}
 
 	wg.Done()
 }
 
-func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
+func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) {
 	// MLAT listener
 
 	log := log.With().
@@ -297,7 +301,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan sta
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go proxyClientConnection(conn, protoMLAT, incomingConnTracker.getNum(), containersToStart)
+		go proxyClientConnection(conn, protoMLAT, incomingConnTracker.getNum(), containersToStartRequests, containersToStartResponses)
 	}
 
 	wg.Done()
