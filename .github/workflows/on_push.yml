@@ -1,0 +1,33 @@
+---
+name: Push
+
+on:
+    workflow_dispatch:
+    push:
+        paths-ignore:
+            - '**.md'
+            - '**.MD'
+            - '**.yml'
+            - 'LICENSE'
+            - '.gitattributes'
+            - '.gitignore'
+            - '.dockerignore'
+
+jobs:
+    go-test:
+        name: Run go tests
+        runs-on: ubuntu-latest
+        steps:
+            -
+              name: Checkout
+              uses: actions/checkout@v4
+            -
+              name: go test
+              run: |
+                pushd pw-bordercontrol
+                go test -v -coverprofile=../coverage.out -covermode=atomic ./...
+
+            - name: Upload coverage reports to Codecov
+                uses: codecov/codecov-action@v3
+                env:
+                  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
