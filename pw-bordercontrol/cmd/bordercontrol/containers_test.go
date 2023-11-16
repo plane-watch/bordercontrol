@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
 	"github.com/google/uuid"
@@ -20,7 +21,7 @@ import (
 const (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-	TestFeedInImageName = "ubuntu"
+	TestFeedInImageName = "alpine"
 
 	// mock feeder details
 	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25"
@@ -75,6 +76,17 @@ func TestContainersWithKill(t *testing.T) {
 		TestDaemon.Cleanup(t)
 	}()
 
+	// get docker client
+	t.Log("get docker client to inspect container")
+	ctx, cli, err := getDockerClient()
+	assert.NoError(t, err)
+
+	// ensure test image is downloaded
+	t.Log("pull test image")
+	imageirc, err := cli.ImagePull(*ctx, TestFeedInImageName, types.ImagePullOptions{})
+	assert.NoError(t, err)
+	defer imageirc.Close()
+
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
 	go func() {
@@ -116,11 +128,6 @@ func TestContainersWithKill(t *testing.T) {
 	// ensure container started without error
 	t.Log("ensure container started without error")
 	assert.NoError(t, startedContainer.err)
-
-	// get docker client to inspect container
-	t.Log("get docker client to inspect container")
-	ctx, cli, err := getDockerClient()
-	assert.NoError(t, err)
 
 	// inspect container
 	t.Log("inspecting container")
