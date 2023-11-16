@@ -373,6 +373,7 @@ func TestContainersWithoutKill(t *testing.T) {
 	err = checkFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, testChan)
 	assert.NoError(t, err)
 
+	time.Sleep(time.Second * 1)
 	t.Log("container list:")
 	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
 	assert.NoError(t, err)
