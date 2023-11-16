@@ -22,7 +22,8 @@ import (
 const (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-	TestFeedInImageName = "alpine:latest"
+	TestFeedInImageName   = "alpine:latest"
+	TestfeedInImagePrefix = "test-feed-in-"
 
 	// mock feeder details
 	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25"
@@ -109,7 +110,7 @@ func TestContainersWithKill(t *testing.T) {
 
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
+	go startFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
 
 	// start container
 	t.Log("requesting container start")
@@ -175,7 +176,7 @@ func TestContainersWithKill(t *testing.T) {
 	// test checkFeederContainers
 	// by passing "foo" as the feedInImageName, it should kill the previously created container
 	t.Log("running checkFeederContainers")
-	err = checkFeederContainers("foo", testChan)
+	err = checkFeederContainers("foo", TestfeedInImagePrefix, testChan)
 	assert.NoError(t, err)
 
 	// wait for container to be removed
@@ -269,7 +270,7 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
+	go startFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
 
 	// start container
 	t.Log("requesting container start")
@@ -334,7 +335,7 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// test checkFeederContainers
 	t.Log("running checkFeederContainers")
-	err = checkFeederContainers(TestFeedInImageName, testChan)
+	err = checkFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, testChan)
 	assert.NoError(t, err)
 
 	// wait for container to hopefully not be removed

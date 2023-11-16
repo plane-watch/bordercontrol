@@ -107,6 +107,12 @@ func main() {
 				EnvVars: []string{"FEED_IN_IMAGE"},
 			},
 			&cli.StringFlag{
+				Name:    "feedincontainerprefix",
+				Usage:   "feed-in container prefix",
+				Value:   "feed-in",
+				EnvVars: []string{"FEED_IN_CONTAINER_PREFIX"},
+			},
+			&cli.StringFlag{
 				Name:     "pwingestpublish",
 				Usage:    "pw_ingest --sink setting in feed-in containers",
 				Required: true,
@@ -214,14 +220,14 @@ func runServer(ctx *cli.Context) error {
 	startFeederContainersStop := make(chan bool)
 
 	// start goroutine to start feeder containers
-	go startFeederContainers(ctx.String("feedinimage"), ctx.String("pwingestpublish"), containersToStartRequests, containersToStartResponses, startFeederContainersStop)
+	go startFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), ctx.String("pwingestpublish"), containersToStartRequests, containersToStartResponses, startFeederContainersStop)
 
 	// start goroutine to check feed-in containers
 	checkFeederContainerSigs := make(chan os.Signal, 1)
 	signal.Notify(checkFeederContainerSigs, syscall.SIGUSR1)
 	go func() {
 		for {
-			_ = checkFeederContainers(ctx.String("feedinimage"), checkFeederContainerSigs)
+			_ = checkFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), checkFeederContainerSigs)
 		}
 	}()
 

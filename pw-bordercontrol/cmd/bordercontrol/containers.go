@@ -42,7 +42,7 @@ var getDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	return &cctx, cli, err
 }
 
-func checkFeederContainers(feedInImageName string, checkFeederContainerSigs chan os.Signal) error {
+func checkFeederContainers(feedInImageName string, feedInImagePrefix string, checkFeederContainerSigs chan os.Signal) error {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
@@ -71,7 +71,7 @@ func checkFeederContainers(feedInImageName string, checkFeederContainerSigs chan
 	// prepare filters to find feed-in containers
 	log.Trace().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
-	filterFeedIn.Add("name", "feed-in-*")
+	filterFeedIn.Add("name", fmt.Sprintf("%s*", feedInImagePrefix))
 
 	// find containers
 	log.Trace().Msg("find containers")
@@ -127,6 +127,7 @@ ContainerLoop:
 
 func startFeederContainers(
 	feedInImageName string,
+	feedInImagePrefix string,
 	pwIngestPublish string,
 	containersToStartRequests chan startContainerRequest,
 	containersToStartResponses chan startContainerResponse,
@@ -180,7 +181,7 @@ func startFeederContainers(
 
 		// determine if container is already running
 
-		response.containerName = fmt.Sprintf("feed-in-%s", containerToStart.clientDetails.clientApiKey.String())
+		response.containerName = fmt.Sprintf("%s%s", feedInImagePrefix, containerToStart.clientDetails.clientApiKey.String())
 
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
