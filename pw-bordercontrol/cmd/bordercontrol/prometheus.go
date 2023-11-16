@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -147,7 +148,7 @@ var (
 
 			// prepare filter to find feed-in containers
 			filters := filters.NewArgs()
-			filters.Add("name", "feed-in-*")
+			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 			// find containers
 			containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
@@ -186,7 +187,7 @@ var (
 
 			// prepare filter to find feed-in containers
 			filters := filters.NewArgs()
-			filters.Add("name", "feed-in-*")
+			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 			// find containers
 			containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})

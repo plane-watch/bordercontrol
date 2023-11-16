@@ -515,7 +515,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	switch connProto {
 	case protoBeast:
 
-		log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
+		log = log.With().Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).Logger()
 
 		// start the container
 		containersToStartRequests <- startContainerRequest{
@@ -538,7 +538,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 		}
 
 		// connect to feed-in container
-		connOut, err = dialContainerTCP(fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String()), 12345)
+		connOut, err = dialContainerTCP(fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
 		if err != nil {
 			// handle connection errors to feed-in container
 			log.Err(err).Msg("error connecting to feed-in container")

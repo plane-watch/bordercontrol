@@ -22,6 +22,7 @@ import (
 
 var (
 	feedInImage            string
+	feedInContainerPrefix  string
 	tlsConfig              tls.Config
 	kpr                    *keypairReloader
 	commithash, committime string
@@ -160,6 +161,9 @@ func main() {
 
 		// set global var containing feed-in image name
 		feedInImage = ctx.String("feedinimage")
+
+		// set global var containing feed-in container prefix
+		feedInContainerPrefix = ctx.String("feedincontainerprefix")
 
 		return nil
 	}
