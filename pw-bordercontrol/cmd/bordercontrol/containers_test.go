@@ -82,13 +82,14 @@ func TestContainersWithKill(t *testing.T) {
 	_, err = cli.ImageLoad(*ctx, imageirc, false)
 	assert.NoError(t, err)
 
-	// ensure test network is created
-	t.Log("ensure test network is created")
-	feedInContainerNetwork = "test-feed-in-net"
-	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
-		Driver: "bridge",
-	})
-	assert.NoError(t, err)
+	// // ensure test network is created
+	// t.Log("ensure test network is created")
+	// feedInContainerNetwork = "test-feed-in-net"
+	// _, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
+	// 	Driver: "bridge",
+	// })
+	// assert.NoError(t, err)
+	feedInContainerNetwork = "bridge"
 
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
@@ -234,13 +235,14 @@ func TestContainersWithoutKill(t *testing.T) {
 	_, err = cli.ImageLoad(*ctx, imageirc, false)
 	assert.NoError(t, err)
 
-	// ensure test network is created
-	t.Log("ensure test network is created")
-	feedInContainerNetwork = "test-feed-in-net"
-	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
-		Driver: "null",
-	})
-	assert.NoError(t, err)
+	// // ensure test network is created
+	// t.Log("ensure test network is created")
+	// feedInContainerNetwork = "test-feed-in-net"
+	// _, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
+	// 	Driver: "null",
+	// })
+	// assert.NoError(t, err)
+	feedInContainerNetwork = "bridge"
 
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
