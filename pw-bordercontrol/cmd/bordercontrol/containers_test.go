@@ -71,11 +71,11 @@ func TestContainersWithKill(t *testing.T) {
 	}
 
 	// clean up
-	// defer func() {
-	// 	t.Log("cleaning up")
-	// 	TestDaemon.Stop(t)
-	// 	TestDaemon.Cleanup(t)
-	// }()
+	defer func() {
+		t.Log("cleaning up")
+		TestDaemon.Stop(t)
+		TestDaemon.Cleanup(t)
+	}()
 
 	// get docker client
 	t.Log("get docker client to inspect container")
