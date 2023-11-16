@@ -334,7 +334,7 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// test checkFeederContainers
 	t.Log("running checkFeederContainers")
-	err = checkFeederContainers("foo", testChan)
+	err = checkFeederContainers(TestFeedInImageName, testChan)
 	assert.NoError(t, err)
 
 	// wait for container to hopefully not be removed
