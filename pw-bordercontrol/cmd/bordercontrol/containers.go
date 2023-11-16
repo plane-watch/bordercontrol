@@ -52,7 +52,7 @@ func checkFeederContainers(feedInImageName string, checkFeederContainerSigs chan
 	// cycles through feed-in containers and recreates if needed
 
 	// set up docker client
-	// log.Trace().Msg("set up docker client")
+	log.Trace().Msg("set up docker client")
 	dockerCtx, cli, err := getDockerClient()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
@@ -61,12 +61,12 @@ func checkFeederContainers(feedInImageName string, checkFeederContainerSigs chan
 	defer cli.Close()
 
 	// prepare filters to find feed-in containers
-	// log.Trace().Msg("prepare filter to find feed-in containers")
+	log.Trace().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
 	filterFeedIn.Add("name", "feed-in-*")
 
 	// find containers
-	// log.Trace().Msg("find containers")
+	log.Trace().Msg("find containers")
 	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
