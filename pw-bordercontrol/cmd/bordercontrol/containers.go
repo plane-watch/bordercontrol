@@ -137,6 +137,8 @@ func startFeederContainers(
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
 
+	originalLog := log
+
 	// log.Trace().Msg("started")
 
 	// set up docker client
@@ -267,6 +269,10 @@ func startFeederContainers(
 
 		// send response
 		containersToStartResponses <- response
+
+		// reset logger
+		log = originalLog
+
 	}
 	// log.Trace().Msg("finished")
 }
