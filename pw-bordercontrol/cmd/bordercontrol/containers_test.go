@@ -22,7 +22,7 @@ import (
 const (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-	TestFeedInImageName = "alpine"
+	TestFeedInImageName = "alpine:latest"
 
 	// mock feeder details
 	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25"
