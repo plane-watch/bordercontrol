@@ -197,16 +197,6 @@ func TestContainersWithKill(t *testing.T) {
 
 func TestContainersWithoutKill(t *testing.T) {
 
-	var (
-		ContainerEnvVarFeederLatOK                bool
-		ContainerEnvVarFeederLonOK                bool
-		ContainerEnvVarFeederUUIDOK               bool
-		ContainerEnvVarFeederReadsbNetConnectorOK bool
-		ContainerEnvVarFeederPWIngestSinkOK       bool
-
-		ContainerNetworkOK bool
-	)
-
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
