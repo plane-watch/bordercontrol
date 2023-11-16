@@ -12,7 +12,7 @@ func TestPrepTestEnvironment(t *testing.T) {
 		t,
 		daemon.WithContainerdSocket("/run/containerd/containerd.sock"),
 	)
-	d.StartWithBusybox(t)
+	d.Start(t)
 
 	d.Stop(t)
 	d.Cleanup(t)
