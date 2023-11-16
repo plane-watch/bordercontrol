@@ -14,18 +14,31 @@ import (
 )
 
 const (
+
+	// mock ATC server credentials
 	TestUser      = "testuser"
 	TestPassword  = "testpass"
 	TestAuthToken = "testauthtoken"
 
+	// mock feeder details
 	TestFeederAPIKeyWorking = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25"
 	TestFeederLabel         = "Test Feeder 123"
 	TestFeederLatitude      = 123.456789
 	TestFeederLongitude     = 98.765432
 	TestFeederMux           = "test-mux"
+
+	// mock ATC server testing scenarios
+	MockServerTestScenarioWorking = iota
+	MockServerTestScenarioNoAuthToken
+	MockServerTestScenarioBadResponseCodeSignIn
+	MockServerTestScenarioBadResponseCodeFeeder
+	MockServerTestScenarioBadResponseCodeFeeders
+	MockServerTestScenarioNoResponse
+	MockServerTestScenarioBadCredentials
 )
 
-func prepMockATCServer(t *testing.T) *httptest.Server {
+func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
+
 	// prep test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -38,15 +51,31 @@ func prepMockATCServer(t *testing.T) *httptest.Server {
 			assert.Equal(t, http.MethodPost, r.Method)
 			body, err := io.ReadAll(r.Body)
 			assert.NoError(t, err)
-			assert.Equal(
-				t,
-				fmt.Sprintf(`{"user":{"email":"%s","password":"%s"}}`, TestUser, TestPassword),
-				string(body),
-			)
+
+			if testScenario != MockServerTestScenarioBadCredentials {
+				assert.Equal(
+					t,
+					fmt.Sprintf(`{"user":{"email":"%s","password":"%s"}}`, TestUser, TestPassword),
+					string(body),
+				)
+			}
 
 			// mock response
-			w.Header().Add("Authorization", TestAuthToken)
-			w.WriteHeader(http.StatusOK)
+
+			// Auth token
+			if testScenario != MockServerTestScenarioNoAuthToken {
+				w.Header().Add("Authorization", TestAuthToken)
+			}
+
+			// Response code
+			switch testScenario {
+			case MockServerTestScenarioBadResponseCodeSignIn:
+				w.WriteHeader(http.StatusBadRequest)
+			case MockServerTestScenarioBadCredentials:
+				w.WriteHeader(http.StatusUnauthorized)
+			default:
+				w.WriteHeader(http.StatusOK)
+			}
 
 		case fmt.Sprintf("/api/v1/feeders/%s.json", strings.ToLower(TestFeederAPIKeyWorking)):
 
@@ -56,6 +85,7 @@ func prepMockATCServer(t *testing.T) *httptest.Server {
 			assert.Equal(t, http.MethodGet, r.Method)
 
 			// mock response
+
 			resp := fmt.Sprintf(
 				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s"}}`,
 				TestFeederAPIKeyWorking,
@@ -64,7 +94,17 @@ func prepMockATCServer(t *testing.T) *httptest.Server {
 				TestFeederLongitude,
 				TestFeederMux,
 			)
-			w.WriteHeader(http.StatusOK)
+
+			// response code
+			switch testScenario {
+			case MockServerTestScenarioBadResponseCodeSignIn:
+			case MockServerTestScenarioBadResponseCodeFeeder:
+				w.WriteHeader(http.StatusBadRequest)
+			default:
+				w.WriteHeader(http.StatusOK)
+			}
+
+			// response body
 			w.Write([]byte(resp))
 
 		case fmt.Sprintf("/api/v1/feeders.json"):
@@ -83,7 +123,17 @@ func prepMockATCServer(t *testing.T) *httptest.Server {
 				TestFeederLongitude,
 				TestFeederMux,
 			)
-			w.WriteHeader(http.StatusOK)
+
+			// response code
+			switch testScenario {
+			case MockServerTestScenarioBadResponseCodeSignIn:
+			case MockServerTestScenarioBadResponseCodeFeeders:
+				w.WriteHeader(http.StatusBadRequest)
+			default:
+				w.WriteHeader(http.StatusOK)
+			}
+
+			// response body
 			w.Write([]byte(resp))
 
 		default:
@@ -93,13 +143,17 @@ func prepMockATCServer(t *testing.T) *httptest.Server {
 
 	}))
 
+	if testScenario == MockServerTestScenarioNoResponse {
+		server.Close()
+	}
+
 	return server
 }
 
 func TestAuthenticate_Working(t *testing.T) {
 	// test proper functionality
 
-	server := prepMockATCServer(t)
+	server := prepMockATCServer(t, MockServerTestScenarioWorking)
 	defer server.Close()
 
 	// prep url
@@ -120,14 +174,10 @@ func TestAuthenticate_Working(t *testing.T) {
 
 }
 
-func TestAuthenticate_NoToken(t *testing.T) {
-	// test no auth token returned
+func TestAuthenticate_BadCreds(t *testing.T) {
+	// test proper functionality
 
-	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// mock response
-		w.WriteHeader(http.StatusOK)
-	}))
+	server := prepMockATCServer(t, MockServerTestScenarioBadCredentials)
 	defer server.Close()
 
 	// prep url
@@ -136,7 +186,33 @@ func TestAuthenticate_NoToken(t *testing.T) {
 
 	// function argument
 	s := Server{
-		Url: (*u),
+		Url:      (*u),
+		Username: fmt.Sprintf("%s-wronguser", TestUser),
+		Password: fmt.Sprintf("%s-wrongpass", TestPassword),
+	}
+
+	// test
+	_, err = authenticate(&s)
+	assert.Error(t, err)
+
+}
+
+func TestAuthenticate_NoAuthToken(t *testing.T) {
+	// test no auth token returned
+
+	// prep test server
+	server := prepMockATCServer(t, MockServerTestScenarioNoAuthToken)
+	defer server.Close()
+
+	// prep url
+	u, err := url.Parse(server.URL)
+	assert.NoError(t, err)
+
+	// function argument
+	s := Server{
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
 	// test
@@ -148,10 +224,7 @@ func TestAuthenticate_BadResponse(t *testing.T) {
 	// test bad server response
 
 	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// mock response
-		w.WriteHeader(http.StatusBadGateway)
-	}))
+	server := prepMockATCServer(t, MockServerTestScenarioBadResponseCodeSignIn)
 	defer server.Close()
 
 	// prep url
@@ -160,7 +233,9 @@ func TestAuthenticate_BadResponse(t *testing.T) {
 
 	// function argument
 	s := Server{
-		Url: (*u),
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
 	// test
@@ -172,11 +247,7 @@ func TestAuthenticate_NoResponse(t *testing.T) {
 	// test server not responding
 
 	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	}))
-
-	// close test server to deliberately cause connection refused
-	server.Close()
+	server := prepMockATCServer(t, MockServerTestScenarioNoResponse)
 
 	// prep url
 	u, err := url.Parse(server.URL)
@@ -184,7 +255,9 @@ func TestAuthenticate_NoResponse(t *testing.T) {
 
 	// function argument
 	s := Server{
-		Url: (*u),
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
 	// test
@@ -194,7 +267,7 @@ func TestAuthenticate_NoResponse(t *testing.T) {
 
 func TestGetFeederInfo_Working(t *testing.T) {
 
-	server := prepMockATCServer(t)
+	server := prepMockATCServer(t, MockServerTestScenarioWorking)
 	defer server.Close()
 
 	// prep url
@@ -220,10 +293,7 @@ func TestGetFeederInfo_Working(t *testing.T) {
 func TestGetFeederInfo_BadResponse(t *testing.T) {
 
 	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// mock response
-		w.WriteHeader(http.StatusBadGateway)
-	}))
+	server := prepMockATCServer(t, MockServerTestScenarioBadResponseCodeFeeder)
 	defer server.Close()
 
 	// prep url
@@ -232,7 +302,9 @@ func TestGetFeederInfo_BadResponse(t *testing.T) {
 
 	// function argument
 	s := Server{
-		Url: (*u),
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
 	_, _, _, _, err = GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
@@ -243,11 +315,7 @@ func TestGetFeederInfo_BadResponse(t *testing.T) {
 func TestGetFeederInfo_NoResponse(t *testing.T) {
 
 	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	}))
-
-	// close test server to deliberately cause connection refused
-	server.Close()
+	server := prepMockATCServer(t, MockServerTestScenarioNoResponse)
 
 	// prep url
 	u, err := url.Parse(server.URL)
@@ -255,7 +323,9 @@ func TestGetFeederInfo_NoResponse(t *testing.T) {
 
 	// function argument
 	s := Server{
-		Url: (*u),
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
 	_, _, _, _, err = GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
@@ -265,7 +335,7 @@ func TestGetFeederInfo_NoResponse(t *testing.T) {
 
 func TestGetFeeders_Working(t *testing.T) {
 
-	server := prepMockATCServer(t)
+	server := prepMockATCServer(t, MockServerTestScenarioWorking)
 	defer server.Close()
 
 	// prep url
@@ -298,10 +368,7 @@ func TestGetFeeders_Working(t *testing.T) {
 func TestGetFeeders_BadResponse(t *testing.T) {
 
 	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// mock response
-		w.WriteHeader(http.StatusBadGateway)
-	}))
+	server := prepMockATCServer(t, MockServerTestScenarioBadResponseCodeFeeders)
 	defer server.Close()
 
 	// prep url
@@ -310,7 +377,9 @@ func TestGetFeeders_BadResponse(t *testing.T) {
 
 	// function argument
 	s := Server{
-		Url: (*u),
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
 	_, err = GetFeeders(&s)
@@ -321,9 +390,7 @@ func TestGetFeeders_BadResponse(t *testing.T) {
 func TestGetFeeders_NoResponse(t *testing.T) {
 
 	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	}))
-	server.Close()
+	server := prepMockATCServer(t, MockServerTestScenarioNoResponse)
 
 	// prep url
 	u, err := url.Parse(server.URL)
@@ -331,7 +398,9 @@ func TestGetFeeders_NoResponse(t *testing.T) {
 
 	// function argument
 	s := Server{
-		Url: (*u),
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
 	_, err = GetFeeders(&s)
