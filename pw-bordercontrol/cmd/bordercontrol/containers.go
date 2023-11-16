@@ -31,9 +31,10 @@ type startContainerResponse struct {
 }
 
 var (
-	feedInContainerNetwork = "bordercontrol_feeder"
+	feedInContainerNetwork = "bordercontrol_feeder" // name of docker network to attach feed-in containers to
 )
 
+// the following function is variable-ized so it can be overridden for unit testing
 var getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 	// set up docker client
 	cctx := context.Background()
@@ -152,6 +153,7 @@ func startFeederContainers(
 		// read from channel (this blocks until a request comes in)
 		containerToStart := <-containersToStartRequests
 
+		// prep response object
 		response := startContainerResponse{}
 
 		// prepare logger
@@ -166,12 +168,11 @@ func startFeederContainers(
 
 		// determine if container is already running
 
-		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.clientDetails.clientApiKey.String())
-		response.containerName = feederContainerName
+		response.containerName = fmt.Sprintf("feed-in-%s", containerToStart.clientDetails.clientApiKey.String())
 
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
-		filterFeedIn.Add("name", feederContainerName)
+		filterFeedIn.Add("name", response.containerName)
 		filterFeedIn.Add("status", "running")
 
 		// find container
@@ -245,7 +246,7 @@ func startFeederContainers(
 			}
 
 			// create feed-in container
-			resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
+			resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, response.containerName)
 			if err != nil {
 				log.Err(err).Msg("could not create feed-in container")
 				response.err = err
