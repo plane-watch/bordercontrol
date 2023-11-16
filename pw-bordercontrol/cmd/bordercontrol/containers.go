@@ -32,6 +32,13 @@ type startContainerRequest struct {
 	containerStartDelay *bool           // do we need to wait for container services to start? (pointer to allow calling function to read data)
 }
 
+func getDockerClient() (ctx *context.Context, cli *client.Client, err error) {
+	// set up docker client
+	*ctx = context.Background()
+	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	return ctx, cli, err
+}
+
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) error {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
@@ -51,8 +58,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 
 	// set up docker client
 	// log.Trace().Msg("set up docker client")
-	dockerCtx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	dockerCtx, cli, err := getDockerClient()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
 		return err
@@ -66,7 +72,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 
 	// find containers
 	// log.Trace().Msg("find containers")
-	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
 		return err
@@ -86,7 +92,7 @@ ContainerLoop:
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
 			log.Info().Msg("out of date feed-in container being killed for recreation")
-			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
+			err := cli.ContainerRemove(*dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
 				log.Err(err).Msg("error killing out of date feed-in container")
 			} else {
