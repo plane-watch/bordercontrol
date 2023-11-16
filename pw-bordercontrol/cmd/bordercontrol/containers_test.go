@@ -87,6 +87,10 @@ func TestContainersWithKill(t *testing.T) {
 	assert.NoError(t, err)
 	defer imageirc.Close()
 
+	t.Log("load test image")
+	_, err = cli.ImageLoad(*ctx, imageirc, false)
+	assert.NoError(t, err)
+
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
 	go func() {
