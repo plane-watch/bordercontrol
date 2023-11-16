@@ -21,12 +21,7 @@ import (
 
 // struct for requesting that the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	clientDetails *feederClient
-	// uuid                uuid.UUID       // feeder uuid
-	// refLat              float64         // feeder lat
-	// refLon              float64         // feeder lon
-	// mux                 string          // the multiplexer to upstream the data to
-	// label               string          // the label of the feeder
+	clientDetails       *feederClient   // lat, long, mux, label, api key
 	srcIP               net.IP          // client IP address
 	wg                  *sync.WaitGroup // waitgroup for when container has started (pointer to allow calling function to read data)
 	containerStartDelay *bool           // do we need to wait for container services to start? (pointer to allow calling function to read data)
@@ -39,7 +34,7 @@ func getDockerClient() (ctx *context.Context, cli *client.Client, err error) {
 	return &cctx, cli, err
 }
 
-func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) error {
+func checkFeederContainers(feedInImageName string, checkFeederContainerSigs chan os.Signal) error {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
@@ -82,10 +77,8 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 ContainerLoop:
 	for _, container := range containers {
 
-		// log.Trace().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
-
 		// check containers are running latest feed-in image
-		if container.Image != ctx.String("feedinimage") {
+		if container.Image != feedInImageName {
 
 			log := log.With().Str("container", container.Names[0][1:]).Logger()
 
