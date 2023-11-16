@@ -87,7 +87,6 @@ func TestContainersWithKill(t *testing.T) {
 	feedInContainerNetwork = "test-feed-in-net"
 	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
 		Driver: "bridge",
-		Scope:  "192.168.102.0/24",
 	})
 	assert.NoError(t, err)
 
@@ -240,7 +239,6 @@ func TestContainersWithoutKill(t *testing.T) {
 	feedInContainerNetwork = "test-feed-in-net"
 	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
 		Driver: "bridge",
-		Scope:  "192.168.101.0/24",
 	})
 	assert.NoError(t, err)
 
