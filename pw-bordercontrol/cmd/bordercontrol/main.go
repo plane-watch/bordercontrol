@@ -207,7 +207,7 @@ func runServer(ctx *cli.Context) error {
 	defer close(containersToStart)
 
 	// start goroutine to start feeder containers
-	go startFeederContainers(ctx, containersToStart)
+	go startFeederContainers(ctx.String("feedinimage"), ctx.String("pwingestpublish"), containersToStart)
 
 	// start goroutine to check feed-in containers
 	checkFeederContainerSigs := make(chan os.Signal, 1)

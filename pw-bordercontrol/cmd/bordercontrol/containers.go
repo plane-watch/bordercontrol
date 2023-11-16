@@ -15,8 +15,6 @@ import (
 	"github.com/docker/docker/client"
 
 	"github.com/rs/zerolog/log"
-
-	"github.com/urfave/cli/v2"
 )
 
 // struct for requesting that the startFeederContainers goroutine start a container
@@ -117,7 +115,7 @@ ContainerLoop:
 	return nil
 }
 
-func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) error {
+func startFeederContainers(feedInImageName, pwIngestPublish string, containersToStart chan startContainerRequest) error {
 	// reads startContainerRequests from channel containersToStart and starts container
 
 	log := log.With().
@@ -193,7 +191,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				"READSB_NET_ONLY=true",
 				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", containerToStart.clientDetails.mux),
 				"PW_INGEST_PUBLISH=location-updates",
-				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
+				fmt.Sprintf("PW_INGEST_SINK=%s", pwIngestPublish),
 			}
 
 			// prepare labels
@@ -206,7 +204,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 			// prepare container config
 			containerConfig := container.Config{
-				Image:  ctx.String("feedinimage"),
+				Image:  feedInImageName,
 				Env:    envVars[:],
 				Labels: containerLabels,
 			}
