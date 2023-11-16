@@ -304,7 +304,7 @@ func TestContainersWithoutKill(t *testing.T) {
 			ContainerEnvVarFeederLatOK = true
 		case fmt.Sprintf("FEEDER_LON=%f", TestFeederLongitude):
 			ContainerEnvVarFeederLonOK = true
-		case fmt.Sprintf("FEEDER_UUID=%s", TestFeederAPIKey):
+		case fmt.Sprintf("FEEDER_UUID=%s", strings.ToLower(TestFeederAPIKey)):
 			ContainerEnvVarFeederUUIDOK = true
 		case fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", TestFeederMux):
 			ContainerEnvVarFeederReadsbNetConnectorOK = true
