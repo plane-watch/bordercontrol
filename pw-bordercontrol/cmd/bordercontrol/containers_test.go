@@ -66,13 +66,6 @@ func TestContainersWithKill(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
-	// clean up
-	defer func() {
-		t.Log("cleaning up")
-		TestDaemon.Stop(t)
-		TestDaemon.Cleanup(t)
-	}()
-
 	// get docker client
 	t.Log("get docker client to inspect container")
 	ctx, cli, err := getDockerClient()
@@ -111,9 +104,12 @@ func TestContainersWithKill(t *testing.T) {
 	containersToStartResponses := make(chan startContainerResponse)
 	defer close(containersToStartResponses)
 
+	// prepare stop channel for startFeederContainers
+	stopChan := make(chan bool)
+
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestPWIngestSink, containersToStartRequests, containersToStartResponses)
+	go startFeederContainers(TestFeedInImageName, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
 
 	// start container
 	t.Log("requesting container start")
@@ -191,6 +187,11 @@ func TestContainersWithKill(t *testing.T) {
 	_, err = cli.ContainerInspect(*ctx, startedContainer.containerID)
 	assert.Error(t, err)
 
+	// clean up
+	t.Log("cleaning up")
+	stopChan <- true
+	TestDaemon.Stop(t)
+	TestDaemon.Cleanup(t)
 }
 
 func TestContainersWithoutKill(t *testing.T) {
@@ -225,13 +226,6 @@ func TestContainersWithoutKill(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
-	// clean up
-	defer func() {
-		t.Log("cleaning up")
-		TestDaemon.Stop(t)
-		TestDaemon.Cleanup(t)
-	}()
-
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
 	go func() {
@@ -249,9 +243,12 @@ func TestContainersWithoutKill(t *testing.T) {
 	containersToStartResponses := make(chan startContainerResponse)
 	defer close(containersToStartResponses)
 
+	stopChan := make(chan bool)
+	defer close(stopChan)
+
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestPWIngestSink, containersToStartRequests, containersToStartResponses)
+	go startFeederContainers(TestFeedInImageName, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
 
 	// start container
 	t.Log("requesting container start")
@@ -332,5 +329,11 @@ func TestContainersWithoutKill(t *testing.T) {
 	t.Log("ensure container has not been killed")
 	_, err = cli.ContainerInspect(*ctx, startedContainer.containerID)
 	assert.NoError(t, err)
+
+	// clean up
+	t.Log("cleaning up")
+	stopChan <- true
+	TestDaemon.Stop(t)
+	TestDaemon.Cleanup(t)
 
 }

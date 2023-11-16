@@ -130,6 +130,7 @@ func startFeederContainers(
 	pwIngestPublish string,
 	containersToStartRequests chan startContainerRequest,
 	containersToStartResponses chan startContainerResponse,
+	stopChan chan bool,
 ) error {
 	// reads startContainerRequests from channel containersToStart and starts container
 
@@ -152,8 +153,17 @@ func startFeederContainers(
 
 	for {
 
+		var containerToStart startContainerRequest
+
+		select {
+
+		// quit this gorouting if asked to
+		case _ = <-stopChan:
+			return nil
+
 		// read from channel (this blocks until a request comes in)
-		containerToStart := <-containersToStartRequests
+		case containerToStart = <-containersToStartRequests:
+		}
 
 		// prep response object
 		response := startContainerResponse{}
