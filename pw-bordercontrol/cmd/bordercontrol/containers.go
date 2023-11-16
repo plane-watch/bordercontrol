@@ -27,7 +27,7 @@ type startContainerRequest struct {
 	containerStartDelay *bool           // do we need to wait for container services to start? (pointer to allow calling function to read data)
 }
 
-func getDockerClient() (ctx *context.Context, cli *client.Client, err error) {
+var getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 	// set up docker client
 	cctx := context.Background()
 	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())

@@ -1,20 +1,42 @@
 package main
 
 import (
+	"context"
+	"os"
 	"testing"
 
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
 )
 
+const testDaemonDockerSocket = "/run/containerd/containerd.sock"
+
+var testDaemon *daemon.Daemon
+
 func TestPrepTestEnvironment(t *testing.T) {
 
-	d := daemon.New(
+	// start test docker daemon
+	testDaemon = daemon.New(
 		t,
-		daemon.WithContainerdSocket("/run/containerd/containerd.sock"),
+		daemon.WithContainerdSocket(testDaemonDockerSocket),
 	)
-	d.Start(t)
+	testDaemon.Start(t)
 
-	d.Stop(t)
-	d.Cleanup(t)
+	// prep testing client
+	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+		cctx := context.Background()
+		cli = testDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
+		return &cctx, cli, nil
+	}
+
+	// clean up
+	defer func() {
+		testDaemon.Stop(t)
+		testDaemon.Cleanup(t)
+	}()
+
+	testChan := make(chan os.Signal)
+
+	checkFeederContainers("foo", testChan)
 
 }
