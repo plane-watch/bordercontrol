@@ -117,7 +117,7 @@ ContainerLoop:
 	return nil
 }
 
-func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
+func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) error {
 	// reads startContainerRequests from channel containersToStart and starts container
 
 	log := log.With().
@@ -127,11 +127,11 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 	// log.Trace().Msg("started")
 
 	// set up docker client
-	dockerCtx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	log.Trace().Msg("set up docker client")
+	dockerCtx, cli, err := getDockerClient()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
-		os.Exit(1)
+		return err
 	}
 	defer cli.Close()
 
