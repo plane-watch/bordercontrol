@@ -515,8 +515,9 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	switch connProto {
 	case protoBeast:
 
-		// start the container
 		log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
+
+		// start the container
 		containersToStartRequests <- startContainerRequest{
 			clientDetails: clientDetails,
 			srcIP:         remoteIP,

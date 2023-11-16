@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"net"
 	"os"
 	"syscall"
 	"testing"
@@ -10,16 +10,27 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
 )
 
-const testDaemonDockerSocket = "/run/containerd/containerd.sock"
+const (
+	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
+
+	TestFeedInImageName = "ubuntu"
+
+	// mock feeder details
+	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25"
+	TestFeederLabel     = "Test Feeder 123"
+	TestFeederLatitude  = 123.456789
+	TestFeederLongitude = 98.765432
+	TestFeederMux       = "test-mux"
+)
 
 var (
-	testDaemon *daemon.Daemon
-
-	testFeedInImageName = "ubuntu"
+	TestDaemon *daemon.Daemon
 )
 
 func TestPrepTestEnvironment(t *testing.T) {
@@ -28,24 +39,24 @@ func TestPrepTestEnvironment(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// start test docker daemon
-	testDaemon = daemon.New(
+	TestDaemon = daemon.New(
 		t,
-		daemon.WithContainerdSocket(testDaemonDockerSocket),
+		daemon.WithContainerdSocket(TestDaemonDockerSocket),
 	)
-	testDaemon.Start(t)
+	TestDaemon.Start(t)
 
 	// prep testing client
 	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using test docker client")
 		cctx := context.Background()
-		cli = testDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
+		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 		return &cctx, cli, nil
 	}
 
 	// clean up
 	defer func() {
-		testDaemon.Stop(t)
-		testDaemon.Cleanup(t)
+		TestDaemon.Stop(t)
+		TestDaemon.Cleanup(t)
 	}()
 
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
@@ -58,12 +69,35 @@ func TestPrepTestEnvironment(t *testing.T) {
 	}()
 
 	// prepare channel for container start requests
-	containersToStart := make(chan startContainerRequest)
-	defer close(containersToStart)
+	containersToStartRequests := make(chan startContainerRequest)
+	defer close(containersToStartRequests)
 
-	// go startFeederContainers()
+	// prepare channel for container start responses
+	containersToStartResponses := make(chan startContainerResponse)
+	defer close(containersToStartResponses)
 
-	err := checkFeederContainers("foo", testChan)
-	fmt.Println(err)
+	// start process to test
+	go startFeederContainers(TestFeedInImageName, "", containersToStartRequests, containersToStartResponses)
+
+	// start container
+	containersToStartRequests <- startContainerRequest{
+		clientDetails: &feederClient{
+			clientApiKey: uuid.MustParse(TestFeederAPIKey),
+			refLat:       TestFeederLatitude,
+			refLon:       TestFeederLongitude,
+			mux:          TestFeederMux,
+			label:        TestFeederMux,
+		},
+		srcIP: net.IPv4(127, 0, 0, 1),
+	}
+
+	// wait for container to start
+	startedContainer := <-containersToStartResponses
+
+	// ensure container started without error
+	assert.NoError(t, startedContainer.err)
+
+	// err := checkFeederContainers("foo", testChan)
+	// fmt.Println(err)
 
 }
