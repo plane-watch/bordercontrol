@@ -160,7 +160,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 		filterFeedIn.Add("status", "running")
 
 		// find container
-		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+		containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 		if err != nil {
 			log.Err(err).Msg("error finding feed-in container")
 		}
@@ -230,7 +230,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			}
 
 			// create feed-in container
-			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
+			resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
 			if err != nil {
 				log.Err(err).Msg("could not create feed-in container")
 			} else {
@@ -238,7 +238,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			}
 
 			// start container
-			if err := cli.ContainerStart(dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
+			if err := cli.ContainerStart(*dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
 				log.Err(err).Msg("could not start feed-in container")
 			} else {
 				log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
