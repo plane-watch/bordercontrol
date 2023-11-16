@@ -160,10 +160,10 @@ func startFeederContainers(
 		log := log.With().
 			// Float64("lat", containerToStart.clientDetails.refLat).
 			// Float64("lon", containerToStart.clientDetails.refLon).
-			Str("mux", containerToStart.clientDetails.mux).
-			Str("label", containerToStart.clientDetails.label).
-			Str("uuid", containerToStart.clientDetails.clientApiKey.String()).
-			IPAddr("src", containerToStart.srcIP).
+			Str("mux", string(containerToStart.clientDetails.mux)).
+			Str("label", string(containerToStart.clientDetails.label)).
+			Str("uuid", string(containerToStart.clientDetails.clientApiKey.String())).
+			Str("src", string(containerToStart.srcIP.String())).
 			Logger()
 
 		// determine if container is already running
