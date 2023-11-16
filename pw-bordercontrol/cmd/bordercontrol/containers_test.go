@@ -22,7 +22,7 @@ import (
 const (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-	TestFeedInImageName   = "alpine:latest"
+	TestFeedInImageName   = "wardsco/sleep:latest"
 	TestfeedInImagePrefix = "test-feed-in-"
 
 	// mock feeder details
