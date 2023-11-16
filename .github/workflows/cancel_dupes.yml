@@ -9,6 +9,7 @@ on:
       - 'Pull Request'
       - 'Deploy'
       - 'Linting (Non-Image)'
+      - 'Push'
     types: ['requested']
 
 jobs:
