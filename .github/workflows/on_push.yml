@@ -39,7 +39,7 @@ jobs:
               name: go test
               run: |
                 pushd pw-bordercontrol
-                go test -v -coverprofile=../coverage.out -covermode=atomic ./...
+                sudo go test -v -coverprofile=../coverage.out -covermode=atomic ./...
             - 
               name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v3
