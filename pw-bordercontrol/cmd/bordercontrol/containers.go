@@ -34,9 +34,9 @@ type startContainerRequest struct {
 
 func getDockerClient() (ctx *context.Context, cli *client.Client, err error) {
 	// set up docker client
-	*ctx = context.Background()
+	cctx := context.Background()
 	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	return ctx, cli, err
+	return &cctx, cli, err
 }
 
 func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) error {
