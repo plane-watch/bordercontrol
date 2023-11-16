@@ -293,6 +293,7 @@ func TestContainersWithoutKill(t *testing.T) {
 	t.Log("ensure container started without error")
 	assert.NoError(t, startedContainer.err)
 
+	t.Log("container list:")
 	cList, err := cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
 	assert.NoError(t, err)
 	for _, cont := range cList {
@@ -302,6 +303,13 @@ func TestContainersWithoutKill(t *testing.T) {
 	// inspect container
 	t.Log("inspecting container")
 	ct, err := cli.ContainerInspect(*ctx, startedContainer.containerID)
+
+	t.Log("container list:")
+	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
+	assert.NoError(t, err)
+	for _, cont := range cList {
+		fmt.Println(cont)
+	}
 
 	// check environment variables
 	t.Log("checking container environment variables")
@@ -325,9 +333,23 @@ func TestContainersWithoutKill(t *testing.T) {
 	assert.True(t, ContainerEnvVarFeederReadsbNetConnectorOK)
 	assert.True(t, ContainerEnvVarFeederPWIngestSinkOK)
 
+	t.Log("container list:")
+	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
+	assert.NoError(t, err)
+	for _, cont := range cList {
+		fmt.Println(cont)
+	}
+
 	// check container autoremove set to true
 	t.Log("check container autoremove set to true")
 	assert.True(t, ct.HostConfig.AutoRemove)
+
+	t.Log("container list:")
+	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
+	assert.NoError(t, err)
+	for _, cont := range cList {
+		fmt.Println(cont)
+	}
 
 	// check container network connection
 	t.Log("check container network connection")
@@ -339,15 +361,30 @@ func TestContainersWithoutKill(t *testing.T) {
 	assert.Len(t, ct.NetworkSettings.Networks, 1)
 	assert.True(t, ContainerNetworkOK)
 
+	t.Log("container list:")
+	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
+	assert.NoError(t, err)
+	for _, cont := range cList {
+		fmt.Println(cont)
+	}
+
 	// test checkFeederContainers
 	t.Log("running checkFeederContainers")
 	err = checkFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, testChan)
 	assert.NoError(t, err)
 
+	t.Log("container list:")
+	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
+	assert.NoError(t, err)
+	for _, cont := range cList {
+		fmt.Println(cont)
+	}
+
 	// wait for container to hopefully not be removed
 	t.Log("wait for container to hopefully not be removed")
 	time.Sleep(time.Second * 15)
 
+	t.Log("container list:")
 	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
 	assert.NoError(t, err)
 	for _, cont := range cList {
