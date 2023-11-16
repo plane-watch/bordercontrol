@@ -118,7 +118,12 @@ ContainerLoop:
 	return nil
 }
 
-func startFeederContainers(feedInImageName, pwIngestPublish string, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) error {
+func startFeederContainers(
+	feedInImageName string,
+	pwIngestPublish string,
+	containersToStartRequests chan startContainerRequest,
+	containersToStartResponses chan startContainerResponse,
+) error {
 	// reads startContainerRequests from channel containersToStart and starts container
 
 	log := log.With().
