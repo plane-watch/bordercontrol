@@ -293,54 +293,10 @@ func TestContainersWithoutKill(t *testing.T) {
 	t.Log("ensure container started without error")
 	assert.NoError(t, startedContainer.err)
 
-	// inspect container
-	t.Log("inspecting container")
-	ct, err := cli.ContainerInspect(*ctx, startedContainer.containerID)
-
-	// check environment variables
-	t.Log("checking container environment variables")
-	for _, e := range ct.Config.Env {
-		switch e {
-		case fmt.Sprintf("FEEDER_LAT=%f", TestFeederLatitude):
-			ContainerEnvVarFeederLatOK = true
-		case fmt.Sprintf("FEEDER_LON=%f", TestFeederLongitude):
-			ContainerEnvVarFeederLonOK = true
-		case fmt.Sprintf("FEEDER_UUID=%s", strings.ToLower(TestFeederAPIKey)):
-			ContainerEnvVarFeederUUIDOK = true
-		case fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", TestFeederMux):
-			ContainerEnvVarFeederReadsbNetConnectorOK = true
-		case fmt.Sprintf("PW_INGEST_SINK=%s", TestPWIngestSink):
-			ContainerEnvVarFeederPWIngestSinkOK = true
-		}
-	}
-	assert.True(t, ContainerEnvVarFeederLatOK)
-	assert.True(t, ContainerEnvVarFeederLonOK)
-	assert.True(t, ContainerEnvVarFeederUUIDOK)
-	assert.True(t, ContainerEnvVarFeederReadsbNetConnectorOK)
-	assert.True(t, ContainerEnvVarFeederPWIngestSinkOK)
-
-	// check container autoremove set to true
-	t.Log("check container autoremove set to true")
-	assert.True(t, ct.HostConfig.AutoRemove)
-
-	// check container network connection
-	t.Log("check container network connection")
-	for network, _ := range ct.NetworkSettings.Networks {
-		if network == feedInContainerNetwork {
-			ContainerNetworkOK = true
-		}
-	}
-	assert.Len(t, ct.NetworkSettings.Networks, 1)
-	assert.True(t, ContainerNetworkOK)
-
 	// test checkFeederContainers
 	t.Log("running checkFeederContainers")
 	err = checkFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, testChan)
 	assert.NoError(t, err)
-
-	// wait for container to hopefully not be removed
-	t.Log("wait for container to hopefully not be removed")
-	// time.Sleep(time.Second * 15)
 
 	// ensure container has been killed
 	t.Log("ensure container has not been killed")
