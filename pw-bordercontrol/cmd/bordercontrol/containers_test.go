@@ -226,6 +226,27 @@ func TestContainersWithoutKill(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
+	// get docker client
+	t.Log("get docker client to inspect container")
+	ctx, cli, err := getDockerClient()
+	assert.NoError(t, err)
+
+	// ensure test image is downloaded
+	t.Log("pull test image")
+	imageirc, err := cli.ImagePull(*ctx, TestFeedInImageName, types.ImagePullOptions{})
+	assert.NoError(t, err)
+	defer imageirc.Close()
+
+	t.Log("load test image")
+	_, err = cli.ImageLoad(*ctx, imageirc, false)
+	assert.NoError(t, err)
+
+	// ensure test network is created
+	t.Log("ensure test network is created")
+	feedInContainerNetwork = "test-feed-in-net"
+	_, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{})
+	assert.NoError(t, err)
+
 	// continually send sighup1 to prevent checkFeederContainers from sleeping
 	testChan := make(chan os.Signal)
 	go func() {
@@ -270,11 +291,6 @@ func TestContainersWithoutKill(t *testing.T) {
 	// ensure container started without error
 	t.Log("ensure container started without error")
 	assert.NoError(t, startedContainer.err)
-
-	// get docker client to inspect container
-	t.Log("get docker client to inspect container")
-	ctx, cli, err := getDockerClient()
-	assert.NoError(t, err)
 
 	// inspect container
 	t.Log("inspecting container")
