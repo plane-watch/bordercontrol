@@ -30,6 +30,10 @@ type startContainerResponse struct {
 	containerID         string // feed-in container ID
 }
 
+var (
+	feedInContainerNetwork = "bordercontrol_feeder"
+)
+
 var getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 	// set up docker client
 	cctx := context.Background()
@@ -235,7 +239,7 @@ func startFeederContainers(
 
 			// prepare container network config
 			endpointsConfig := make(map[string]*network.EndpointSettings)
-			endpointsConfig["bordercontrol_feeder"] = &network.EndpointSettings{}
+			endpointsConfig[feedInContainerNetwork] = &network.EndpointSettings{}
 			networkingConfig := network.NetworkingConfig{
 				EndpointsConfig: endpointsConfig,
 			}

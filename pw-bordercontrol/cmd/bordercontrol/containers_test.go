@@ -44,6 +44,8 @@ func TestContainers(t *testing.T) {
 		ContainerEnvVarFeederUUIDOK               bool
 		ContainerEnvVarFeederReadsbNetConnectorOK bool
 		ContainerEnvVarFeederPWIngestSinkOK       bool
+
+		ContainerNetworkOK bool
 	)
 
 	// set logging to trace level
@@ -151,6 +153,13 @@ func TestContainers(t *testing.T) {
 	assert.True(t, ct.HostConfig.AutoRemove)
 
 	// check container network connection
+	for network, _ := range ct.NetworkSettings.Networks {
+		if network == feedInContainerNetwork {
+			ContainerNetworkOK = true
+		}
+	}
+	assert.Len(t, ct.NetworkSettings.Networks, 1)
+	assert.True(t, ContainerNetworkOK)
 
 	// err := checkFeederContainers("foo", testChan)
 	// fmt.Println(err)
