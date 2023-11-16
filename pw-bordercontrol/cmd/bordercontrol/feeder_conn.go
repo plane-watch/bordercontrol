@@ -516,11 +516,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	case protoBeast:
 
 		// start the container
-		// used a chan here so it blocks while waiting for the request to be popped off the chan
-
 		log = log.With().Str("dst", fmt.Sprintf("feed-in-%s", clientDetails.clientApiKey.String())).Logger()
-
-		wg.Add(1)
 		containersToStartRequests <- startContainerRequest{
 			clientDetails: clientDetails,
 			srcIP:         remoteIP,
