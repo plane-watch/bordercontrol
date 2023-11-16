@@ -8,7 +8,13 @@ import (
 
 func TestPrepTestEnvironment(t *testing.T) {
 
-	d := daemon.New(t)
+	d := daemon.New(
+		t,
+		daemon.WithContainerdSocket("/run/containerd/containerd.sock"),
+	)
 	d.StartWithBusybox(t)
+
+	d.Stop(t)
+	d.Cleanup(t)
 
 }
