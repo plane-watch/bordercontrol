@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"syscall"
@@ -27,18 +28,29 @@ const (
 	TestFeederLatitude  = 123.456789
 	TestFeederLongitude = 98.765432
 	TestFeederMux       = "test-mux"
+
+	TestPWIngestSink = "nats://pw-ingest-sink:12345"
 )
 
 var (
 	TestDaemon *daemon.Daemon
 )
 
-func TestPrepTestEnvironment(t *testing.T) {
+func TestContainers(t *testing.T) {
+
+	var (
+		ContainerEnvVarFeederLatOK                bool
+		ContainerEnvVarFeederLonOK                bool
+		ContainerEnvVarFeederUUIDOK               bool
+		ContainerEnvVarFeederReadsbNetConnectorOK bool
+		ContainerEnvVarFeederPWIngestSinkOK       bool
+	)
 
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
-	// start test docker daemon
+	// starting test docker daemon
+	t.Log("starting test docker daemon")
 	TestDaemon = daemon.New(
 		t,
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
@@ -46,6 +58,7 @@ func TestPrepTestEnvironment(t *testing.T) {
 	TestDaemon.Start(t)
 
 	// prep testing client
+	t.Log("prep testing client")
 	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using test docker client")
 		cctx := context.Background()
@@ -55,6 +68,7 @@ func TestPrepTestEnvironment(t *testing.T) {
 
 	// clean up
 	defer func() {
+		t.Log("cleaning up")
 		TestDaemon.Stop(t)
 		TestDaemon.Cleanup(t)
 	}()
@@ -77,9 +91,11 @@ func TestPrepTestEnvironment(t *testing.T) {
 	defer close(containersToStartResponses)
 
 	// start process to test
-	go startFeederContainers(TestFeedInImageName, "", containersToStartRequests, containersToStartResponses)
+	t.Log("starting startFeederContainers")
+	go startFeederContainers(TestFeedInImageName, TestPWIngestSink, containersToStartRequests, containersToStartResponses)
 
 	// start container
+	t.Log("requesting container start")
 	containersToStartRequests <- startContainerRequest{
 		clientDetails: &feederClient{
 			clientApiKey: uuid.MustParse(TestFeederAPIKey),
@@ -92,10 +108,49 @@ func TestPrepTestEnvironment(t *testing.T) {
 	}
 
 	// wait for container to start
+	t.Log("waiting for container start")
 	startedContainer := <-containersToStartResponses
 
 	// ensure container started without error
+	t.Log("ensure container started without error")
 	assert.NoError(t, startedContainer.err)
+
+	// get docker client to inspect container
+	t.Log("get docker client to inspect container")
+	ctx, cli, err := getDockerClient()
+	assert.NoError(t, err)
+
+	// inspect container
+	t.Log("inspecting container")
+	ct, err := cli.ContainerInspect(*ctx, startedContainer.containerID)
+
+	// check environment variables
+	t.Log("checking container environment variables")
+	for _, e := range ct.Config.Env {
+		switch e {
+		case fmt.Sprintf("FEEDER_LAT=%f", TestFeederLatitude):
+			ContainerEnvVarFeederLatOK = true
+		case fmt.Sprintf("FEEDER_LON=%f", TestFeederLongitude):
+			ContainerEnvVarFeederLonOK = true
+		case fmt.Sprintf("FEEDER_UUID=%s", TestFeederAPIKey):
+			ContainerEnvVarFeederUUIDOK = true
+		case fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", TestFeederMux):
+			ContainerEnvVarFeederReadsbNetConnectorOK = true
+		case fmt.Sprintf("PW_INGEST_SINK=%s", TestPWIngestSink):
+			ContainerEnvVarFeederPWIngestSinkOK = true
+		}
+	}
+	assert.True(t, ContainerEnvVarFeederLatOK)
+	assert.True(t, ContainerEnvVarFeederLonOK)
+	assert.True(t, ContainerEnvVarFeederUUIDOK)
+	assert.True(t, ContainerEnvVarFeederReadsbNetConnectorOK)
+	assert.True(t, ContainerEnvVarFeederPWIngestSinkOK)
+
+	// check container autoremove set to true
+	t.Log("check container autoremove set to true")
+	assert.True(t, ct.HostConfig.AutoRemove)
+
+	// check container network connection
 
 	// err := checkFeederContainers("foo", testChan)
 	// fmt.Println(err)
