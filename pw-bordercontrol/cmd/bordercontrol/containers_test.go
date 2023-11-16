@@ -34,10 +34,6 @@ const (
 	TestPWIngestSink = "nats://pw-ingest-sink:12345"
 )
 
-var (
-	TestDaemon *daemon.Daemon
-)
-
 func TestContainersWithKill(t *testing.T) {
 
 	var (
@@ -55,7 +51,7 @@ func TestContainersWithKill(t *testing.T) {
 
 	// starting test docker daemon
 	t.Log("starting test docker daemon")
-	TestDaemon = daemon.New(
+	TestDaemon := daemon.New(
 		t,
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
 	)
@@ -214,7 +210,7 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// starting test docker daemon
 	t.Log("starting test docker daemon")
-	TestDaemon = daemon.New(
+	TestDaemon := daemon.New(
 		t,
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
 	)
