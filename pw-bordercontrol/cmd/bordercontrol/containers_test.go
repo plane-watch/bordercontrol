@@ -153,6 +153,7 @@ func TestContainers(t *testing.T) {
 	assert.True(t, ct.HostConfig.AutoRemove)
 
 	// check container network connection
+	t.Log("check container network connection")
 	for network, _ := range ct.NetworkSettings.Networks {
 		if network == feedInContainerNetwork {
 			ContainerNetworkOK = true
@@ -161,7 +162,19 @@ func TestContainers(t *testing.T) {
 	assert.Len(t, ct.NetworkSettings.Networks, 1)
 	assert.True(t, ContainerNetworkOK)
 
-	// err := checkFeederContainers("foo", testChan)
-	// fmt.Println(err)
+	// test checkFeederContainers
+	// by passing "foo" as the feedInImageName, it should kill the previously created container
+	t.Log("running checkFeederContainers")
+	err = checkFeederContainers("foo", testChan)
+	assert.NoError(t, err)
+
+	// wait for container to be removed
+	t.Log("wait for container to be removed")
+	time.Sleep(time.Second * 15)
+
+	// ensure container has been killed
+	t.Log("ensure container has been killed")
+	_, err = cli.ContainerInspect(*ctx, startedContainer.containerID)
+	assert.NoError(t, err)
 
 }
