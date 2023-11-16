@@ -293,6 +293,12 @@ func TestContainersWithoutKill(t *testing.T) {
 	t.Log("ensure container started without error")
 	assert.NoError(t, startedContainer.err)
 
+	cList, err := cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
+	assert.NoError(t, err)
+	for _, cont := range cList {
+		fmt.Println(cont)
+	}
+
 	// inspect container
 	t.Log("inspecting container")
 	ct, err := cli.ContainerInspect(*ctx, startedContainer.containerID)
@@ -341,6 +347,12 @@ func TestContainersWithoutKill(t *testing.T) {
 	// wait for container to hopefully not be removed
 	t.Log("wait for container to hopefully not be removed")
 	time.Sleep(time.Second * 15)
+
+	cList, err = cli.ContainerList(*ctx, types.ContainerListOptions{All: true})
+	assert.NoError(t, err)
+	for _, cont := range cList {
+		fmt.Println(cont)
+	}
 
 	// ensure container has been killed
 	t.Log("ensure container has not been killed")
