@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
+	"github.com/rs/zerolog"
 )
 
 const testDaemonDockerSocket = "/run/containerd/containerd.sock"
@@ -36,6 +37,7 @@ func TestPrepTestEnvironment(t *testing.T) {
 	}()
 
 	testChan := make(chan os.Signal)
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	checkFeederContainers("foo", testChan)
 
