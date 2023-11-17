@@ -33,8 +33,6 @@ RUN set -x && \
         "${KEPT_PACKAGES[@]}" \
         "${TEMP_PACKAGES[@]}" \
         && \
-    # Upgrade pip
-    python3 -m pip install --no-cache-dir -U pip && \
     # install mictronics readsb
     BRANCH_READSB="dev" && \
     # readsb: clone repo
