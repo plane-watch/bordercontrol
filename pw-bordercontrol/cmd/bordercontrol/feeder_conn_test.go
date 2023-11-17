@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,5 +143,12 @@ func TestDialContainerTCP(t *testing.T) {
 			}
 		}
 	}()
+
+	port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
+	assert.NoError(t, err)
+
+	// test connection
+	_, err = dialContainerTCP("localhost", port)
+	assert.NoError(t, err)
 
 }
