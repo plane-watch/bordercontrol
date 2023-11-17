@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -18,6 +19,9 @@ const MaxInt = int(MaxUint >> 1)
 const MinInt = -MaxInt - 1
 
 func TestGetNum(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	iCT := incomingConnectionTracker{}
 
@@ -50,6 +54,9 @@ func TestGetNum(t *testing.T) {
 
 func TestEvict(t *testing.T) {
 
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
 	iCT := incomingConnectionTracker{}
 
 	// add a connection with connection time older than 10 seconds
@@ -79,6 +86,9 @@ func TestEvict(t *testing.T) {
 
 func TestCheck(t *testing.T) {
 
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
 	// prepare test data
 	srcIP := net.IPv4(172, 0, 0, 1)
 	iCT := incomingConnectionTracker{}
@@ -99,6 +109,9 @@ func TestCheck(t *testing.T) {
 }
 
 func TestLookupContainerTCP(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// test lookup of loopback
 	t.Run("test lookup of loopback", func(t *testing.T) {
@@ -130,6 +143,9 @@ func TestLookupContainerTCP(t *testing.T) {
 }
 
 func TestDialContainerTCP(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare mocked server
 	srv, err := nettest.NewLocalListener("tcp4")
