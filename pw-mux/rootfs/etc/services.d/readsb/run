@@ -332,6 +332,7 @@ fi
 ##### LAUNCH READSB #####
 
 set -eo pipefail
+set -x
 
 # shellcheck disable=SC2016
 "${READSB_BIN}" "${READSB_CMD[@]}" \
