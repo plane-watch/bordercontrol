@@ -16,8 +16,6 @@ mkdir -p /run/mlat-server/workdir
 # export OMP_NUM_THREADS
 # export PYTHONOPTIMIZE
 
-set -x
-
 /opt/mlat-server/mlat-server \
     --client-listen 0.0.0.0:12346 \
     --motd "plane.watch:${HOSTNAME}" \
