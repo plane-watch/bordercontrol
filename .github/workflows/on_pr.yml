@@ -37,7 +37,7 @@ jobs:
         name: go mod tidy
         run: |
           pushd pw-bordercontrol
-          go mod tidy
+          sudo go mod tidy
       -
         name: go test
         run: |
