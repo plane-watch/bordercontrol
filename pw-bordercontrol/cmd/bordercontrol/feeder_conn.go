@@ -212,8 +212,17 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 		if len(dstIPs) > 0 {
 			// if dstIPs contains at least one element
 
-			// take the first returned address
-			dstIP = dstIPs[0]
+			// look for first IPv4
+			found := false
+			for _, i := range dstIPs {
+				if i.To4() != nil {
+					dstIP = i
+					found = true
+				}
+			}
+			if !found {
+				err = errors.New("container DNS lookup returned no IPv4 addresses")
+			}
 
 			// update logger with IP address
 			log = log.With().IPAddr("ip", dstIP).Logger()
