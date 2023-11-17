@@ -16,8 +16,6 @@ mkdir -p /run/mlat-server/workdir
 # export OMP_NUM_THREADS
 # export PYTHONOPTIMIZE
 
-# --basestation-connect 10.0.6.1:30103 \
-
 /opt/mlat-server/mlat-server \
     --client-listen 0.0.0.0:12346 \
     --motd "plane.watch:${HOSTNAME}" \
