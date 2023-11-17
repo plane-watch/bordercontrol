@@ -1,5 +1,7 @@
 # plane.watch Border Control
 
+[![codecov](https://codecov.io/gh/plane-watch/pw-bordercontrol/graph/badge.svg?token=E60EZBIPZN)](https://codecov.io/gh/plane-watch/pw-bordercontrol)
+
 How plane.watch receives data from feeders.
 
 Designed to be horizontally scalable, sat behind TCP load balancer(s).
@@ -97,8 +99,6 @@ Bordercontrol supports receiving some signals:
 | `SIGUSR1` | Skip feed-in container update delay |
 
 ### Starting the environment
-
-From the root of the repo: `git submodule add -f git@github.com:plane-watch/pw-pipeline.git` (note you may need to rmdir the pw-pipeline dir).
 
 From the root of the repository, run `docker compose up -d --build`.
 
