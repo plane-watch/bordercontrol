@@ -132,8 +132,8 @@ func TestDialContainerTCP(t *testing.T) {
 	// prepare mocked server
 	srv, err := nettest.NewLocalListener("tcp4")
 	assert.NoError(t, err)
+	t.Log("listening on:", srv.Addr())
 	go func() {
-		t.Log("listening on:", srv.Addr())
 		for {
 			_, err := srv.Accept()
 			if err != nil {
