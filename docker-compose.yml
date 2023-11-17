@@ -21,13 +21,6 @@ x-mux-common: &mux-common
     - READSB_NET_BEAST_INPUT_PORT=12345
     - READSB_NET_ENABLE=true
     - READSB_NET_ONLY=true
-    # - AR_SERVE_TCP_ACARS=15550
-    # - AR_SERVE_TCP_VDLM2=15555
-    # - AR_ENABLE_DEDUPE=true
-    # - INFLUXDBV2_URL=${MLAT_SERVER_INFLUXDBV2_URL}
-    # - INFLUXDBV2_TOKEN=${MLAT_SERVER_INFLUXDBV2_TOKEN}
-    # - INFLUXDBV2_ORG=${MLAT_SERVER_INFLUXDBV2_ORG}
-    # - INFLUXDBV2_BUCKET=${MLAT_SERVER_INFLUXDBV2_BUCKET}
   tmpfs:
     - /run:exec,size=64M
     - /var/log
@@ -69,46 +62,6 @@ services:
       dockerfile: Dockerfile.feeder
     image: feed-in
     entrypoint: /bin/true
-
-  # rebroadcast everything for dev environment
-  mux-dev:
-    container_name: mux-dev
-    hostname: mux-dev
-    <<: *mux-common
-    ports:
-      - 31001:30005
-    environment:
-      - READSB_NET_BEAST_REDUCE_OUT_PORT=30015
-      - READSB_NET_BEAST_REDUCE_INTERVAL=0.5
-      - READSB_NET_BEAST_INPUT_PORT=30004
-      - READSB_NET_BEAST_OUTPUT_PORT=30005
-      # - AR_SERVE_TCP_ACARS=15550
-      # - AR_SERVE_TCP_VDLM2=15555
-      # - AR_ENABLE_DEDUPE=true
-      - READSB_NET_ONLY=true
-      - READSB_NET_ENABLE=true
-      - READSB_NET_CONNECTOR=mux-act,30015,beast_in;mux-nsw,30015,beast_in;mux-nt,30015,beast_in;mux-qld,30015,beast_in;mux-sa,30015,beast_in;mux-tas,30015,beast_in;mux-vic,30015,beast_in;mux-wa,30015,beast_in;mux-nz,30015,beast_in;mux-eu,30015,beast_in;mux-us,30015,beast_in;mux-asia,30015,beast_in;mux-mapwithlove,30015,beast_in
-
-  # Multiplexer: mapwithlove
-  pw-ingest-mapwithlove:
-    container_name: pw-ingest-mapwithlove
-    build:
-      context: .
-      dockerfile: Dockerfile.feeder
-    hostname: pw-ingest-mapwithlove
-    environment:
-      - READSB_STATS_EVERY=300
-      - READSB_NET_ENABLE=true
-      - READSB_NET_BEAST_OUTPUT_PORT=30005
-      - READSB_NET_ONLY=true
-      - READSB_NET_CONNECTOR=crawled.mapwithlove.com,3004,beast_in
-      - PW_INGEST_PUBLISH=location-updates
-      - FEEDER_UUID=mapwithlove
-      - PW_INGEST_SINK=${PW_INGEST_SINK}
-    networks:
-      - bordercontrol_feeder
-    healthcheck:
-      test: ['CMD', 'true']    # disable the healthcheck
 
   # Multiplexer: Australia ACT
   mux-act:

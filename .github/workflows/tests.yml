@@ -1,0 +1,91 @@
+---
+name: Testing
+
+on:
+  # Enable manual running of action if necessary
+  workflow_dispatch:
+  # Test build/deploy on PRs to main
+  pull_request:
+    branches:
+      - main
+    # Don't trigger if it's just a documentation update
+    paths-ignore:
+      - '**.md'
+      - '**.MD'
+      - '**.yml'
+      - 'LICENSE'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.dockerignore'
+  # Test on push to main branch (for codecov)
+  push:
+    branches:
+      - main
+    # Don't trigger if it's just a documentation update
+    paths-ignore:
+      - '**.md'
+      - '**.MD'
+      - '**.yml'
+      - 'LICENSE'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.dockerignore'
+
+jobs:
+
+  go-test:
+    name: Run go tests
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Set up Docker
+        run: |
+            curl -fsSL https://get.docker.com -o /tmp/install-docker.sh
+            sudo sh /tmp/install-docker.sh
+      -
+        name: go mod tidy
+        run: |
+          pushd pw-bordercontrol
+          sudo go mod tidy
+      -
+        name: go test
+        run: |
+          pushd pw-bordercontrol
+          sudo go test -v -coverprofile=../coverage.out -covermode=atomic ./...
+      -
+        name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  test-build:
+    name: Test build
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Build bordercontrol
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          file: ./Dockerfile.bordercontrol
+      -
+        name: Build feeder
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          file: ./Dockerfile.feeder
+      -
+        name: Build mux
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          file: ./Dockerfile.mux

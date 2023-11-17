@@ -22,6 +22,7 @@ import (
 
 var (
 	feedInImage            string
+	feedInContainerPrefix  string
 	tlsConfig              tls.Config
 	kpr                    *keypairReloader
 	commithash, committime string
@@ -36,16 +37,18 @@ const (
 
 	// banner to display when started
 	banner = ` 
- _                   _                          _             _
-| |__   ___  _ __ __| | ___ _ __ ___ ___  _ __ | |_ _ __ ___ | |
-| '_ \ / _ \| '__/ _' |/ _ \ '__/ __/ _ \| '_ \| __| '__/ _ \| |
-| |_) | (_) | | | (_| |  __/ | | (_| (_) | | | | |_| | | (_) | |
-|_.__/ \___/|_|  \__,_|\___|_|  \___\___/|_| |_|\__|_|  \___/| |
-                                                            _| |_
-                                                          _| | | | _
-                                                         | | | | |' |
-                                                         \          /
-                                                          \________/
+ _                   _                          _             __
+| |__   ___  _ __ __| | ___ _ __ ___ ___  _ __ | |_ _ __ ___ /  |
+| '_ \ / _ \| '__/ _' |/ _ \ '__/ __/ _ \| '_ \| __| '__/ _ \|  |
+| |_) | (_) | | | (_| |  __/ | | (_| (_) | | | | |_| | | (_) |  |
+|_.__/ \___/|_|  \__,_|\___|_|  \___\___/|_| |_|\__|_|  \___/|  |
+                                                         |___|  |____/-| ~ ~ ~
+                                                         *|__|  |____---- ~ ~
+                                                         |   |  |    \-| ~ ~ ~
+        b y :   p l a n e . w a t c h                        |  |
+                                                             |  |
+                                                             |  |
+                                                             \__|
 `
 )
 
@@ -107,6 +110,12 @@ func main() {
 				EnvVars: []string{"FEED_IN_IMAGE"},
 			},
 			&cli.StringFlag{
+				Name:    "feedincontainerprefix",
+				Usage:   "feed-in container prefix",
+				Value:   "feed-in-",
+				EnvVars: []string{"FEED_IN_CONTAINER_PREFIX"},
+			},
+			&cli.StringFlag{
 				Name:     "pwingestpublish",
 				Usage:    "pw_ingest --sink setting in feed-in containers",
 				Required: true,
@@ -154,6 +163,9 @@ func main() {
 
 		// set global var containing feed-in image name
 		feedInImage = ctx.String("feedinimage")
+
+		// set global var containing feed-in container prefix
+		feedInContainerPrefix = ctx.String("feedincontainerprefix")
 
 		return nil
 	}
@@ -203,18 +215,25 @@ func runServer(ctx *cli.Context) error {
 	go updateFeederDB(ctx, 60*time.Second)
 
 	// prepare channel for container start requests
-	containersToStart := make(chan startContainerRequest)
-	defer close(containersToStart)
+	containersToStartRequests := make(chan startContainerRequest)
+	defer close(containersToStartRequests)
+
+	// prepare channel for container start responses
+	containersToStartResponses := make(chan startContainerResponse)
+	defer close(containersToStartResponses)
+
+	// prepare stop channel for startFeederContainers
+	startFeederContainersStop := make(chan bool)
 
 	// start goroutine to start feeder containers
-	go startFeederContainers(ctx, containersToStart)
+	go startFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), ctx.String("pwingestpublish"), containersToStartRequests, containersToStartResponses, startFeederContainersStop)
 
 	// start goroutine to check feed-in containers
 	checkFeederContainerSigs := make(chan os.Signal, 1)
 	signal.Notify(checkFeederContainerSigs, syscall.SIGUSR1)
 	go func() {
 		for {
-			_ = checkFeederContainers(ctx, checkFeederContainerSigs)
+			_ = checkFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), checkFeederContainerSigs)
 		}
 	}()
 
@@ -231,11 +250,11 @@ func runServer(ctx *cli.Context) error {
 
 	// start listening for incoming BEAST connections
 	wg.Add(1)
-	go listenBEAST(ctx, &wg, containersToStart)
+	go listenBEAST(ctx, &wg, containersToStartRequests, containersToStartResponses)
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
-	go listenMLAT(ctx, &wg, containersToStart)
+	go listenMLAT(ctx, &wg, containersToStartRequests, containersToStartResponses)
 
 	// wait for all listeners to finish / serve forever
 	wg.Wait()
@@ -243,7 +262,7 @@ func runServer(ctx *cli.Context) error {
 	return nil
 }
 
-func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
+func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) {
 	// BEAST listener
 
 	log := log.With().
@@ -267,13 +286,13 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan st
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStart)
+		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStartRequests, containersToStartResponses)
 	}
 
 	wg.Done()
 }
 
-func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan startContainerRequest) {
+func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) {
 	// MLAT listener
 
 	log := log.With().
@@ -297,7 +316,7 @@ func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStart chan sta
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go proxyClientConnection(conn, protoMLAT, incomingConnTracker.getNum(), containersToStart)
+		go proxyClientConnection(conn, protoMLAT, incomingConnTracker.getNum(), containersToStartRequests, containersToStartResponses)
 	}
 
 	wg.Done()

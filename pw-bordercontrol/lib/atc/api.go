@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -90,11 +90,6 @@ func authenticate(server *Server) (authToken string, err error) {
 	}
 	defer response.Body.Close()
 
-	// fmt.Println("response Status:", response.Status)
-	// fmt.Println("response Headers:", response.Header)
-	// body, _ := ioutil.ReadAll(response.Body)
-	// fmt.Println("response Body:", string(body))
-
 	if response.StatusCode == 200 {
 
 		authToken = response.Header.Get("Authorization")
@@ -108,7 +103,6 @@ func authenticate(server *Server) (authToken string, err error) {
 	}
 
 	return authToken, nil
-
 }
 
 func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refLon float64, mux string, label string, err error) {
@@ -139,7 +133,7 @@ func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refL
 	// body, _ := ioutil.ReadAll(response.Body)
 	// fmt.Println("response Body:", string(body))
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return refLat, refLon, mux, label, err
 	}
@@ -150,7 +144,6 @@ func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refL
 
 		err := json.Unmarshal(body, &feeder)
 		if err != nil {
-			fmt.Println(err)
 			return refLat, refLon, mux, label, err
 		}
 
@@ -191,7 +184,7 @@ func GetFeeders(server *Server) (feeders Feeders, err error) {
 	}
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return feeders, err
 	}

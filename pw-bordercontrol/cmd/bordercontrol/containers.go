@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -15,24 +14,35 @@ import (
 	"github.com/docker/docker/client"
 
 	"github.com/rs/zerolog/log"
-
-	"github.com/urfave/cli/v2"
 )
 
 // struct for requesting that the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	clientDetails *feederClient
-	// uuid                uuid.UUID       // feeder uuid
-	// refLat              float64         // feeder lat
-	// refLon              float64         // feeder lon
-	// mux                 string          // the multiplexer to upstream the data to
-	// label               string          // the label of the feeder
-	srcIP               net.IP          // client IP address
-	wg                  *sync.WaitGroup // waitgroup for when container has started (pointer to allow calling function to read data)
-	containerStartDelay *bool           // do we need to wait for container services to start? (pointer to allow calling function to read data)
+	clientDetails *feederClient // lat, long, mux, label, api key
+	srcIP         net.IP        // client IP address
+
 }
 
-func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Signal) error {
+type startContainerResponse struct {
+	err                 error  // holds error from starting container
+	containerStartDelay bool   // do we need to wait for container services to start? (pointer to allow calling function to read data)
+	containerName       string // feed-in container name
+	containerID         string // feed-in container ID
+}
+
+var (
+	feedInContainerNetwork = "bordercontrol_feeder" // name of docker network to attach feed-in containers to
+)
+
+// the following function is variable-ized so it can be overridden for unit testing
+var getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+	// set up docker client
+	cctx := context.Background()
+	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	return &cctx, cli, err
+}
+
+func checkFeederContainers(feedInImageName string, feedInImagePrefix string, checkFeederContainerSigs chan os.Signal) error {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
@@ -51,8 +61,7 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 
 	// set up docker client
 	log.Trace().Msg("set up docker client")
-	dockerCtx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	dockerCtx, cli, err := getDockerClient()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
 		return err
@@ -62,11 +71,11 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 	// prepare filters to find feed-in containers
 	log.Trace().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
-	filterFeedIn.Add("name", "feed-in-*")
+	filterFeedIn.Add("name", fmt.Sprintf("%s*", feedInImagePrefix))
 
 	// find containers
 	log.Trace().Msg("find containers")
-	containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
 		return err
@@ -76,17 +85,22 @@ func checkFeederContainers(ctx *cli.Context, checkFeederContainerSigs chan os.Si
 ContainerLoop:
 	for _, container := range containers {
 
-		log.Trace().Str("container", container.Names[0][1:]).Msg("checking container is running latest feed-in image")
+		log.Trace().
+			Str("container_id", container.ID).
+			Str("container_image", container.Image).
+			Str("container_name", container.Names[0]).
+			Str("feedInImageName", feedInImageName).
+			Msg("checking container")
 
 		// check containers are running latest feed-in image
-		if container.Image != ctx.String("feedinimage") {
+		if container.Image != feedInImageName {
 
 			log := log.With().Str("container", container.Names[0][1:]).Logger()
 
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
 			log.Info().Msg("out of date feed-in container being killed for recreation")
-			err := cli.ContainerRemove(dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
+			err := cli.ContainerRemove(*dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
 				log.Err(err).Msg("error killing out of date feed-in container")
 			} else {
@@ -118,50 +132,71 @@ ContainerLoop:
 	return nil
 }
 
-func startFeederContainers(ctx *cli.Context, containersToStart chan startContainerRequest) {
+func startFeederContainers(
+	feedInImageName string,
+	feedInImagePrefix string,
+	pwIngestPublish string,
+	containersToStartRequests chan startContainerRequest,
+	containersToStartResponses chan startContainerResponse,
+	stopChan chan bool,
+) error {
 	// reads startContainerRequests from channel containersToStart and starts container
 
 	log := log.With().
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
 
-	log.Trace().Msg("started")
+	originalLog := log
+
+	// log.Trace().Msg("started")
 
 	// set up docker client
-	dockerCtx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	log.Trace().Msg("set up docker client")
+	dockerCtx, cli, err := getDockerClient()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
-		os.Exit(1)
+		return err
 	}
 	defer cli.Close()
 
 	for {
 
+		var containerToStart startContainerRequest
+
+		select {
+
+		// quit this goroutine if asked to
+		case _ = <-stopChan:
+			return nil
+
 		// read from channel (this blocks until a request comes in)
-		containerToStart := <-containersToStart
+		case containerToStart = <-containersToStartRequests:
+		}
+
+		// prep response object
+		response := startContainerResponse{}
 
 		// prepare logger
 		log := log.With().
 			// Float64("lat", containerToStart.clientDetails.refLat).
 			// Float64("lon", containerToStart.clientDetails.refLon).
-			Str("mux", containerToStart.clientDetails.mux).
-			Str("label", containerToStart.clientDetails.label).
-			Str("uuid", containerToStart.clientDetails.clientApiKey.String()).
-			IPAddr("src", containerToStart.srcIP).
+			Str("mux", string(containerToStart.clientDetails.mux)).
+			Str("label", string(containerToStart.clientDetails.label)).
+			Str("uuid", string(containerToStart.clientDetails.clientApiKey.String())).
+			Str("src", string(containerToStart.srcIP.String())).
 			Logger()
 
 		// determine if container is already running
 
-		feederContainerName := fmt.Sprintf("feed-in-%s", containerToStart.clientDetails.clientApiKey.String())
+		response.containerName = fmt.Sprintf("%s%s", feedInImagePrefix, containerToStart.clientDetails.clientApiKey.String())
 
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
-		filterFeedIn.Add("name", feederContainerName)
+		filterFeedIn.Add("name", response.containerName)
 		filterFeedIn.Add("status", "running")
 
 		// find container
-		containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+		containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
 		if err != nil {
 			log.Err(err).Msg("error finding feed-in container")
 		}
@@ -180,7 +215,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 			// if container is not running, create it
 
 			// tell calling function that it should wait for services to start before proxying connections to the container
-			*containerToStart.containerStartDelay = true
+			response.containerStartDelay = true
 
 			// prepare environment variables for container
 			envVars := [...]string{
@@ -194,7 +229,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 				"READSB_NET_ONLY=true",
 				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", containerToStart.clientDetails.mux),
 				"PW_INGEST_PUBLISH=location-updates",
-				fmt.Sprintf("PW_INGEST_SINK=%s", ctx.String("pwingestpublish")),
+				fmt.Sprintf("PW_INGEST_SINK=%s", pwIngestPublish),
 			}
 
 			// prepare labels
@@ -207,7 +242,7 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 			// prepare container config
 			containerConfig := container.Config{
-				Image:  ctx.String("feedinimage"),
+				Image:  feedInImageName,
 				Env:    envVars[:],
 				Labels: containerLabels,
 			}
@@ -225,29 +260,37 @@ func startFeederContainers(ctx *cli.Context, containersToStart chan startContain
 
 			// prepare container network config
 			endpointsConfig := make(map[string]*network.EndpointSettings)
-			endpointsConfig["bordercontrol_feeder"] = &network.EndpointSettings{}
+			endpointsConfig[feedInContainerNetwork] = &network.EndpointSettings{}
 			networkingConfig := network.NetworkingConfig{
 				EndpointsConfig: endpointsConfig,
 			}
 
 			// create feed-in container
-			resp, err := cli.ContainerCreate(dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, feederContainerName)
+			resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, response.containerName)
 			if err != nil {
 				log.Err(err).Msg("could not create feed-in container")
+				response.err = err
 			} else {
 				log.Debug().Str("container_id", resp.ID).Msg("created feed-in container")
 			}
 
+			response.containerID = resp.ID
+
 			// start container
-			if err := cli.ContainerStart(dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
+			if err := cli.ContainerStart(*dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
 				log.Err(err).Msg("could not start feed-in container")
+				response.err = err
 			} else {
 				log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
 			}
 		}
 
-		// set waitgroup done so calling function can proceed
-		containerToStart.wg.Done()
+		// send response
+		containersToStartResponses <- response
+
+		// reset logger
+		log = originalLog
+
 	}
-	log.Trace().Msg("finished")
+	// log.Trace().Msg("finished")
 }
