@@ -257,18 +257,18 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
 	// lookup container IP, return TCP address
 	dstTCPAddr, err := lookupContainerTCP(container, port)
-
-	// update logger - panic???
 	if err != nil {
 		return c, err
 	}
+
+	// update logger
 	log = log.With().Str("dstTCPAddr", dstTCPAddr.IP.String()).Int("port", port).Logger()
 
 	// dial feed-in container
 	// log.Trace().Msg("performing DialTCP to IP")
 	c, err = net.DialTCP("tcp", nil, dstTCPAddr)
 	if err != nil {
-		log = log.With().AnErr("err", err).Logger()
+		return c, err
 	}
 
 	// log.Trace().Msg("finished")
