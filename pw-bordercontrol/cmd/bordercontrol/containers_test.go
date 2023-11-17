@@ -26,7 +26,7 @@ const (
 	TestfeedInImagePrefix = "test-feed-in-"
 
 	// mock feeder details
-	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25"
+	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25" // not a real feeder api key, generated with uuidgen
 	TestFeederLabel     = "Test Feeder 123"
 	TestFeederLatitude  = 123.456789
 	TestFeederLongitude = 98.765432
