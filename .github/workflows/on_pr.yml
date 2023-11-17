@@ -34,8 +34,10 @@ jobs:
             curl -fsSL https://get.docker.com -o /tmp/install-docker.sh
             sudo sh /tmp/install-docker.sh
       -
-        name: temp info from runner
-        run: cat /etc/hosts
+        name: go mod tidy
+        run: |
+          pushd pw-bordercontrol
+          go mod tidy
       -
         name: go test
         run: |
