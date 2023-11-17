@@ -61,7 +61,7 @@ RUN set -x && \
     # Install mlat-server
     git clone --single-branch --depth 1 https://github.com/wiedehopf/mlat-server.git /opt/mlat-server && \
     pushd /opt/mlat-server && \
-    python3 -m pip install --no-cache-dir pykalman python-graph-core && \
+    python3 -m pip install --break-system-packages --no-cache-dir pykalman python-graph-core && \
     python3 ./setup.py build && \
     python3 ./setup.py install && \
     python3 setup.py build_ext --inplace && \
