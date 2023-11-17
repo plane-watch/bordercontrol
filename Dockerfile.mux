@@ -25,7 +25,7 @@ RUN set -x && \
     TEMP_PACKAGES+=(librrd-dev) && \
     KEPT_PACKAGES+=(libncurses6) && \
     TEMP_PACKAGES+=(libncurses5-dev) && \
-    TEMP_PACKAGES+=(binutils) && \
+    KEPT_PACKAGES+=(binutils) && \
     # prerequisites for mlat-server
     KEPT_PACKAGES+=(python3) && \
     KEPT_PACKAGES+=(python3-pip) && \
