@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/nettest"
 )
 
 const MaxUint = ^uint(0)
@@ -123,5 +124,22 @@ func TestLookupContainerTCP(t *testing.T) {
 
 		assert.Error(t, err)
 	})
+
+}
+
+func TestDialContainerTCP(t *testing.T) {
+
+	// prepare mocked server
+	srv, err := nettest.NewLocalListener("tcp4")
+	assert.NoError(t, err)
+	go func() {
+		t.Log("listening on:", srv.Addr())
+		for {
+			_, err := srv.Accept()
+			if err != nil {
+				assert.NoError(t, err)
+			}
+		}
+	}()
 
 }
