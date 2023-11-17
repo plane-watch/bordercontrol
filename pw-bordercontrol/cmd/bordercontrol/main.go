@@ -112,7 +112,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "feedincontainerprefix",
 				Usage:   "feed-in container prefix",
-				Value:   "feed-in",
+				Value:   "feed-in-",
 				EnvVars: []string{"FEED_IN_CONTAINER_PREFIX"},
 			},
 			&cli.StringFlag{
