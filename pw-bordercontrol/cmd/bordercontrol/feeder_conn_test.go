@@ -164,6 +164,7 @@ func TestDialContainerTCP(t *testing.T) {
 	assert.NoError(t, err)
 
 	// test connection
+	t.Log("testing dialContainerTCP")
 	_, err = dialContainerTCP("localhost", port)
 	assert.NoError(t, err)
 
