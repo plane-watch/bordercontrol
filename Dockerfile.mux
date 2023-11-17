@@ -1,5 +1,9 @@
 FROM debian:bookworm-20231030-slim
+
+ARG S6_OVERLAY_VERSION=3.1.6.0
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN set -x && \
     TEMP_PACKAGES=() && \
     KEPT_PACKAGES=() && \
@@ -66,10 +70,6 @@ RUN set -x && \
     python3 ./setup.py install && \
     python3 setup.py build_ext --inplace && \
     popd && \
-    # install S6 Overlay
-    curl --location --output /tmp/deploy-s6-overlay.sh https://raw.githubusercontent.com/mikenye/deploy-s6-overlay/master/deploy-s6-overlay.sh && \
-    sh /tmp/deploy-s6-overlay.sh && \
-    rm -f /tmp/deploy-s6-overlay.sh && \
     # deploy healthchecks framework
     git clone \
       --depth=1 \
@@ -87,6 +87,11 @@ RUN set -x && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
 
 COPY pw-mux/rootfs/ /
+
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 
 # Set s6 init as entrypoint
 ENTRYPOINT [ "/init" ]
