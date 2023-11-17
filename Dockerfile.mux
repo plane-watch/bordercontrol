@@ -27,6 +27,12 @@ RUN set -x && \
     KEPT_PACKAGES+=(python3-setuptools) && \
     KEPT_PACKAGES+=(python3-wheel) && \
     KEPT_PACKAGES+=(libpython3-dev) && \
+    KEPT_PACKAGES+=(python3-numpy) && \
+    KEPT_PACKAGES+=(python3-scipy) && \
+    KEPT_PACKAGES+=(python3-uvloop) && \
+    KEPT_PACKAGES+=(python3-ujson) && \
+    KEPT_PACKAGES+=(python3-objgraph) && \
+    KEPT_PACKAGES+=(cython3) && \
     # install packages
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -55,7 +61,7 @@ RUN set -x && \
     # Install mlat-server
     git clone --single-branch --depth 1 https://github.com/wiedehopf/mlat-server.git /opt/mlat-server && \
     pushd /opt/mlat-server && \
-    python3 -m pip install --no-cache-dir numpy scipy pykalman python-graph-core uvloop ujson Cython objgraph && \
+    python3 -m pip install --no-cache-dir pykalman python-graph-core && \
     python3 ./setup.py build && \
     python3 ./setup.py install && \
     python3 setup.py build_ext --inplace && \
