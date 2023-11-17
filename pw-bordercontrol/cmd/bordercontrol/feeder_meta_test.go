@@ -60,24 +60,3 @@ func TestGetFeederInfo(t *testing.T) {
 	})
 
 }
-
-// func getFeederInfo(f *feederClient) error {
-// 	// return feeder info from atc, specifically: lat, lon, mux and label
-// 	found := false
-// 	validFeeders.mu.RLock()
-// 	defer validFeeders.mu.RUnlock()
-// 	for _, v := range validFeeders.Feeders {
-// 		if v.ApiKey == f.clientApiKey {
-// 			f.refLat = v.Latitude
-// 			f.refLon = v.Longitude
-// 			f.mux = v.Mux
-// 			f.label = v.Label
-// 			found = true
-// 			break
-// 		}
-// 	}
-// 	if !found {
-// 		return errors.New("could not find feeder")
-// 	}
-// 	return nil
-// }
