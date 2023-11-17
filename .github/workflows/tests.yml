@@ -1,12 +1,24 @@
 ---
-name: Pull Request
+name: Testing
 
 on:
   # Enable manual running of action if necessary
   workflow_dispatch:
-  # Test build/deploy on PRs to main/master
+  # Test build/deploy on PRs to main
   pull_request:
-    # Only publish on push to main branch
+    branches:
+      - main
+    # Don't trigger if it's just a documentation update
+    paths-ignore:
+      - '**.md'
+      - '**.MD'
+      - '**.yml'
+      - 'LICENSE'
+      - '.gitattributes'
+      - '.gitignore'
+      - '.dockerignore'
+  # Test on push to main branch (for codecov)
+  push:
     branches:
       - main
     # Don't trigger if it's just a documentation update
