@@ -13,6 +13,7 @@ RUN set -x && \
     KEPT_PACKAGES+=(ca-certificates) && \
     KEPT_PACKAGES+=(procps) && \
     KEPT_PACKAGES+=(iproute2) && \
+    KEPT_PACKAGES+=(xz-utils) && \
     # packages needed to build
     TEMP_PACKAGES+=(build-essential) && \
     TEMP_PACKAGES+=(cmake) && \
