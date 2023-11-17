@@ -25,27 +25,27 @@ jobs:
     name: Run go tests
     runs-on: ubuntu-latest
     steps:
-        -
-            name: Checkout
-            uses: actions/checkout@v4
-        -
-            name: Set up Docker
-            run: |
-                curl -fsSL https://get.docker.com -o /tmp/install-docker.sh
-                sudo sh /tmp/install-docker.sh
-        -
-            name: temp info from runner
-            run: cat /etc/hosts
-        -
-            name: go test
-            run: |
-                pushd pw-bordercontrol
-                sudo go test -v -coverprofile=../coverage.out -covermode=atomic ./...
-        -
-            name: Upload coverage reports to Codecov
-            uses: codecov/codecov-action@v3
-            env:
-                CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Set up Docker
+        run: |
+            curl -fsSL https://get.docker.com -o /tmp/install-docker.sh
+            sudo sh /tmp/install-docker.sh
+      -
+        name: temp info from runner
+        run: cat /etc/hosts
+      -
+        name: go test
+        run: |
+          pushd pw-bordercontrol
+          sudo go test -v -coverprofile=../coverage.out -covermode=atomic ./...
+      -
+        name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   test-build:
     name: Test build
