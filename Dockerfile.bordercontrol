@@ -12,6 +12,25 @@ FROM debian:bookworm-20231030-slim
 
 ARG S6_OVERLAY_VERSION=3.1.6.0
 
+RUN set -x && \
+    # Install required packages
+    TEMP_PACKAGES=() && \
+    KEPT_PACKAGES=() && \
+    KEPT_PACKAGES+=(net-tools) && \
+    KEPT_PACKAGES+=(procps) && \
+    KEPT_PACKAGES+=(xz-utils) && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        "${KEPT_PACKAGES[@]}" \
+        "${TEMP_PACKAGES[@]}" \
+        && \
+    # Clean up
+    apt-get remove -y "${TEMP_PACKAGES[@]}" && \
+    apt-get autoremove -y && \
+    rm -rf /src/* /tmp/* /var/lib/apt/lists/*
+
+
+
 COPY --from=builder /go/bin/bordercontrol /usr/local/bin/bordercontrol
 
 # Deploy s6 overlay
