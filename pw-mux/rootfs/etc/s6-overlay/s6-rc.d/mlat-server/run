@@ -16,12 +16,13 @@ mkdir -p /run/mlat-server/workdir
 # export OMP_NUM_THREADS
 # export PYTHONOPTIMIZE
 
-/opt/mlat-server/mlat-server \
-    --client-listen 0.0.0.0:12346 \
-    --motd "plane.watch:${HOSTNAME}" \
-    --work-dir /run/mlat-server/workdir \
-    --status-interval 3600 \
-    2>&1 
-    # | awk '{print "[mlat-server] " $0}'
+fdmove -c 2 1 \
+    /opt/mlat-server/mlat-server \
+        --client-listen 0.0.0.0:12346 \
+        --motd "plane.watch:${HOSTNAME}" \
+        --work-dir /run/mlat-server/workdir \
+        --status-interval 3600 |
+    sed --unbuffered '/^$/d' | 
+    awk -W Interactive '{print "[mlat-server] " $0}'
 
 sleep 5
