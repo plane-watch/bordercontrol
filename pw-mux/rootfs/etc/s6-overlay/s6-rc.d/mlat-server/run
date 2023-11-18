@@ -21,6 +21,7 @@ mkdir -p /run/mlat-server/workdir
     --motd "plane.watch:${HOSTNAME}" \
     --work-dir /run/mlat-server/workdir \
     --status-interval 3600 \
-    2>&1 | stdbuf -o0 awk '{print "[mlat-server] " $0}'
+    2>&1 
+    # | stdbuf -o0 awk '{print "[mlat-server] " $0}'
 
 sleep 5
