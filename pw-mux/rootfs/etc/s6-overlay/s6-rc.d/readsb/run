@@ -333,10 +333,8 @@ fi
 
 set -eo pipefail
 
-fdmove -c 2 1
+fdmove -c 2 1 "${READSB_BIN}" "${READSB_CMD[@]}" | awk -W Interactive '{print "[readsb] " $0}'
 
-# shellcheck disable=SC2016
-"${READSB_BIN}" "${READSB_CMD[@]}" | awk -W Interactive '{print "[readsb] " $0}'
-    # | sed --unbuffered '/^$/d' | awk '{print "[readsb] " strftime("%Y/%m/%d %H:%M:%S", systime()) " " $0}'
+# | sed --unbuffered '/^$/d' | awk '{print "[readsb] " strftime("%Y/%m/%d %H:%M:%S", systime()) " " $0}'
 
 sleep 5
