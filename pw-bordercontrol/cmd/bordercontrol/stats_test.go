@@ -93,6 +93,8 @@ func TestStats(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
+	validFeeders = atcFeeders{}
+
 	prepMetricsTestServer(t)
 
 	body := getMetricsFromTestServer(t, prepMetricsTestServerURL)
