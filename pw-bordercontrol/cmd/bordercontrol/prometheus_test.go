@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,9 @@ func TestProm(t *testing.T) {
 	go func() {
 		http.ListenAndServe(srv.Addr().String(), nil)
 	}()
+
+	// wait for server
+	time.Sleep(time.Second * 2)
 
 	// request metrics
 	requestURL := fmt.Sprintf("http://%s/metrics", srv.Addr().String())
