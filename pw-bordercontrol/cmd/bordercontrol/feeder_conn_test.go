@@ -390,54 +390,6 @@ func TestTLS(t *testing.T) {
 		assert.Equal(t, []byte("Hello World!"), buf)
 	})
 
-	t.Run("test readFromClient non-TLS", func(t *testing.T) {
-
-		var (
-			wgServerListener sync.WaitGroup
-			wgServerConn     sync.WaitGroup
-			serverListener   net.Listener
-			serverConn       net.Conn
-		)
-		// spin up server that will accept one connection (serverConn)
-		wgServerListener.Add(1)
-		wgServerConn.Add(1)
-		go func() {
-			serverListener, err = nettest.NewLocalListener("tcp4")
-			assert.NoError(t, err)
-			wgServerListener.Done()
-			serverConn, err = serverListener.Accept()
-			assert.NoError(t, err)
-			wgServerConn.Done()
-		}()
-		wgServerListener.Wait()
-
-		// spin up client connection
-		// serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
-		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
-		assert.NoError(t, err)
-
-		connectTo := net.TCPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: serverPort,
-			Zone: "",
-		}
-		clientConn, err := net.DialTCP("tcp4", nil, &connectTo)
-		assert.NoError(t, err)
-
-		wgServerConn.Wait()
-
-		go func() {
-			_, err := clientConn.Write([]byte("Hello World!"))
-			assert.NoError(t, err)
-		}()
-
-		buf := make([]byte, 12)
-		_, err = readFromClient(serverConn, buf)
-		assert.Error(t, err)
-		assert.Equal(t, "tls: first record does not look like a TLS handshake", err.Error())
-
-	})
-
 	t.Run("test checkConnTLSHandshakeComplete", func(t *testing.T) {
 		assert.True(t, checkConnTLSHandshakeComplete(c))
 	})
@@ -447,6 +399,70 @@ func TestTLS(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, testSNI, u)
 	})
+}
+
+func TestTLS_NonTLSClient(t *testing.T) {
+
+	t.Log("preparing test environment TLS cert/key")
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	assert.NoError(t, err, "could not create temporary certificate file for test")
+	defer func() {
+		// clean up after testing
+		certFile.Close()
+		os.Remove(certFile.Name())
+	}()
+
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	assert.NoError(t, err, "could not create temporary private key file for test")
+	defer func() {
+		// clean up after testing
+		keyFile.Close()
+		os.Remove(keyFile.Name())
+	}()
+
+	// generate cert/key for testing
+	err = generateTLSCertAndKey(keyFile, certFile)
+	assert.NoError(t, err, "could not generate cert/key for test")
+
+	// prep tls config for mocked server
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	assert.NoError(t, err, "could not load TLS cert/key for test")
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// get testing host/port
+	n, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err, "could not generate new local listener for test")
+	tlsListenAddr := n.Addr().String()
+	err = n.Close()
+	assert.NoError(t, err, "could not close temp local listener for test")
+
+	// configure temp listener
+	tlsListener, err := tls.Listen("tcp4", tlsListenAddr, &tlsConfig)
+	defer tlsListener.Close()
+
+	t.Log("starting test environment TLS server")
+	var wg sync.WaitGroup
+	var svrConn net.Conn
+	wg.Add(1)
+	go func() {
+		svrConn, err = tlsListener.Accept()
+		assert.NoError(t, err, "could not accept test connection")
+		wg.Done()
+	}()
+
+	c, err := net.Dial("tcp4", tlsListener.Addr().String())
+	assert.NoError(t, err)
+
+	t.Run("test readFromClient non TLS client", func(t *testing.T) {
+		t.Log("finally, testing readFromClient")
+		buf := make([]byte, 12)
+		_, err = readFromClient(c, buf)
+		assert.NoError(t, err)
+	})
+
 }
 
 func TestProxyClientToServer(t *testing.T) {
