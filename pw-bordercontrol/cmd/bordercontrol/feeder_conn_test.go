@@ -413,6 +413,9 @@ func TestProxyClientToServer(t *testing.T) {
 	serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
 	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 	assert.NoError(t, err)
+
+	t.Log("serverAddr: ", serverAddr)
+	t.Log("serverPort: ", serverPort)
 	clientConn, err := net.DialTCP("tcp4", nil, &net.TCPAddr{IP: net.IP(serverAddr), Port: serverPort})
 	assert.NoError(t, err)
 
