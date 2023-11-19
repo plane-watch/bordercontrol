@@ -59,8 +59,8 @@ func TestStats(t *testing.T) {
 		s := fmt.Sprintf(expectedMetric, 0)
 		t.Log("checking for:", s)
 		assert.Equal(t,
-			strings.Count(body, s),
 			1,
+			strings.Count(body, s),
 		)
 	}
 
@@ -116,5 +116,7 @@ func TestStats(t *testing.T) {
 			1,
 		)
 	}
+
+	fmt.Println(body)
 
 }
