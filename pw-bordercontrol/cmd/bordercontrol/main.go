@@ -29,6 +29,8 @@ var (
 
 	chanSIGHUP  chan os.Signal
 	chanSIGUSR1 chan os.Signal
+
+	statsManagerAddr string
 )
 
 const (

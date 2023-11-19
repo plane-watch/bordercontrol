@@ -549,7 +549,10 @@ func statsManager(addr string) {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
+		Str("addr", addr).
 		Logger()
+
+	statsManagerAddr = addr
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)

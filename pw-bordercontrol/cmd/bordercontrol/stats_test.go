@@ -14,35 +14,10 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
-
-var prepMetricsTestServerURL string
-
-func prepMetricsTestServer(t *testing.T) {
-
-	if prepMetricsTestServerURL == "" {
-
-		// start metrics server
-		srv, err := nettest.NewLocalListener("tcp4")
-		assert.NoError(t, err)
-		err = srv.Close()
-		assert.NoError(t, err)
-		http.Handle("/metrics", promhttp.Handler())
-		go func() {
-			http.ListenAndServe(srv.Addr().String(), nil)
-		}()
-
-		// wait for server
-		time.Sleep(time.Second * 1)
-
-		// return url
-		prepMetricsTestServerURL = fmt.Sprintf("http://%s/metrics", srv.Addr().String())
-	}
-}
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 	// request metrics
@@ -95,18 +70,20 @@ func TestStats(t *testing.T) {
 
 	validFeeders = atcFeeders{}
 
-	// get address for testing
-	nl, err := nettest.NewLocalListener("tcp4")
-	assert.NoError(t, err)
-	nl.Close()
+	// start statsManager testing server
+	if statsManagerAddr == "" {
+		// get address for testing
+		nl, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		nl.Close()
+		go statsManager(nl.Addr().String())
 
-	go statsManager(nl.Addr().String())
-
-	// wait for server to come up
-	time.Sleep(1 * time.Second)
+		// wait for server to come up
+		time.Sleep(1 * time.Second)
+	}
 
 	// prep url pats
-	statsBaseURL := fmt.Sprintf("http://%s", nl.Addr().String())
+	statsBaseURL := fmt.Sprintf("http://%s", statsManagerAddr)
 	metricsURL := fmt.Sprintf("%s/metrics", statsBaseURL)
 
 	body := getMetricsFromTestServer(t, metricsURL)
