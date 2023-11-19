@@ -132,14 +132,15 @@ func TestLookupContainerTCP(t *testing.T) {
 
 	// test lookup failure
 	t.Run("test lookup failure", func(t *testing.T) {
-
-		// prepare test data
-		port := 12345
-		_, err := lookupContainerTCP("something.invalid", port)
-
+		_, err := lookupContainerTCP("something.invalid", 12345)
 		assert.Error(t, err)
 	})
 
+	// test ipv6 (currently unsupported)
+	t.Run("test unsupported IPv6", func(t *testing.T) {
+		_, err := lookupContainerTCP("::1", 12345)
+		assert.Error(t, err)
+	})
 }
 
 func TestDialContainerTCP(t *testing.T) {
@@ -177,4 +178,9 @@ func TestDialContainerTCP(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	// test ipv6 (currently unsupported)
+	t.Run("test unsupported IPv6", func(t *testing.T) {
+		_, err := dialContainerTCP("::1", 12345)
+		assert.Error(t, err)
+	})
 }
