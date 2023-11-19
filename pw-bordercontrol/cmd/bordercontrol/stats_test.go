@@ -38,8 +38,7 @@ func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 	// request metrics
 	res, err := http.Get(requestURL)
 	assert.NoError(t, err)
-	fmt.Printf("client: got response!\n")
-	fmt.Printf("client: status code: %d\n", res.StatusCode)
+	assert.Equal(t, http.StatusOK, res.StatusCode)
 	bodyBytes, err := io.ReadAll(res.Body)
 	assert.NoError(t, err)
 	return string(bodyBytes)
