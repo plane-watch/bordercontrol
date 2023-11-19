@@ -406,7 +406,6 @@ func TestTLS(t *testing.T) {
 		buf := make([]byte, 12)
 		_, err = readFromClient(clientConn, buf)
 		assert.Error(t, err)
-		fmt.Println(err)
 	})
 }
 
