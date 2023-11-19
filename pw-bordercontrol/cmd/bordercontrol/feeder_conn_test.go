@@ -399,6 +399,15 @@ func TestTLS(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, testSNI, u)
 	})
+
+	c.Close()
+	t.Run("test readFromClient closed", func(t *testing.T) {
+		t.Log("finally, testing readFromClient")
+		buf := make([]byte, 12)
+		_, err = readFromClient(c, buf)
+		assert.Error(t, err)
+		fmt.Println(err)
+	})
 }
 
 func TestTLS_NonTLSClient(t *testing.T) {
@@ -468,16 +477,7 @@ func TestTLS_NonTLSClient(t *testing.T) {
 	})
 
 	svrConn.Close()
-
-	t.Run("test readFromClient EOF", func(t *testing.T) {
-		buf := make([]byte, 12)
-		_, err = readFromClient(svrConn, buf)
-		assert.Error(t, err)
-		fmt.Println(err)
-	})
-
 	c.Close()
-
 }
 
 func TestProxyClientToServer(t *testing.T) {
