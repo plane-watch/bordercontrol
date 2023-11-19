@@ -100,7 +100,12 @@ func TestStats(t *testing.T) {
 	assert.NoError(t, err)
 	nl.Close()
 
-	statsManager(nl.Addr().String())
+	go statsManager(nl.Addr().String())
+
+	// wait for server to come up
+	time.Sleep(1 * time.Second)
+
+	// prep url pats
 	statsBaseURL := fmt.Sprintf("http://%s", nl.Addr().String())
 	metricsURL := fmt.Sprintf("%s/metrics", statsBaseURL)
 
