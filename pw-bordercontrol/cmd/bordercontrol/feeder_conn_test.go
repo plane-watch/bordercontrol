@@ -279,7 +279,7 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 	return nil
 }
 
-func TestReadFromClient(t *testing.T) {
+func TestTLS(t *testing.T) {
 
 	t.Log("preparing test environment TLS cert/key")
 
@@ -357,9 +357,21 @@ func TestReadFromClient(t *testing.T) {
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
 
-	t.Log("finally, testing readFromClient")
-	buf := make([]byte, 12)
-	_, err = readFromClient(c, buf)
-	assert.NoError(t, err)
-	assert.Equal(t, []byte("Hello World!"), buf)
+	t.Run("test checkConnTLSHandshakeComplete", func(t *testing.T) {
+		assert.True(t, checkConnTLSHandshakeComplete(c))
+	})
+
+	t.Run("test getUUIDfromSNI", func(t *testing.T) {
+		u, err := getUUIDfromSNI(c)
+		assert.NoError(t, err)
+		assert.Equal(t, testSNI, u)
+	})
+
+	t.Run("test readFromClient", func(t *testing.T) {
+		t.Log("finally, testing readFromClient")
+		buf := make([]byte, 12)
+		_, err = readFromClient(c, buf)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("Hello World!"), buf)
+	})
 }
