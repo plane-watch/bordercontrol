@@ -1,8 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -183,4 +191,131 @@ func TestDialContainerTCP(t *testing.T) {
 		_, err := dialContainerTCP("::1", 12345)
 		assert.Error(t, err)
 	})
+}
+
+func generateTLSCertAndKey(keyFile, certFile *os.File) error {
+
+	// Thanks to: https://go.dev/src/crypto/tls/generate_cert.go
+
+	// prep certificate info
+	hosts := []string{"localhost"}
+	ipAddrs := []net.IP{net.IPv4(127, 0, 0, 1)}
+	notBefore := time.Now()
+	notAfter := time.Now().Add(time.Minute * 15)
+	isCA := true
+	rsaBits := 2048
+
+	// generate private key
+	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
+	if err != nil {
+		return err
+	}
+
+	keyUsage := x509.KeyUsageDigitalSignature
+	keyUsage |= x509.KeyUsageKeyEncipherment
+
+	// generate serial number
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return err
+	}
+
+	// prep cert template
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"plane.watch unit testing org"},
+		},
+		NotBefore: notBefore,
+		NotAfter:  notAfter,
+
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// add hostname(s)
+	for _, host := range hosts {
+		template.DNSNames = append(template.DNSNames, host)
+	}
+
+	// add ip(s)
+	for _, ip := range ipAddrs {
+		template.IPAddresses = append(template.IPAddresses, ip)
+	}
+
+	// if self-signed, include CA
+	if isCA {
+		template.IsCA = true
+		template.KeyUsage |= x509.KeyUsageCertSign
+	}
+
+	// create certificate
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.PublicKey, priv)
+	if err != nil {
+		return err
+	}
+
+	// encode certificate
+	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err != nil {
+		return err
+	}
+
+	// marhsal private key
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return err
+	}
+
+	// write private key
+	err = pem.Encode(keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func TestTLS(t *testing.T) {
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	assert.NoError(t, err, "could not create temporary certificate file for test")
+	defer func() {
+		// clean up after testing
+		certFile.Close()
+		os.Remove(certFile.Name())
+	}()
+
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	assert.NoError(t, err, "could not create temporary private key file for test")
+	defer func() {
+		// clean up after testing
+		keyFile.Close()
+		os.Remove(keyFile.Name())
+	}()
+
+	// generate cert/key for testing
+	err = generateTLSCertAndKey(keyFile, certFile)
+	assert.NoError(t, err, "could not generate cert/key for test")
+
+	// prep tls config for mocked server
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	assert.NoError(t, err, "could not load TLS cert/key for test")
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// get testing host/port
+	n, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err, "could not generate new local listener")
+	tlsListenAddr := n.Addr().String()
+	err = n.Close()
+	assert.NoError(t, err, "could not close temp local listener")
+
+	// configure temp listener
+	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	defer tlsListener.Close()
+
 }
