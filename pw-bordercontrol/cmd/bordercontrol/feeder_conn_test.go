@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -389,16 +390,23 @@ func TestProxyClientToServer(t *testing.T) {
 		serverConn     net.Conn
 		serverListener net.Listener
 		err            error
+		wg             sync.WaitGroup
 	)
 
 	t.Log("preparing test client/server connections")
 
+	// spin up server that will accept one connection (serverConn)
+	wg.Add(1)
 	go func() {
 		serverListener, err = nettest.NewLocalListener("tcp")
 		assert.NoError(t, err)
 		serverConn, err = serverListener.Accept()
 		assert.NoError(t, err)
+		wg.Done()
 	}()
+	wg.Wait()
+
+	// spin up client connection
 	serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
 	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 	assert.NoError(t, err)
