@@ -463,6 +463,9 @@ func TestTLS_NonTLSClient(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	svrConn.Close()
+	c.Close()
+
 }
 
 func TestProxyClientToServer(t *testing.T) {
