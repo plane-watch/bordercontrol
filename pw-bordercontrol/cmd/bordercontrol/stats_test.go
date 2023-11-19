@@ -194,10 +194,10 @@ func TestStats(t *testing.T) {
 		`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
 	}
 	notExpectedMetrics := []string{
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"} 100`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"} 300`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"} 200`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"} 400`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
 	}
 
 	checkPromMetricsExist(t, body, expectedMetrics)
