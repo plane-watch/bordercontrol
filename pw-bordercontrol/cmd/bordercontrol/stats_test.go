@@ -16,22 +16,28 @@ import (
 	"golang.org/x/net/nettest"
 )
 
-func prepMetricsTestServer(t *testing.T) (url string) {
-	// start metrics server
-	srv, err := nettest.NewLocalListener("tcp4")
-	assert.NoError(t, err)
-	err = srv.Close()
-	assert.NoError(t, err)
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		http.ListenAndServe(srv.Addr().String(), nil)
-	}()
+var prepMetricsTestServerURL string
 
-	// wait for server
-	time.Sleep(time.Second * 1)
+func prepMetricsTestServer(t *testing.T) {
 
-	// return url
-	return fmt.Sprintf("http://%s/metrics", srv.Addr().String())
+	if prepMetricsTestServerURL == "" {
+
+		// start metrics server
+		srv, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		err = srv.Close()
+		assert.NoError(t, err)
+		http.Handle("/metrics", promhttp.Handler())
+		go func() {
+			http.ListenAndServe(srv.Addr().String(), nil)
+		}()
+
+		// wait for server
+		time.Sleep(time.Second * 1)
+
+		// return url
+		prepMetricsTestServerURL = fmt.Sprintf("http://%s/metrics", srv.Addr().String())
+	}
 }
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
@@ -66,9 +72,9 @@ func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []st
 
 func TestStats(t *testing.T) {
 
-	requestURL := prepMetricsTestServer(t)
+	prepMetricsTestServer(t)
 
-	body := getMetricsFromTestServer(t, requestURL)
+	body := getMetricsFromTestServer(t, prepMetricsTestServerURL)
 
 	expectedMetrics := []string{
 		`pw_bordercontrol_connections{protocol="beast"} 0`,
@@ -120,7 +126,7 @@ func TestStats(t *testing.T) {
 	stats.incrementByteCounters(u, 1, 100, 200)
 	stats.incrementByteCounters(u, 2, 300, 400)
 
-	body = getMetricsFromTestServer(t, requestURL)
+	body = getMetricsFromTestServer(t, prepMetricsTestServerURL)
 
 	// new expected metrics
 	expectedMetrics = []string{
@@ -148,7 +154,7 @@ func TestStats(t *testing.T) {
 	stats.delConnection(u, protoBeast, 1)
 	stats.delConnection(u, protoMLAT, 2)
 
-	body = getMetricsFromTestServer(t, requestURL)
+	body = getMetricsFromTestServer(t, prepMetricsTestServerURL)
 
 	// new expected metrics
 	expectedMetrics = []string{
