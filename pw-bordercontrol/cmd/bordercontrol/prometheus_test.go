@@ -18,7 +18,9 @@ func TestProm(t *testing.T) {
 	err = srv.Close()
 	assert.NoError(t, err)
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(srv.Addr().String(), nil)
+	go func() {
+		http.ListenAndServe(srv.Addr().String(), nil)
+	}()
 
 	// request metrics
 	requestURL := fmt.Sprintf("http://%s/metrics", srv.Addr().String())
