@@ -33,6 +33,8 @@ func TestProm(t *testing.T) {
 	assert.NoError(t, err)
 	fmt.Printf("client: got response!\n")
 	fmt.Printf("client: status code: %d\n", res.StatusCode)
-	fmt.Println(io.ReadAll(res.Body))
+	body, err := io.ReadAll(res.Body)
+	assert.NoError(t, err)
+	fmt.Println(string(body))
 
 }
