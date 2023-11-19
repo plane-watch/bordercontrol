@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/distribution/uuid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
@@ -25,6 +26,8 @@ const MaxUint = ^uint(0)
 const MinUint = 0
 const MaxInt = int(MaxUint >> 1)
 const MinInt = -MaxInt - 1
+
+var testSNI = uuid.Generate()
 
 func TestGetNum(t *testing.T) {
 
@@ -307,13 +310,37 @@ func TestTLS(t *testing.T) {
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
-	assert.NoError(t, err, "could not generate new local listener")
+	assert.NoError(t, err, "could not generate new local listener for test")
 	tlsListenAddr := n.Addr().String()
 	err = n.Close()
-	assert.NoError(t, err, "could not close temp local listener")
+	assert.NoError(t, err, "could not close temp local listener for test")
 
 	// configure temp listener
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
 	defer tlsListener.Close()
+
+	// load root CAs
+	scp, err := x509.SystemCertPool()
+	assert.NoError(t, err, "could not use system cert pool for test")
+
+	// set up tls config
+	tlsConfig := tls.Config{
+		RootCAs:            scp,
+		ServerName:         testSNI.String(),
+		InsecureSkipVerify: true,
+	}
+
+	d := net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+
+	// dial remote
+	clientConn, err := tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+	assert.NoError(t, err, "could not dial test server")
+	defer clientConn.Close()
+
+	// perform handshake
+	err = clientConn.Handshake()
+	assert.NoError(t, err, "could not handshake with test server")
 
 }
