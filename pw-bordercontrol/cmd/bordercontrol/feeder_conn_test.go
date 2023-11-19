@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
+	"modernc.org/libc/signal"
 )
 
 const MaxUint = ^uint(0)
@@ -306,6 +306,9 @@ func TestTLS(t *testing.T) {
 
 	t.Log("preparing test environment TLS cert/key")
 
+	// prep signal channels
+	prepSignalChannels()
+
 	// prep cert file
 	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
 	assert.NoError(t, err, "could not create temporary certificate file for test")
@@ -329,14 +332,12 @@ func TestTLS(t *testing.T) {
 	assert.NoError(t, err, "could not generate cert/key for test")
 
 	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// test reload via signal
-	pid := os.Getpid()
-	err = syscall.Kill(pid, syscall.SIGHUP)
-	assert.Error(t, err)
+	chanSIGHUP <- signal.SIGHUP
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
@@ -442,7 +443,7 @@ func TestTLS_NonTLSClient(t *testing.T) {
 	assert.NoError(t, err, "could not generate cert/key for test")
 
 	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
