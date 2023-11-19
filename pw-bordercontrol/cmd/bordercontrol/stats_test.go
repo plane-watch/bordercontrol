@@ -181,8 +181,14 @@ func TestStats(t *testing.T) {
 	// tests
 	checkPromMetricsExist(t, body, expectedMetrics)
 
+	// add another beast connection
+	stats.addConnection(u, &ip, &ip, protoBeast, 3)
+
 	// remove connections (working)
 	stats.delConnection(u, protoBeast, 1)
+
+	// remove connections (working)
+	stats.delConnection(u, protoBeast, 3)
 
 	// remove connection (connnum not found)
 	stats.delConnection(u, protoBeast, 1)
