@@ -139,8 +139,9 @@ var (
 			n := float64(0)
 
 			// set up docker client
-			dockerCtx := context.Background()
-			cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			// dockerCtx := context.Background()
+			// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			dockerCtx, cli, err := getDockerClient()
 			if err != nil {
 				panic(err)
 			}
@@ -151,7 +152,7 @@ var (
 			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 			// find containers
-			containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
+			containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
 			if err != nil {
 				panic(err)
 			}
