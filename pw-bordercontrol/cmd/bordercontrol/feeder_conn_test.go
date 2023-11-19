@@ -410,12 +410,10 @@ func TestProxyClientToServer(t *testing.T) {
 	wgServerListener.Wait()
 
 	// spin up client connection
-	serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
+	// serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
 	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 	assert.NoError(t, err)
 
-	t.Log("serverAddr: ", serverAddr)
-	t.Log("serverPort: ", serverPort)
 	connectTo := net.TCPAddr{
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: serverPort,
@@ -434,6 +432,82 @@ func TestProxyClientToServer(t *testing.T) {
 	// test proxyClientToServer
 	lastAuthCheck := time.Now()
 	go proxyClientToServer(
+		serverConn,
+		clientConn,
+		uint(1),
+		testSNI,
+		&pStatus,
+		&lastAuthCheck,
+		log.Logger,
+	)
+
+	// send data to be proxied
+	_, err = serverConn.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read data from the other end of the proxy
+	buf := make([]byte, 12)
+	_, err = clientConn.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+}
+
+func TestProxyServerToClient(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	var (
+		serverConn       net.Conn
+		serverListener   net.Listener
+		err              error
+		wgServerListener sync.WaitGroup
+		wgServerConn     sync.WaitGroup
+	)
+
+	t.Log("preparing test client/server connections")
+
+	// spin up server that will accept one connection (serverConn)
+	wgServerListener.Add(1)
+	wgServerConn.Add(1)
+	go func() {
+		serverListener, err = nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		wgServerListener.Done()
+		serverConn, err = serverListener.Accept()
+		assert.NoError(t, err)
+		wgServerConn.Done()
+	}()
+	wgServerListener.Wait()
+
+	// spin up client connection
+	// serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
+	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
+	assert.NoError(t, err)
+
+	connectTo := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: serverPort,
+		Zone: "",
+	}
+	clientConn, err := net.DialTCP("tcp4", nil, &connectTo)
+	assert.NoError(t, err)
+
+	wgServerConn.Wait()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	go proxyServerToClient(
 		serverConn,
 		clientConn,
 		uint(1),
