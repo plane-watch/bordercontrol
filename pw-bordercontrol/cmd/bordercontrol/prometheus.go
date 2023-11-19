@@ -149,6 +149,7 @@ var (
 			// prepare filter to find feed-in containers
 			filters := filters.NewArgs()
 			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
+			fmt.Println(filters)
 
 			// find containers
 			containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
