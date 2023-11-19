@@ -222,7 +222,7 @@ func startFeederContainers(
 				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.clientDetails.refLat),
 				fmt.Sprintf("FEEDER_LON=%f", containerToStart.clientDetails.refLon),
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
-				"READSB_STATS_EVERY=300",
+				// "READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
 				"READSB_NET_BEAST_INPUT_PORT=12345",
 				"READSB_NET_BEAST_OUTPUT_PORT=30005",

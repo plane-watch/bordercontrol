@@ -23,6 +23,6 @@ updates:
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: daily
+      interval: "daily"
     assignees:
       - "mikenye"

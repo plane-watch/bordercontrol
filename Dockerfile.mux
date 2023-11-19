@@ -1,5 +1,9 @@
-FROM debian:bullseye-20231030-slim
+FROM debian:bookworm-20231030-slim
+
+ARG S6_OVERLAY_VERSION=3.1.6.0
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 RUN set -x && \
     TEMP_PACKAGES=() && \
     KEPT_PACKAGES=() && \
@@ -9,6 +13,7 @@ RUN set -x && \
     KEPT_PACKAGES+=(ca-certificates) && \
     KEPT_PACKAGES+=(procps) && \
     KEPT_PACKAGES+=(iproute2) && \
+    KEPT_PACKAGES+=(xz-utils) && \
     # packages needed to build
     TEMP_PACKAGES+=(build-essential) && \
     TEMP_PACKAGES+=(cmake) && \
@@ -20,21 +25,25 @@ RUN set -x && \
     TEMP_PACKAGES+=(librrd-dev) && \
     KEPT_PACKAGES+=(libncurses6) && \
     TEMP_PACKAGES+=(libncurses5-dev) && \
-    TEMP_PACKAGES+=(binutils) && \
+    KEPT_PACKAGES+=(binutils) && \
     # prerequisites for mlat-server
     KEPT_PACKAGES+=(python3) && \
     KEPT_PACKAGES+=(python3-pip) && \
     KEPT_PACKAGES+=(python3-setuptools) && \
     KEPT_PACKAGES+=(python3-wheel) && \
     KEPT_PACKAGES+=(libpython3-dev) && \
+    KEPT_PACKAGES+=(python3-numpy) && \
+    KEPT_PACKAGES+=(python3-scipy) && \
+    KEPT_PACKAGES+=(python3-uvloop) && \
+    KEPT_PACKAGES+=(python3-ujson) && \
+    KEPT_PACKAGES+=(python3-objgraph) && \
+    KEPT_PACKAGES+=(cython3) && \
     # install packages
     apt-get update && \
     apt-get install -y --no-install-recommends \
         "${KEPT_PACKAGES[@]}" \
         "${TEMP_PACKAGES[@]}" \
         && \
-    # Upgrade pip
-    python3 -m pip install --no-cache-dir -U pip && \
     # install mictronics readsb
     BRANCH_READSB="dev" && \
     # readsb: clone repo
@@ -57,15 +66,11 @@ RUN set -x && \
     # Install mlat-server
     git clone --single-branch --depth 1 https://github.com/wiedehopf/mlat-server.git /opt/mlat-server && \
     pushd /opt/mlat-server && \
-    python3 -m pip install --no-cache-dir numpy scipy pykalman python-graph-core uvloop ujson Cython objgraph && \
+    python3 -m pip install --break-system-packages --no-cache-dir pykalman python-graph-core && \
     python3 ./setup.py build && \
     python3 ./setup.py install && \
     python3 setup.py build_ext --inplace && \
     popd && \
-    # install S6 Overlay
-    curl --location --output /tmp/deploy-s6-overlay.sh https://raw.githubusercontent.com/mikenye/deploy-s6-overlay/master/deploy-s6-overlay.sh && \
-    sh /tmp/deploy-s6-overlay.sh && \
-    rm -f /tmp/deploy-s6-overlay.sh && \
     # deploy healthchecks framework
     git clone \
       --depth=1 \
@@ -83,6 +88,16 @@ RUN set -x && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
 
 COPY pw-mux/rootfs/ /
+
+# Deploy s6 overlay
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
+
+# Configure s6 overlay
+ENV S6_LOGGING=0 \
+    S6_VERBOSITY=1
 
 # Set s6 init as entrypoint
 ENTRYPOINT [ "/init" ]
