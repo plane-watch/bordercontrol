@@ -16,6 +16,8 @@ func TestDFWTB(t *testing.T) {
 
 func TestGetRepoInfo(t *testing.T) {
 	ch, ct := getRepoInfo()
+
+	// return unknown during testing
 	assert.Equal(t, "unknown", ch)
 	assert.Equal(t, "unknown", ct)
 }
