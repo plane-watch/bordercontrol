@@ -468,6 +468,14 @@ func TestTLS_NonTLSClient(t *testing.T) {
 	})
 
 	svrConn.Close()
+
+	t.Run("test readFromClient EOF", func(t *testing.T) {
+		buf := make([]byte, 12)
+		_, err = readFromClient(svrConn, buf)
+		assert.Error(t, err)
+		fmt.Println(err)
+	})
+
 	c.Close()
 
 }
