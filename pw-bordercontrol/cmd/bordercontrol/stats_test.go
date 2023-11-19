@@ -175,6 +175,7 @@ func TestStats(t *testing.T) {
 	checkPromMetricsExist(t, body, expectedMetrics)
 
 	// add some traffic
+	// these values are chosen for the web UI so it can calculate K, M, G
 	stats.incrementByteCounters(u, 1, 1024, 1048576)
 	stats.incrementByteCounters(u, 2, 1073741824, 1099511627776)
 
