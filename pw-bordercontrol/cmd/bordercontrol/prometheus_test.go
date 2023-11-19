@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -24,7 +25,7 @@ func TestProm(t *testing.T) {
 	}()
 
 	// wait for server
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 1)
 
 	// request metrics
 	requestURL := fmt.Sprintf("http://%s/metrics", srv.Addr().String())
@@ -32,5 +33,6 @@ func TestProm(t *testing.T) {
 	assert.NoError(t, err)
 	fmt.Printf("client: got response!\n")
 	fmt.Printf("client: status code: %d\n", res.StatusCode)
+	fmt.Println(io.ReadAll(res.Body))
 
 }
