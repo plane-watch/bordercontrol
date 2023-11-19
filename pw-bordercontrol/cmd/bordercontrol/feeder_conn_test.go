@@ -502,11 +502,12 @@ func TestProxyClientToServer(t *testing.T) {
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
 	go func() {
-		serverListener, err = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, err)
+		var e error
+		serverListener, e = nettest.NewLocalListener("tcp4")
+		assert.NoError(t, e)
 		wgServerListener.Done()
-		serverConn, err = serverListener.Accept()
-		assert.NoError(t, err)
+		serverConn, e = serverListener.Accept()
+		assert.NoError(t, e)
 		wgServerConn.Done()
 	}()
 	wgServerListener.Wait()
