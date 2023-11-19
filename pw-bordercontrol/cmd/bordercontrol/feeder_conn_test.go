@@ -334,13 +334,28 @@ func TestTLS(t *testing.T) {
 		Timeout: 10 * time.Second,
 	}
 
-	// dial remote
-	clientConn, err := tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
-	assert.NoError(t, err, "could not dial test server")
-	defer clientConn.Close()
+	go func() {
+		// dial remote
+		clientConn, err := tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		assert.NoError(t, err, "could not dial test server")
+		defer clientConn.Close()
 
-	// perform handshake
-	err = clientConn.Handshake()
-	assert.NoError(t, err, "could not handshake with test server")
+		// perform handshake
+		err = clientConn.Handshake()
+		assert.NoError(t, err, "could not handshake with test server")
+
+		_, err = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, err, "could not send test data")
+
+		defer clientConn.Close()
+	}()
+
+	c, err := tlsListener.Accept()
+	assert.NoError(t, err, "could not accept test connection")
+
+	buf := make([]byte, 12)
+	_, err = readFromClient(c, buf)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("Hello World!"), buf)
 
 }
