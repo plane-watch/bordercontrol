@@ -176,6 +176,7 @@ func TestDialContainerTCP(t *testing.T) {
 			}
 		}()
 
+		// get port
 		port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
 		assert.NoError(t, err)
 
@@ -194,6 +195,25 @@ func TestDialContainerTCP(t *testing.T) {
 	// test ipv6 (currently unsupported)
 	t.Run("test unsupported IPv6", func(t *testing.T) {
 		_, err := dialContainerTCP("::1", 12345)
+		assert.Error(t, err)
+	})
+
+	// test broken server
+	t.Run("test broken server", func(t *testing.T) {
+		// prepare mocked server
+		srv, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+
+		// get port
+		port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
+		assert.NoError(t, err)
+
+		// close mocked server
+		srv.Close()
+
+		// test connection
+		t.Log("testing dialContainerTCP to broken server")
+		_, err = dialContainerTCP("localhost", port)
 		assert.Error(t, err)
 	})
 }
@@ -339,21 +359,23 @@ func TestTLS(t *testing.T) {
 	}
 
 	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
 	go func() {
 		// dial remote
-		clientConn, err := tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
-		assert.NoError(t, err, "could not dial test server")
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
 		// perform handshake
-		err = clientConn.Handshake()
-		assert.NoError(t, err, "could not handshake with test server")
+		e = clientConn.Handshake()
+		assert.NoError(t, e, "could not handshake with test server")
 
-		_, err = clientConn.Write([]byte("Hello World!"))
-		assert.NoError(t, err, "could not send test data")
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
 
-		_, err = clientConn.Write([]byte("Hello World!"))
-		assert.NoError(t, err, "could not send test data")
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
 
 		defer clientConn.Close()
 	}()
@@ -362,8 +384,7 @@ func TestTLS(t *testing.T) {
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
 
-	t.Run("test readFromClient", func(t *testing.T) {
-		t.Log("finally, testing readFromClient")
+	t.Run("test readFromClient working", func(t *testing.T) {
 		buf := make([]byte, 12)
 		_, err = readFromClient(c, buf)
 		assert.NoError(t, err)
@@ -379,6 +400,87 @@ func TestTLS(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, testSNI, u)
 	})
+
+	c.Close()
+	t.Run("test readFromClient closed", func(t *testing.T) {
+		buf := make([]byte, 12)
+		_, err = readFromClient(clientConn, buf)
+		assert.Error(t, err)
+	})
+}
+
+func TestTLS_NonTLSClient(t *testing.T) {
+
+	t.Log("preparing test environment TLS cert/key")
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	assert.NoError(t, err, "could not create temporary certificate file for test")
+	defer func() {
+		// clean up after testing
+		certFile.Close()
+		os.Remove(certFile.Name())
+	}()
+
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	assert.NoError(t, err, "could not create temporary private key file for test")
+	defer func() {
+		// clean up after testing
+		keyFile.Close()
+		os.Remove(keyFile.Name())
+	}()
+
+	// generate cert/key for testing
+	err = generateTLSCertAndKey(keyFile, certFile)
+	assert.NoError(t, err, "could not generate cert/key for test")
+
+	// prep tls config for mocked server
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	assert.NoError(t, err, "could not load TLS cert/key for test")
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// get testing host/port
+	n, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err, "could not generate new local listener for test")
+	tlsListenAddr := n.Addr().String()
+	err = n.Close()
+	assert.NoError(t, err, "could not close temp local listener for test")
+
+	// configure temp listener
+	tlsListener, err := tls.Listen("tcp4", tlsListenAddr, &tlsConfig)
+	defer tlsListener.Close()
+
+	t.Log("starting test environment TLS server")
+	var wg sync.WaitGroup
+	var svrConn net.Conn
+	wg.Add(1)
+	go func() {
+		var e error
+		svrConn, e = tlsListener.Accept()
+		assert.NoError(t, e, "could not accept test connection")
+		wg.Done()
+	}()
+
+	c, err := net.Dial("tcp4", tlsListener.Addr().String())
+	assert.NoError(t, err)
+
+	wg.Wait()
+
+	go func() {
+		_, err := c.Write([]byte("Hello World!"))
+		assert.NoError(t, err)
+	}()
+
+	t.Run("test readFromClient non TLS client", func(t *testing.T) {
+		buf := make([]byte, 12)
+		_, err = readFromClient(svrConn, buf)
+		assert.Error(t, err)
+		assert.Equal(t, "tls: first record does not look like a TLS handshake", err.Error())
+	})
+
+	svrConn.Close()
+	c.Close()
 }
 
 func TestProxyClientToServer(t *testing.T) {
@@ -400,11 +502,12 @@ func TestProxyClientToServer(t *testing.T) {
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
 	go func() {
-		serverListener, err = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, err)
+		var e error
+		serverListener, e = nettest.NewLocalListener("tcp4")
+		assert.NoError(t, e)
 		wgServerListener.Done()
-		serverConn, err = serverListener.Accept()
-		assert.NoError(t, err)
+		serverConn, e = serverListener.Accept()
+		assert.NoError(t, e)
 		wgServerConn.Done()
 	}()
 	wgServerListener.Wait()
@@ -476,11 +579,12 @@ func TestProxyServerToClient(t *testing.T) {
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
 	go func() {
-		serverListener, err = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, err)
+		var e error
+		serverListener, e = nettest.NewLocalListener("tcp4")
+		assert.NoError(t, e)
 		wgServerListener.Done()
-		serverConn, err = serverListener.Accept()
-		assert.NoError(t, err)
+		serverConn, e = serverListener.Accept()
+		assert.NoError(t, e)
 		wgServerConn.Done()
 	}()
 	wgServerListener.Wait()
