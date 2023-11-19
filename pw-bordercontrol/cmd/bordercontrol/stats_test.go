@@ -140,10 +140,18 @@ func TestStats(t *testing.T) {
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
+	// check num conns
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+
 	// add some fake feeder connections
 	stats.setFeederDetails(&fc)
 	stats.addConnection(u, &ip, &ip, protoBeast, 1)
 	stats.addConnection(u, &ip, &ip, protoMLAT, 2)
+
+	// check num conns
+	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
 
 	// add some traffic
 	stats.incrementByteCounters(u, 1, 100, 200)
@@ -176,6 +184,10 @@ func TestStats(t *testing.T) {
 	// remove connections
 	stats.delConnection(u, protoBeast, 1)
 	stats.delConnection(u, protoMLAT, 2)
+
+	// check num conns
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
 
 	body = getMetricsFromTestServer(t, prepMetricsTestServerURL)
 
