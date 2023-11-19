@@ -199,7 +199,7 @@ func TestDialContainerTCP(t *testing.T) {
 	})
 
 	// test broken server
-	t.Run("test working server", func(t *testing.T) {
+	t.Run("test broken server", func(t *testing.T) {
 		// prepare mocked server
 		srv, err := nettest.NewLocalListener("tcp4")
 		assert.NoError(t, err)
