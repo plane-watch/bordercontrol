@@ -400,7 +400,7 @@ func TestProxyClientToServer(t *testing.T) {
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
 	go func() {
-		serverListener, err = nettest.NewLocalListener("tcp")
+		serverListener, err = nettest.NewLocalListener("tcp4")
 		assert.NoError(t, err)
 		wgServerListener.Done()
 		serverConn, err = serverListener.Accept()
@@ -413,7 +413,7 @@ func TestProxyClientToServer(t *testing.T) {
 	serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
 	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 	assert.NoError(t, err)
-	clientConn, err := net.DialTCP("tcp", nil, &net.TCPAddr{IP: net.IP(serverAddr), Port: serverPort})
+	clientConn, err := net.DialTCP("tcp4", nil, &net.TCPAddr{IP: net.IP(serverAddr), Port: serverPort})
 	assert.NoError(t, err)
 
 	wgServerConn.Wait()
