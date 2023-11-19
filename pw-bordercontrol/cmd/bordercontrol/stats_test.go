@@ -188,6 +188,10 @@ func TestStats(t *testing.T) {
 	// tests
 	checkPromMetricsExist(t, body, expectedMetrics)
 
+	// test APIs
+	body = getMetricsFromTestServer(t, fmt.Sprintf("%s/api/v1/feeders/", statsBaseURL))
+	fmt.Println(body)
+
 	// add another beast connection
 	stats.addConnection(u, &ip, &ip, protoBeast, 3)
 
