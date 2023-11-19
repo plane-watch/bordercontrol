@@ -79,7 +79,10 @@ func TestProm(t *testing.T) {
 		label:        "test-feeder",
 	}
 
-	stats.setFeederDetails(&fc)
+	// init stats variable
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+
+	// stats.setFeederDetails(&fc)
 	stats.addConnection(u, &ip, &ip, protoBeast, 1)
 
 }
