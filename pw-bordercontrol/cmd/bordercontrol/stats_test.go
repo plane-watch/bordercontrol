@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/nettest"
 )
 
-func TestProm(t *testing.T) {
+func TestStats(t *testing.T) {
 
 	// start metrics server
 	srv, err := nettest.NewLocalListener("tcp4")
@@ -84,5 +84,37 @@ func TestProm(t *testing.T) {
 
 	stats.setFeederDetails(&fc)
 	stats.addConnection(u, &ip, &ip, protoBeast, 1)
+	stats.addConnection(u, &ip, &ip, protoMLAT, 2)
+
+	stats.incrementByteCounters(u, 1, 100, 200)
+	stats.incrementByteCounters(u, 2, 300, 400)
+
+	// new expected metrics
+	expectedMetrics = []string{
+		`pw_bordercontrol_connections{protocol="beast"} 1`,
+		`pw_bordercontrol_connections{protocol="mlat"} 1`,
+		`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 100`,
+		`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 300`,
+		`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 200`,
+		`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 400`,
+		`pw_bordercontrol_feedercontainers_image_current 0`,
+		`pw_bordercontrol_feedercontainers_image_not_current 0`,
+		`pw_bordercontrol_feeders 1`,
+		`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
+		`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"} 100`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"} 300`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"} 200`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"} 400`, fc.label, fc.clientApiKey),
+	}
+
+	// tests
+	for _, expectedMetric := range expectedMetrics {
+		t.Log("checking for:", expectedMetric)
+		assert.Equal(t,
+			strings.Count(body, expectedMetric),
+			1,
+		)
+	}
 
 }
