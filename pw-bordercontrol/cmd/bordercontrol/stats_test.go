@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -10,8 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/testutil/daemon"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -71,6 +75,23 @@ func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []st
 }
 
 func TestStats(t *testing.T) {
+
+	// starting test docker daemon
+	t.Log("starting test docker daemon")
+	TestDaemon := daemon.New(
+		t,
+		daemon.WithContainerdSocket(TestDaemonDockerSocket),
+	)
+	TestDaemon.Start(t)
+
+	// prep testing client
+	t.Log("prep testing client")
+	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+		log.Debug().Msg("using test docker client")
+		cctx := context.Background()
+		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
+		return &cctx, cli, nil
+	}
 
 	prepMetricsTestServer(t)
 
@@ -179,5 +200,10 @@ func TestStats(t *testing.T) {
 
 	checkPromMetricsExist(t, body, expectedMetrics)
 	checkPromMetricsNotExist(t, body, notExpectedMetrics)
+
+	// clean up
+	t.Log("cleaning up")
+	TestDaemon.Stop(t)
+	TestDaemon.Cleanup(t)
 
 }
