@@ -181,8 +181,16 @@ func TestStats(t *testing.T) {
 	// tests
 	checkPromMetricsExist(t, body, expectedMetrics)
 
-	// remove connections
+	// remove connections (working)
 	stats.delConnection(u, protoBeast, 1)
+
+	// remove connection (proto not found)
+	stats.delConnection(u, protoBeast, 1)
+
+	// remove connections (working)
+	stats.delConnection(u, protoMLAT, 2)
+
+	// remove connection (feeder not found)
 	stats.delConnection(u, protoMLAT, 2)
 
 	// check num conns
