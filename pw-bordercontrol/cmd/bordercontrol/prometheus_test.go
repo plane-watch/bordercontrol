@@ -54,8 +54,10 @@ func TestProm(t *testing.T) {
 
 	// tests
 	for _, expectedMetric := range expectedMetrics {
+		s := fmt.Sprintf(expectedMetric, 0)
+		t.Log("checking for exactly one of:", s)
 		assert.Equal(t,
-			strings.Count(body, fmt.Sprintf(expectedMetric, 0)),
+			strings.Count(body, s),
 			1,
 		)
 	}
