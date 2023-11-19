@@ -1,8 +1,8 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -203,16 +203,14 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 	notBefore := time.Now()
 	notAfter := time.Now().Add(time.Minute * 15)
 	isCA := true
-	rsaBits := 2048
 
 	// generate private key
-	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
 
 	keyUsage := x509.KeyUsageDigitalSignature
-	keyUsage |= x509.KeyUsageKeyEncipherment
 
 	// generate serial number
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
@@ -252,7 +250,7 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 	}
 
 	// create certificate
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.PublicKey, priv)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public().(ed25519.PublicKey), priv)
 	if err != nil {
 		return err
 	}
