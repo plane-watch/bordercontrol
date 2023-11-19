@@ -212,9 +212,9 @@ func TestDialContainerTCP(t *testing.T) {
 		srv.Close()
 
 		// test connection
-		t.Log("testing dialContainerTCP")
+		t.Log("testing dialContainerTCP to broken server")
 		_, err = dialContainerTCP("localhost", port)
-		assert.NoError(t, err)
+		assert.Error(t, err)
 	})
 }
 
