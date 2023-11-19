@@ -71,7 +71,9 @@ func TestStats(t *testing.T) {
 	validFeeders = atcFeeders{}
 
 	// start statsManager testing server
+	statsManagerMu.RLock()
 	if statsManagerAddr == "" {
+		statsManagerMu.RUnlock()
 		// get address for testing
 		nl, err := nettest.NewLocalListener("tcp4")
 		assert.NoError(t, err)
@@ -80,6 +82,8 @@ func TestStats(t *testing.T) {
 
 		// wait for server to come up
 		time.Sleep(1 * time.Second)
+	} else {
+		statsManagerMu.RUnlock()
 	}
 
 	// prep url pats

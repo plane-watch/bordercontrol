@@ -178,7 +178,9 @@ func TestContainersWithKill(t *testing.T) {
 	assert.True(t, ContainerNetworkOK)
 
 	// start statsManager testing server
+	statsManagerMu.RLock()
 	if statsManagerAddr == "" {
+		statsManagerMu.RUnlock()
 		// get address for testing
 		nl, err := nettest.NewLocalListener("tcp4")
 		assert.NoError(t, err)
@@ -187,13 +189,17 @@ func TestContainersWithKill(t *testing.T) {
 
 		// wait for server to come up
 		time.Sleep(1 * time.Second)
+	} else {
+		statsManagerMu.RUnlock()
 	}
 
 	// check prom metrics
 	t.Log("check prom container metrics with current image")
 	feedInContainerPrefix = TestfeedInImagePrefix
 	feedInImage = TestFeedInImageName
+	statsManagerMu.RLock()
 	promMetrics := getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
+	statsManagerMu.RUnlock()
 	expectedMetrics := []string{
 		`pw_bordercontrol_feedercontainers_image_current 1`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
@@ -205,7 +211,9 @@ func TestContainersWithKill(t *testing.T) {
 	t.Log("check prom container metrics with not current image")
 	feedInContainerPrefix = TestfeedInImagePrefix
 	feedInImage = "foo"
+	statsManagerMu.RLock()
 	promMetrics = getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
+	statsManagerMu.RUnlock()
 	expectedMetrics = []string{
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 1`,

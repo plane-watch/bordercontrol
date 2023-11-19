@@ -31,6 +31,7 @@ var (
 	chanSIGUSR1 chan os.Signal
 
 	statsManagerAddr string
+	statsManagerMu   sync.RWMutex
 )
 
 const (

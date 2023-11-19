@@ -552,7 +552,9 @@ func statsManager(addr string) {
 		Str("addr", addr).
 		Logger()
 
+	statsManagerMu.Lock()
 	statsManagerAddr = addr
+	statsManagerMu.Unlock()
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
