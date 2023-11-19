@@ -176,6 +176,7 @@ func TestDialContainerTCP(t *testing.T) {
 			}
 		}()
 
+		// get port
 		port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
 		assert.NoError(t, err)
 
@@ -195,6 +196,25 @@ func TestDialContainerTCP(t *testing.T) {
 	t.Run("test unsupported IPv6", func(t *testing.T) {
 		_, err := dialContainerTCP("::1", 12345)
 		assert.Error(t, err)
+	})
+
+	// test broken server
+	t.Run("test working server", func(t *testing.T) {
+		// prepare mocked server
+		srv, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+
+		// get port
+		port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
+		assert.NoError(t, err)
+
+		// close mocked server
+		srv.Close()
+
+		// test connection
+		t.Log("testing dialContainerTCP")
+		_, err = dialContainerTCP("localhost", port)
+		assert.NoError(t, err)
 	})
 }
 
