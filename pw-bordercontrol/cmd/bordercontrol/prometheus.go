@@ -1,12 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/client"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -157,8 +155,6 @@ var (
 				panic(err)
 			}
 
-			fmt.Println(containers)
-
 			// for each container...
 			for _, container := range containers {
 
@@ -181,8 +177,9 @@ var (
 			n := float64(0)
 
 			// set up docker client
-			dockerCtx := context.Background()
-			cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			// dockerCtx := context.Background()
+			// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			dockerCtx, cli, err := getDockerClient()
 			if err != nil {
 				panic(err)
 			}
@@ -193,7 +190,7 @@ var (
 			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 			// find containers
-			containers, err := cli.ContainerList(dockerCtx, types.ContainerListOptions{Filters: filters})
+			containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
 			if err != nil {
 				panic(err)
 			}
