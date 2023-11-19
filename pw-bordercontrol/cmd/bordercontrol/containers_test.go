@@ -47,6 +47,8 @@ func TestContainersWithKill(t *testing.T) {
 		ContainerNetworkOK bool
 	)
 
+	promMetricsURL := prepMetricsTestServer(t)
+
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
@@ -175,6 +177,17 @@ func TestContainersWithKill(t *testing.T) {
 	}
 	assert.Len(t, ct.NetworkSettings.Networks, 1)
 	assert.True(t, ContainerNetworkOK)
+
+	// check prom metrics
+	t.Log("check prom container metrics")
+	feedInContainerPrefix = TestfeedInImagePrefix
+	feedInImage = TestFeedInImageName
+	promMetrics := getMetricsFromTestServer(t, promMetricsURL)
+	expectedMetrics := []string{
+		`pw_bordercontrol_feedercontainers_image_current 1`,
+		`pw_bordercontrol_feedercontainers_image_not_current 0`,
+	}
+	checkPromMetrics(t, promMetrics, expectedMetrics)
 
 	// test checkFeederContainers
 	// by passing "foo" as the feedInImageName, it should kill the previously created container
