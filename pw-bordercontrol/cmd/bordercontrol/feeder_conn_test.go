@@ -465,7 +465,7 @@ func TestTLS_NonTLSClient(t *testing.T) {
 		buf := make([]byte, 12)
 		_, err = readFromClient(svrConn, buf)
 		assert.Error(t, err)
-		fmt.Println(err)
+		assert.Equal(t, "tls: first record does not look like a TLS handshake", err.Error())
 	})
 
 	svrConn.Close()
