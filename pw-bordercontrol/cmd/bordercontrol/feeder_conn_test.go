@@ -16,8 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/distribution/uuid"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -27,7 +28,7 @@ const MinUint = 0
 const MaxInt = int(MaxUint >> 1)
 const MinInt = -MaxInt - 1
 
-var testSNI = uuid.Generate()
+var testSNI = uuid.New()
 
 func TestGetNum(t *testing.T) {
 
@@ -375,7 +376,64 @@ func TestTLS(t *testing.T) {
 	t.Run("test getUUIDfromSNI", func(t *testing.T) {
 		u, err := getUUIDfromSNI(c)
 		assert.NoError(t, err)
-		assert.Equal(t, testSNI.String(), u.String())
+		assert.Equal(t, testSNI, u)
 	})
+}
+
+func TestProxyClientToServer(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	var (
+		serverConn     net.Conn
+		serverListener net.Listener
+		err            error
+	)
+
+	t.Log("preparing test client/server connections")
+
+	go func() {
+		serverListener, err = nettest.NewLocalListener("tcp")
+		assert.NoError(t, err)
+		serverConn, err = serverListener.Accept()
+		assert.NoError(t, err)
+	}()
+	serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
+	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
+	assert.NoError(t, err)
+	clientConn, err := net.DialTCP("tcp", nil, &net.TCPAddr{IP: net.IP(serverAddr), Port: serverPort})
+	assert.NoError(t, err)
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	go proxyClientToServer(
+		serverConn,
+		clientConn,
+		uint(1),
+		testSNI,
+		&pStatus,
+		&lastAuthCheck,
+		log.Logger,
+	)
+
+	// send data to be proxied
+	_, err = serverConn.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read data from the other end of the proxy
+	buf := make([]byte, 12)
+	_, err = clientConn.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
 
 }
