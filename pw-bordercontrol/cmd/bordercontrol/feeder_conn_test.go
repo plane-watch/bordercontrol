@@ -383,7 +383,6 @@ func TestTLS(t *testing.T) {
 	assert.NoError(t, err, "could not accept test connection")
 
 	t.Run("test readFromClient working", func(t *testing.T) {
-		t.Log("finally, testing readFromClient")
 		buf := make([]byte, 12)
 		_, err = readFromClient(c, buf)
 		assert.NoError(t, err)
@@ -402,7 +401,6 @@ func TestTLS(t *testing.T) {
 
 	c.Close()
 	t.Run("test readFromClient closed", func(t *testing.T) {
-		t.Log("finally, testing readFromClient")
 		buf := make([]byte, 12)
 		_, err = readFromClient(c, buf)
 		assert.Error(t, err)
