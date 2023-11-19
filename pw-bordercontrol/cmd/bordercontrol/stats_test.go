@@ -152,8 +152,6 @@ func TestStats(t *testing.T) {
 
 	body = getMetricsFromTestServer(t, metricsURL)
 
-	fmt.Println(body)
-
 	// new expected metrics
 	expectedMetrics = []string{
 		`pw_bordercontrol_connections{protocol="beast"} 1`,
@@ -208,6 +206,8 @@ func TestStats(t *testing.T) {
 	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
 
 	body = getMetricsFromTestServer(t, metricsURL)
+
+	fmt.Println(body)
 
 	// new expected metrics
 	expectedMetrics = []string{
