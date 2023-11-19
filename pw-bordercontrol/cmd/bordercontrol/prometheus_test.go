@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
@@ -55,11 +57,20 @@ func TestProm(t *testing.T) {
 	// tests
 	for _, expectedMetric := range expectedMetrics {
 		s := fmt.Sprintf(expectedMetric, 0)
-		t.Log("checking for exactly one of:", s)
+		t.Log("checking for:", s)
 		assert.Equal(t,
 			strings.Count(body, s),
 			1,
 		)
 	}
+
+	u := uuid.New()
+
+	// add a feeder
+	ip := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 12345,
+	}
+	stats.addConnection(u, &ip, &ip, protoBeast, 1)
 
 }
