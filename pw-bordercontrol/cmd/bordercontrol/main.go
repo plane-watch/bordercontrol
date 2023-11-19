@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"os"
 	"os/signal"
 	"runtime"
@@ -132,35 +131,7 @@ func main() {
 	logging.ConfigureForCli()
 
 	// get commit hash and commit time from git info
-	commithash = func() string {
-		if info, ok := debug.ReadBuildInfo(); ok {
-			for _, setting := range info.Settings {
-				if setting.Key == "vcs.revision" {
-					if len(setting.Value) >= 7 {
-						return setting.Value[:7]
-					} else {
-						return "unknown"
-					}
-				}
-			}
-		}
-		return ""
-	}()
-	committime = func() string {
-		if info, ok := debug.ReadBuildInfo(); ok {
-			for _, setting := range info.Settings {
-				if setting.Key == "vcs.time" {
-					return setting.Value
-				}
-			}
-		}
-		return ""
-	}()
-	if len(commithash) < 7 {
-		app.Version = "unknown"
-	} else {
-		app.Version = fmt.Sprintf("%s (%s)", commithash, committime)
-	}
+	commithash, committime = getRepoInfo()
 
 	app.Before = func(ctx *cli.Context) error {
 
@@ -178,6 +149,33 @@ func main() {
 		log.Err(err).Msg("Finishing with an error")
 		os.Exit(1)
 	}
+
+}
+
+func getRepoInfo() (commitHash, commitTime string) {
+
+	commitHash = "unknown"
+	commitTime = "unknown"
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				if len(setting.Value) >= 7 {
+					commitHash = setting.Value[:7]
+				}
+			}
+		}
+	}
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.time" {
+				commitTime = setting.Value
+			}
+		}
+	}
+
+	return commitHash, commitTime
 
 }
 
