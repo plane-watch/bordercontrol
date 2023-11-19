@@ -330,11 +330,15 @@ func TestTLS(t *testing.T) {
 	t.Log("sending SIGHUP for cert/key reload (working)")
 	chanSIGHUP <- syscall.SIGHUP
 
+	// wait for the channel to be read
+	time.Sleep(time.Second)
+
 	// defer func() {
 	// 	// clean up after testing
 	certFile.Close()
 	os.Remove(certFile.Name())
 	// }()
+
 	// defer func() {
 	// clean up after testing
 	keyFile.Close()
