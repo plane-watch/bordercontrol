@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -19,17 +18,10 @@ func TestProm(t *testing.T) {
 	err = srv.Close()
 	assert.NoError(t, err)
 	http.Handle("/metrics", promhttp.Handler())
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		err = http.ListenAndServe(srv.Addr().String(), nil)
-		assert.NoError(t, err)
-		wg.Done()
-	}()
-	wg.Wait()
+	http.ListenAndServe(srv.Addr().String(), nil)
 
 	// request metrics
-	requestURL := fmt.Sprintf("http://%s", srv.Addr().String())
+	requestURL := fmt.Sprintf("http://%s/metrics", srv.Addr().String())
 	res, err := http.Get(requestURL)
 	assert.NoError(t, err)
 	fmt.Printf("client: got response!\n")
