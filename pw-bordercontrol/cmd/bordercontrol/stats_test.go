@@ -95,9 +95,16 @@ func TestStats(t *testing.T) {
 
 	validFeeders = atcFeeders{}
 
-	prepMetricsTestServer(t)
+	// get address for testing
+	nl, err := nettest.NewLocalListener("tcp4")
+	assert.NoError(t, err)
+	nl.Close()
 
-	body := getMetricsFromTestServer(t, prepMetricsTestServerURL)
+	statsManager(nl.Addr().String())
+	statsBaseURL := fmt.Sprintf("http://%s", nl.Addr().String())
+	metricsURL := fmt.Sprintf("%s/metrics", statsBaseURL)
+
+	body := getMetricsFromTestServer(t, metricsURL)
 
 	expectedMetrics := []string{
 		`pw_bordercontrol_connections{protocol="beast"} 0`,
@@ -157,7 +164,7 @@ func TestStats(t *testing.T) {
 	stats.incrementByteCounters(u, 1, 100, 200)
 	stats.incrementByteCounters(u, 2, 300, 400)
 
-	body = getMetricsFromTestServer(t, prepMetricsTestServerURL)
+	body = getMetricsFromTestServer(t, metricsURL)
 
 	// new expected metrics
 	expectedMetrics = []string{
@@ -203,7 +210,7 @@ func TestStats(t *testing.T) {
 	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
 	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
 
-	body = getMetricsFromTestServer(t, prepMetricsTestServerURL)
+	body = getMetricsFromTestServer(t, metricsURL)
 
 	// new expected metrics
 	expectedMetrics = []string{

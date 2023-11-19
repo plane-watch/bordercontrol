@@ -225,7 +225,7 @@ func runServer(ctx *cli.Context) error {
 	}()
 
 	// start statistics manager
-	go statsManager()
+	go statsManager(":8080")
 
 	// start goroutine to regularly pull feeders from atc
 	go updateFeederDB(ctx, 60*time.Second)

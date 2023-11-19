@@ -545,7 +545,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func statsManager() {
+func statsManager(addr string) {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
@@ -571,8 +571,8 @@ func statsManager() {
 	http.Handle("/metrics/", promhttp.Handler())
 
 	// start stats http server
-	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
-	err := http.ListenAndServe(":8080", nil)
+	log.Info().Str("addr", addr).Msg("starting statistics listener")
+	err := http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Panic().AnErr("err", err).Msg("stats server stopped")
 	}
