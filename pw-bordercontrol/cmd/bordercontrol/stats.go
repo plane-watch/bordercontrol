@@ -60,6 +60,12 @@ type ConnectionDetail struct {
 type Statistics struct {
 	mu      sync.RWMutex
 	Feeders map[uuid.UUID]FeederStats
+
+	BytesInBEAST  uint64
+	BytesOutBEAST uint64
+
+	BytesInMLAT  uint64
+	BytesOutMLAT uint64
 }
 
 // struct for http api responses
@@ -121,6 +127,15 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, byt
 				c.promMetricBytesOut.Add(float64(bytesOut))
 
 				y.Connections[proto].ConnectionDetails[connNum] = c
+
+				switch proto {
+				case protoBeast:
+					stats.BytesInBEAST += bytesIn
+					stats.BytesOutBEAST += bytesOut
+				case protoMLAT:
+					stats.BytesInMLAT += bytesIn
+					stats.BytesOutMLAT += bytesOut
+				}
 
 				// update time last updated
 				y.TimeUpdated = time.Now()

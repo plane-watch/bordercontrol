@@ -187,7 +187,7 @@ func TestContainersWithKill(t *testing.T) {
 		`pw_bordercontrol_feedercontainers_image_current 1`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 	}
-	checkPromMetrics(t, promMetrics, expectedMetrics)
+	checkPromMetricsExist(t, promMetrics, expectedMetrics)
 
 	//
 	// check prom metrics
@@ -199,7 +199,7 @@ func TestContainersWithKill(t *testing.T) {
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 1`,
 	}
-	checkPromMetrics(t, promMetrics, expectedMetrics)
+	checkPromMetricsExist(t, promMetrics, expectedMetrics)
 
 	// test checkFeederContainers
 	// by passing "foo" as the feedInImageName, it should kill the previously created container
