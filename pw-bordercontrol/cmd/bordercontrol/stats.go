@@ -81,13 +81,7 @@ var (
 )
 
 func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto string) int {
-
-	// log := log.With().
-	// 	Strs("func", []string{"stats.go", "getNumConnections"}).
-	// 	Str("uuid", uuid.String()).
-	// 	Str("proto", proto).
-	// 	Logger()
-
+	// returns the number of connections for a given uuid and protocol
 	proto = strings.ToUpper(proto)
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
