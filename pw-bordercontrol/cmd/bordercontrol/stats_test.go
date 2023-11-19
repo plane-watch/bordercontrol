@@ -56,7 +56,7 @@ func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 
 func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) {
 	for _, expectedMetric := range expectedMetrics {
-		t.Log("checking for:", expectedMetric)
+		t.Log("checking existence of:", expectedMetric)
 		assert.Equal(t,
 			1,
 			strings.Count(body, expectedMetric),
@@ -66,7 +66,7 @@ func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) 
 
 func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []string) {
 	for _, notExpectedMetric := range notExpectedMetrics {
-		t.Log("checking for:", notExpectedMetric)
+		t.Log("checking for absence of:", notExpectedMetric)
 		assert.Equal(t,
 			0,
 			strings.Count(body, notExpectedMetric),
