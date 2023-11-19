@@ -462,6 +462,9 @@ func TestTLS_NonTLSClient(t *testing.T) {
 
 	c, err := net.Dial("tcp4", tlsListener.Addr().String())
 	assert.NoError(t, err)
+
+	wg.Wait()
+
 	go func() {
 		_, err := c.Write([]byte("Hello World!"))
 		assert.NoError(t, err)
