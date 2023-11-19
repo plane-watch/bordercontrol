@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
-	"modernc.org/libc/signal"
 )
 
 const MaxUint = ^uint(0)
@@ -337,7 +337,8 @@ func TestTLS(t *testing.T) {
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// test reload via signal
-	chanSIGHUP <- signal.SIGHUP
+	t.Log("sending SIGHUP for cert/key reload")
+	chanSIGHUP <- syscall.SIGHUP
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
