@@ -455,8 +455,9 @@ func TestTLS_NonTLSClient(t *testing.T) {
 	var svrConn net.Conn
 	wg.Add(1)
 	go func() {
-		svrConn, err = tlsListener.Accept()
-		assert.NoError(t, err, "could not accept test connection")
+		var e error
+		svrConn, e = tlsListener.Accept()
+		assert.NoError(t, e, "could not accept test connection")
 		wg.Done()
 	}()
 
