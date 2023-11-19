@@ -279,7 +279,9 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 	return nil
 }
 
-func TestTLS(t *testing.T) {
+func TestReadFromClient(t *testing.T) {
+
+	t.Log("preparing test environment TLS cert/key")
 
 	// prep cert file
 	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
@@ -334,6 +336,7 @@ func TestTLS(t *testing.T) {
 		Timeout: 10 * time.Second,
 	}
 
+	t.Log("starting test environment TLS server")
 	go func() {
 		// dial remote
 		clientConn, err := tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
@@ -350,12 +353,13 @@ func TestTLS(t *testing.T) {
 		defer clientConn.Close()
 	}()
 
+	t.Log("starting test environment TLS client")
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
 
+	t.Log("finally, testing readFromClient")
 	buf := make([]byte, 12)
 	_, err = readFromClient(c, buf)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("Hello World!"), buf)
-
 }
