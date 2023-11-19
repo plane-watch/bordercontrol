@@ -375,7 +375,7 @@ func TestTLS(t *testing.T) {
 	t.Run("test getUUIDfromSNI", func(t *testing.T) {
 		u, err := getUUIDfromSNI(c)
 		assert.NoError(t, err)
-		assert.Equal(t, testSNI, u)
+		assert.Equal(t, testSNI.String(), u.String())
 	})
 
 }
