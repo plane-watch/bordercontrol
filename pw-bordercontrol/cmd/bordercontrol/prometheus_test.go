@@ -71,6 +71,15 @@ func TestProm(t *testing.T) {
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: 12345,
 	}
+	fc := feederClient{
+		clientApiKey: u,
+		refLat:       123.4567,
+		refLon:       98.7654,
+		mux:          "test-mux",
+		label:        "test-feeder",
+	}
+
+	stats.setFeederDetails(&fc)
 	stats.addConnection(u, &ip, &ip, protoBeast, 1)
 
 }
