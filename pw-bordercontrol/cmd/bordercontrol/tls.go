@@ -3,9 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/rs/zerolog/log"
 )
@@ -18,7 +16,7 @@ type keypairReloader struct {
 	keyPath  string
 }
 
-func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
+func NewKeypairReloader(certPath, keyPath string, sigChan chan os.Signal) (*keypairReloader, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 
 	result := &keypairReloader{
@@ -39,9 +37,7 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	}
 	result.cert = &cert
 	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGHUP)
-		for range c {
+		for range sigChan {
 			log.Info().Msg("received SIGHUP, reloading TLS certificate and key")
 			if err := result.maybeReload(); err != nil {
 				log.Err(err).Msg("error loading TLS certificate, continuing to use old TLS certificate")

@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"os"
 	"os/signal"
 	"runtime"
@@ -27,6 +26,12 @@ var (
 	kpr                    *keypairReloader
 	commithash, committime string
 	incomingConnTracker    incomingConnectionTracker
+
+	chanSIGHUP  chan os.Signal
+	chanSIGUSR1 chan os.Signal
+
+	statsManagerAddr string
+	statsManagerMu   sync.RWMutex
 )
 
 const (
@@ -129,35 +134,7 @@ func main() {
 	logging.ConfigureForCli()
 
 	// get commit hash and commit time from git info
-	commithash = func() string {
-		if info, ok := debug.ReadBuildInfo(); ok {
-			for _, setting := range info.Settings {
-				if setting.Key == "vcs.revision" {
-					if len(setting.Value) >= 7 {
-						return setting.Value[:7]
-					} else {
-						return "unknown"
-					}
-				}
-			}
-		}
-		return ""
-	}()
-	committime = func() string {
-		if info, ok := debug.ReadBuildInfo(); ok {
-			for _, setting := range info.Settings {
-				if setting.Key == "vcs.time" {
-					return setting.Value
-				}
-			}
-		}
-		return ""
-	}()
-	if len(commithash) < 7 {
-		app.Version = "unknown"
-	} else {
-		app.Version = fmt.Sprintf("%s (%s)", commithash, committime)
-	}
+	commithash, committime = getRepoInfo()
 
 	app.Before = func(ctx *cli.Context) error {
 
@@ -178,6 +155,45 @@ func main() {
 
 }
 
+func getRepoInfo() (commitHash, commitTime string) {
+
+	commitHash = "unknown"
+	commitTime = "unknown"
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				if len(setting.Value) >= 7 {
+					commitHash = setting.Value[:7]
+				}
+			}
+		}
+	}
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.time" {
+				commitTime = setting.Value
+			}
+		}
+	}
+
+	return commitHash, commitTime
+
+}
+
+func prepSignalChannels() {
+	// prepares global channels to catch specific signals
+
+	// SIGHUP = reload TLS/SSL cert/key
+	chanSIGHUP = make(chan os.Signal, 1)
+	signal.Notify(chanSIGHUP, syscall.SIGHUP)
+
+	// SIGUSR1 = skip delay for not current feed-in container recreation
+	chanSIGUSR1 = make(chan os.Signal, 1)
+	signal.Notify(chanSIGUSR1, syscall.SIGUSR1)
+}
+
 func runServer(ctx *cli.Context) error {
 
 	// Set logging level
@@ -189,9 +205,12 @@ func runServer(ctx *cli.Context) error {
 
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
 
+	// prep signal channels
+	prepSignalChannels()
+
 	// set up TLS
 	// load SSL cert/key
-	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"))
+	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), chanSIGHUP)
 	if err != nil {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
@@ -209,7 +228,7 @@ func runServer(ctx *cli.Context) error {
 	}()
 
 	// start statistics manager
-	go statsManager()
+	go statsManager(":8080")
 
 	// start goroutine to regularly pull feeders from atc
 	go updateFeederDB(ctx, 60*time.Second)
@@ -229,11 +248,9 @@ func runServer(ctx *cli.Context) error {
 	go startFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), ctx.String("pwingestpublish"), containersToStartRequests, containersToStartResponses, startFeederContainersStop)
 
 	// start goroutine to check feed-in containers
-	checkFeederContainerSigs := make(chan os.Signal, 1)
-	signal.Notify(checkFeederContainerSigs, syscall.SIGUSR1)
 	go func() {
 		for {
-			_ = checkFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), checkFeederContainerSigs)
+			_ = checkFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), chanSIGUSR1)
 		}
 	}()
 

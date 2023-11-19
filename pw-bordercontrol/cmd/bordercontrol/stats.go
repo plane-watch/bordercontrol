@@ -81,13 +81,7 @@ var (
 )
 
 func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto string) int {
-
-	// log := log.With().
-	// 	Strs("func", []string{"stats.go", "getNumConnections"}).
-	// 	Str("uuid", uuid.String()).
-	// 	Str("proto", proto).
-	// 	Logger()
-
+	// returns the number of connections for a given uuid and protocol
 	proto = strings.ToUpper(proto)
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
@@ -221,13 +215,16 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
-	_, found := stats.Feeders[uuid]
-	if !found {
-		log.Error().Msg("uuid not found in stats.Feeders")
-		return
-	}
+	// section below commented out
+	// uuid should always exist in stats.Feeders due to the stats.initFeederStats above
 
-	_, found = stats.Feeders[uuid].Connections[proto]
+	// _, found := stats.Feeders[uuid]
+	// if !found {
+	// 	log.Error().Msg("uuid not found in stats.Feeders")
+	// 	return
+	// }
+
+	_, found := stats.Feeders[uuid].Connections[proto]
 	if !found {
 		log.Error().Msg("proto not found in stats.Feeders[uuid].Connections")
 		return
@@ -548,11 +545,16 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func statsManager() {
+func statsManager(addr string) {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
+		Str("addr", addr).
 		Logger()
+
+	statsManagerMu.Lock()
+	statsManagerAddr = addr
+	statsManagerMu.Unlock()
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
@@ -574,8 +576,8 @@ func statsManager() {
 	http.Handle("/metrics/", promhttp.Handler())
 
 	// start stats http server
-	log.Info().Str("ip", "0.0.0.0").Int("port", 8080).Msg("starting statistics listener")
-	err := http.ListenAndServe(":8080", nil)
+	log.Info().Str("addr", addr).Msg("starting statistics listener")
+	err := http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Panic().AnErr("err", err).Msg("stats server stopped")
 	}

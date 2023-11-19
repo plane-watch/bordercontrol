@@ -14,35 +14,10 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
-
-var prepMetricsTestServerURL string
-
-func prepMetricsTestServer(t *testing.T) {
-
-	if prepMetricsTestServerURL == "" {
-
-		// start metrics server
-		srv, err := nettest.NewLocalListener("tcp4")
-		assert.NoError(t, err)
-		err = srv.Close()
-		assert.NoError(t, err)
-		http.Handle("/metrics", promhttp.Handler())
-		go func() {
-			http.ListenAndServe(srv.Addr().String(), nil)
-		}()
-
-		// wait for server
-		time.Sleep(time.Second * 1)
-
-		// return url
-		prepMetricsTestServerURL = fmt.Sprintf("http://%s/metrics", srv.Addr().String())
-	}
-}
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 	// request metrics
@@ -95,9 +70,27 @@ func TestStats(t *testing.T) {
 
 	validFeeders = atcFeeders{}
 
-	prepMetricsTestServer(t)
+	// start statsManager testing server
+	statsManagerMu.RLock()
+	if statsManagerAddr == "" {
+		statsManagerMu.RUnlock()
+		// get address for testing
+		nl, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		nl.Close()
+		go statsManager(nl.Addr().String())
 
-	body := getMetricsFromTestServer(t, prepMetricsTestServerURL)
+		// wait for server to come up
+		time.Sleep(1 * time.Second)
+	} else {
+		statsManagerMu.RUnlock()
+	}
+
+	// prep url pats
+	statsBaseURL := fmt.Sprintf("http://%s", statsManagerAddr)
+	metricsURL := fmt.Sprintf("%s/metrics", statsBaseURL)
+
+	body := getMetricsFromTestServer(t, metricsURL)
 
 	expectedMetrics := []string{
 		`pw_bordercontrol_connections{protocol="beast"} 0`,
@@ -140,16 +133,24 @@ func TestStats(t *testing.T) {
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
+	// check num conns
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+
 	// add some fake feeder connections
 	stats.setFeederDetails(&fc)
 	stats.addConnection(u, &ip, &ip, protoBeast, 1)
 	stats.addConnection(u, &ip, &ip, protoMLAT, 2)
 
+	// check num conns
+	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
+
 	// add some traffic
 	stats.incrementByteCounters(u, 1, 100, 200)
 	stats.incrementByteCounters(u, 2, 300, 400)
 
-	body = getMetricsFromTestServer(t, prepMetricsTestServerURL)
+	body = getMetricsFromTestServer(t, metricsURL)
 
 	// new expected metrics
 	expectedMetrics = []string{
@@ -173,20 +174,50 @@ func TestStats(t *testing.T) {
 	// tests
 	checkPromMetricsExist(t, body, expectedMetrics)
 
-	// remove connections
+	// add some traffic
+	// these values are chosen for the web UI so it can calculate K, M, G
+	stats.incrementByteCounters(u, 1, 1024, 1048576)
+	stats.incrementByteCounters(u, 2, 1073741824, 1099511627776)
+
+	// test APIs
+	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s/api/v1/feeders/", statsBaseURL))
+	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s/api/v1/feeder/%s", statsBaseURL, u.String()))
+	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s", statsBaseURL))
+
+	// add another beast connection
+	stats.addConnection(u, &ip, &ip, protoBeast, 3)
+
+	// remove connections (working)
 	stats.delConnection(u, protoBeast, 1)
+
+	// remove connections (working)
+	stats.delConnection(u, protoBeast, 3)
+
+	// remove connection (connnum not found)
+	stats.delConnection(u, protoBeast, 1)
+
+	// remove connection (proto not found)
+	stats.delConnection(u, "no_such_proto", 2)
+
+	// remove connections (working)
 	stats.delConnection(u, protoMLAT, 2)
 
-	body = getMetricsFromTestServer(t, prepMetricsTestServerURL)
+	// check num conns
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+
+	body = getMetricsFromTestServer(t, metricsURL)
+
+	fmt.Println(body)
 
 	// new expected metrics
 	expectedMetrics = []string{
 		`pw_bordercontrol_connections{protocol="beast"} 0`,
 		`pw_bordercontrol_connections{protocol="mlat"} 0`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 100`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 300`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 200`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 400`,
+		`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 1124`,
+		`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 1.073742124e+09`,
+		`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 1.048776e+06`,
+		`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 1.099511628176e+12`,
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 		`pw_bordercontrol_feeders 1`,

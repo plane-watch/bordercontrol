@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -305,32 +306,48 @@ func TestTLS(t *testing.T) {
 
 	t.Log("preparing test environment TLS cert/key")
 
+	// prep signal channels
+	prepSignalChannels()
+
 	// prep cert file
 	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
 	assert.NoError(t, err, "could not create temporary certificate file for test")
-	defer func() {
-		// clean up after testing
-		certFile.Close()
-		os.Remove(certFile.Name())
-	}()
 
 	// prep key file
 	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
 	assert.NoError(t, err, "could not create temporary private key file for test")
-	defer func() {
-		// clean up after testing
-		keyFile.Close()
-		os.Remove(keyFile.Name())
-	}()
 
 	// generate cert/key for testing
 	err = generateTLSCertAndKey(keyFile, certFile)
 	assert.NoError(t, err, "could not generate cert/key for test")
 
 	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// test reload via signal
+	t.Log("sending SIGHUP for cert/key reload (working)")
+	chanSIGHUP <- syscall.SIGHUP
+
+	// wait for the channel to be read
+	time.Sleep(time.Second)
+
+	// defer func() {
+	// 	// clean up after testing
+	certFile.Close()
+	os.Remove(certFile.Name())
+	// }()
+
+	// defer func() {
+	// clean up after testing
+	keyFile.Close()
+	os.Remove(keyFile.Name())
+	// }()
+
+	// test reload via signal
+	t.Log("sending SIGHUP for cert/key reload (should log error)")
+	chanSIGHUP <- syscall.SIGHUP
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
@@ -436,7 +453,7 @@ func TestTLS_NonTLSClient(t *testing.T) {
 	assert.NoError(t, err, "could not generate cert/key for test")
 
 	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
