@@ -39,6 +39,8 @@ const (
 
 func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 
+	// Thanks to: https://medium.com/zus-health/mocking-outbound-http-requests-in-go-youre-probably-doing-it-wrong-60373a38d2aa
+
 	// prep test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

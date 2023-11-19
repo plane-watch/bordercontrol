@@ -1,14 +1,25 @@
 package main
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -17,6 +28,8 @@ const MaxUint = ^uint(0)
 const MinUint = 0
 const MaxInt = int(MaxUint >> 1)
 const MinInt = -MaxInt - 1
+
+var testSNI = uuid.New()
 
 func TestGetNum(t *testing.T) {
 
@@ -132,14 +145,15 @@ func TestLookupContainerTCP(t *testing.T) {
 
 	// test lookup failure
 	t.Run("test lookup failure", func(t *testing.T) {
-
-		// prepare test data
-		port := 12345
-		_, err := lookupContainerTCP("something.invalid", port)
-
+		_, err := lookupContainerTCP("something.invalid", 12345)
 		assert.Error(t, err)
 	})
 
+	// test ipv6 (currently unsupported)
+	t.Run("test unsupported IPv6", func(t *testing.T) {
+		_, err := lookupContainerTCP("::1", 12345)
+		assert.Error(t, err)
+	})
 }
 
 func TestDialContainerTCP(t *testing.T) {
@@ -147,25 +161,374 @@ func TestDialContainerTCP(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
-	// prepare mocked server
-	srv, err := nettest.NewLocalListener("tcp4")
-	assert.NoError(t, err)
-	t.Log("listening on:", srv.Addr())
-	go func() {
-		for {
-			_, err := srv.Accept()
-			if err != nil {
-				assert.NoError(t, err)
+	// test working server
+	t.Run("test working server", func(t *testing.T) {
+		// prepare mocked server
+		srv, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		t.Log("listening on:", srv.Addr())
+		go func() {
+			for {
+				_, err := srv.Accept()
+				if err != nil {
+					assert.NoError(t, err)
+				}
 			}
-		}
+		}()
+
+		port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
+		assert.NoError(t, err)
+
+		// test connection
+		t.Log("testing dialContainerTCP")
+		_, err = dialContainerTCP("localhost", port)
+		assert.NoError(t, err)
+	})
+
+	// test invalid FQDN
+	t.Run("test invalid FQDN", func(t *testing.T) {
+		_, err := dialContainerTCP("something.invalid", 12345)
+		assert.Error(t, err)
+	})
+
+	// test ipv6 (currently unsupported)
+	t.Run("test unsupported IPv6", func(t *testing.T) {
+		_, err := dialContainerTCP("::1", 12345)
+		assert.Error(t, err)
+	})
+}
+
+func generateTLSCertAndKey(keyFile, certFile *os.File) error {
+
+	// Thanks to: https://go.dev/src/crypto/tls/generate_cert.go
+
+	// prep certificate info
+	hosts := []string{"localhost"}
+	ipAddrs := []net.IP{net.IPv4(127, 0, 0, 1)}
+	notBefore := time.Now()
+	notAfter := time.Now().Add(time.Minute * 15)
+	isCA := true
+
+	// generate private key
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	keyUsage := x509.KeyUsageDigitalSignature
+
+	// generate serial number
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return err
+	}
+
+	// prep cert template
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"plane.watch unit testing org"},
+		},
+		NotBefore: notBefore,
+		NotAfter:  notAfter,
+
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// add hostname(s)
+	for _, host := range hosts {
+		template.DNSNames = append(template.DNSNames, host)
+	}
+
+	// add ip(s)
+	for _, ip := range ipAddrs {
+		template.IPAddresses = append(template.IPAddresses, ip)
+	}
+
+	// if self-signed, include CA
+	if isCA {
+		template.IsCA = true
+		template.KeyUsage |= x509.KeyUsageCertSign
+	}
+
+	// create certificate
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public().(ed25519.PublicKey), priv)
+	if err != nil {
+		return err
+	}
+
+	// encode certificate
+	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err != nil {
+		return err
+	}
+
+	// marhsal private key
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return err
+	}
+
+	// write private key
+	err = pem.Encode(keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func TestTLS(t *testing.T) {
+
+	t.Log("preparing test environment TLS cert/key")
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	assert.NoError(t, err, "could not create temporary certificate file for test")
+	defer func() {
+		// clean up after testing
+		certFile.Close()
+		os.Remove(certFile.Name())
 	}()
 
-	port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	assert.NoError(t, err, "could not create temporary private key file for test")
+	defer func() {
+		// clean up after testing
+		keyFile.Close()
+		os.Remove(keyFile.Name())
+	}()
+
+	// generate cert/key for testing
+	err = generateTLSCertAndKey(keyFile, certFile)
+	assert.NoError(t, err, "could not generate cert/key for test")
+
+	// prep tls config for mocked server
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
+	assert.NoError(t, err, "could not load TLS cert/key for test")
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// get testing host/port
+	n, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err, "could not generate new local listener for test")
+	tlsListenAddr := n.Addr().String()
+	err = n.Close()
+	assert.NoError(t, err, "could not close temp local listener for test")
+
+	// configure temp listener
+	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	defer tlsListener.Close()
+
+	// load root CAs
+	scp, err := x509.SystemCertPool()
+	assert.NoError(t, err, "could not use system cert pool for test")
+
+	// set up tls config
+	tlsConfig := tls.Config{
+		RootCAs:            scp,
+		ServerName:         testSNI.String(),
+		InsecureSkipVerify: true,
+	}
+
+	d := net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+
+	t.Log("starting test environment TLS server")
+	go func() {
+		// dial remote
+		clientConn, err := tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		assert.NoError(t, err, "could not dial test server")
+		defer clientConn.Close()
+
+		// perform handshake
+		err = clientConn.Handshake()
+		assert.NoError(t, err, "could not handshake with test server")
+
+		_, err = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, err, "could not send test data")
+
+		_, err = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, err, "could not send test data")
+
+		defer clientConn.Close()
+	}()
+
+	t.Log("starting test environment TLS client")
+	c, err := tlsListener.Accept()
+	assert.NoError(t, err, "could not accept test connection")
+
+	t.Run("test readFromClient", func(t *testing.T) {
+		t.Log("finally, testing readFromClient")
+		buf := make([]byte, 12)
+		_, err = readFromClient(c, buf)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("Hello World!"), buf)
+	})
+
+	t.Run("test checkConnTLSHandshakeComplete", func(t *testing.T) {
+		assert.True(t, checkConnTLSHandshakeComplete(c))
+	})
+
+	t.Run("test getUUIDfromSNI", func(t *testing.T) {
+		u, err := getUUIDfromSNI(c)
+		assert.NoError(t, err)
+		assert.Equal(t, testSNI, u)
+	})
+}
+
+func TestProxyClientToServer(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	var (
+		serverConn       net.Conn
+		serverListener   net.Listener
+		err              error
+		wgServerListener sync.WaitGroup
+		wgServerConn     sync.WaitGroup
+	)
+
+	t.Log("preparing test client/server connections")
+
+	// spin up server that will accept one connection (serverConn)
+	wgServerListener.Add(1)
+	wgServerConn.Add(1)
+	go func() {
+		serverListener, err = nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		wgServerListener.Done()
+		serverConn, err = serverListener.Accept()
+		assert.NoError(t, err)
+		wgServerConn.Done()
+	}()
+	wgServerListener.Wait()
+
+	// spin up client connection
+	// serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
+	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 	assert.NoError(t, err)
 
-	// test connection
-	t.Log("testing dialContainerTCP")
-	_, err = dialContainerTCP("localhost", port)
+	connectTo := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: serverPort,
+		Zone: "",
+	}
+	clientConn, err := net.DialTCP("tcp4", nil, &connectTo)
 	assert.NoError(t, err)
+
+	wgServerConn.Wait()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	go proxyClientToServer(
+		serverConn,
+		clientConn,
+		uint(1),
+		testSNI,
+		&pStatus,
+		&lastAuthCheck,
+		log.Logger,
+	)
+
+	// send data to be proxied
+	_, err = serverConn.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read data from the other end of the proxy
+	buf := make([]byte, 12)
+	_, err = clientConn.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+}
+
+func TestProxyServerToClient(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	var (
+		serverConn       net.Conn
+		serverListener   net.Listener
+		err              error
+		wgServerListener sync.WaitGroup
+		wgServerConn     sync.WaitGroup
+	)
+
+	t.Log("preparing test client/server connections")
+
+	// spin up server that will accept one connection (serverConn)
+	wgServerListener.Add(1)
+	wgServerConn.Add(1)
+	go func() {
+		serverListener, err = nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		wgServerListener.Done()
+		serverConn, err = serverListener.Accept()
+		assert.NoError(t, err)
+		wgServerConn.Done()
+	}()
+	wgServerListener.Wait()
+
+	// spin up client connection
+	// serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
+	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
+	assert.NoError(t, err)
+
+	connectTo := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: serverPort,
+		Zone: "",
+	}
+	clientConn, err := net.DialTCP("tcp4", nil, &connectTo)
+	assert.NoError(t, err)
+
+	wgServerConn.Wait()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	go proxyServerToClient(
+		serverConn,
+		clientConn,
+		uint(1),
+		testSNI,
+		&pStatus,
+		&lastAuthCheck,
+		log.Logger,
+	)
+
+	// send data to be proxied
+	_, err = serverConn.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read data from the other end of the proxy
+	buf := make([]byte, 12)
+	_, err = clientConn.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
 
 }

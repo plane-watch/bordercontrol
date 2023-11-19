@@ -209,35 +209,27 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 	} else {
 		// if no error
 
-		if len(dstIPs) > 0 {
-			// if dstIPs contains at least one element
+		// if dstIPs contains at least one element
 
-			// look for first IPv4
-			found := false
-			for _, i := range dstIPs {
-				if i.To4() != nil {
-					dstIP = i
-					found = true
-				}
+		// look for first IPv4
+		found := false
+		for _, i := range dstIPs {
+			if i.To4() != nil {
+				dstIP = i
+				found = true
 			}
-			if !found {
-				err = errors.New("container DNS lookup returned no IPv4 addresses")
-			}
+		}
+		if !found {
+			err = errors.New("container DNS lookup returned no IPv4 addresses")
+		}
 
-			// update logger with IP address
-			log = log.With().IPAddr("ip", dstIP).Logger()
+		// update logger with IP address
+		log = log.With().IPAddr("ip", dstIP).Logger()
 
-			// prep address to connect to
-			n = &net.TCPAddr{
-				IP:   dstIP,
-				Port: port,
-			}
-
-		} else {
-			// if dstIPs contains no elements
-
-			err = errors.New("container DNS lookup returned no IPs")
-			// log.Trace().AnErr("err", err).Msg("no elements in dstIPs")
+		// prep address to connect to
+		n = &net.TCPAddr{
+			IP:   dstIP,
+			Port: port,
 		}
 	}
 
