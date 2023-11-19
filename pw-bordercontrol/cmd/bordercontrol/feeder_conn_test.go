@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -331,6 +332,11 @@ func TestTLS(t *testing.T) {
 	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// test reload via signal
+	pid := os.Getpid()
+	err = syscall.Kill(pid, syscall.SIGHUP)
+	assert.Error(t, err)
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
