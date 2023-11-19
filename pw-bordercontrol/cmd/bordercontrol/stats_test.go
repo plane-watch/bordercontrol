@@ -135,6 +135,4 @@ func TestStats(t *testing.T) {
 	// tests
 	checkPromMetrics(t, body, expectedMetrics)
 
-	fmt.Println(body)
-
 }
