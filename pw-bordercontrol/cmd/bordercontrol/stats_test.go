@@ -184,13 +184,16 @@ func TestStats(t *testing.T) {
 	// remove connections (working)
 	stats.delConnection(u, protoBeast, 1)
 
-	// remove connection (proto not found)
+	// remove connection (connnum not found)
 	stats.delConnection(u, protoBeast, 1)
 
-	// remove connections (working)
-	stats.delConnection(u, protoMLAT, 2)
+	// remove connection (proto not found)
+	stats.delConnection(u, "no_such_proto", 2)
 
-	// remove connection (feeder not found)
+	// remove connections (uuid not found)
+	stats.delConnection(uuid.New(), protoMLAT, 2)
+
+	// remove connections (working)
 	stats.delConnection(u, protoMLAT, 2)
 
 	// check num conns
