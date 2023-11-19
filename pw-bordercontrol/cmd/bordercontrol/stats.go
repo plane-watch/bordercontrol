@@ -215,11 +215,14 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
-	_, found := stats.Feeders[uuid]
-	if !found {
-		log.Error().Msg("uuid not found in stats.Feeders")
-		return
-	}
+	// section below commented out
+	// uuid should always exist in stats.Feeders due to the stats.initFeederStats above
+
+	// _, found := stats.Feeders[uuid]
+	// if !found {
+	// 	log.Error().Msg("uuid not found in stats.Feeders")
+	// 	return
+	// }
 
 	_, found = stats.Feeders[uuid].Connections[proto]
 	if !found {
