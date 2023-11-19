@@ -147,25 +147,34 @@ func TestDialContainerTCP(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
-	// prepare mocked server
-	srv, err := nettest.NewLocalListener("tcp4")
-	assert.NoError(t, err)
-	t.Log("listening on:", srv.Addr())
-	go func() {
-		for {
-			_, err := srv.Accept()
-			if err != nil {
-				assert.NoError(t, err)
+	// test working server
+	t.Run("test working server", func(t *testing.T) {
+		// prepare mocked server
+		srv, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		t.Log("listening on:", srv.Addr())
+		go func() {
+			for {
+				_, err := srv.Accept()
+				if err != nil {
+					assert.NoError(t, err)
+				}
 			}
-		}
-	}()
+		}()
 
-	port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
-	assert.NoError(t, err)
+		port, err := strconv.Atoi(strings.Split(srv.Addr().String(), ":")[1])
+		assert.NoError(t, err)
 
-	// test connection
-	t.Log("testing dialContainerTCP")
-	_, err = dialContainerTCP("localhost", port)
-	assert.NoError(t, err)
+		// test connection
+		t.Log("testing dialContainerTCP")
+		_, err = dialContainerTCP("localhost", port)
+		assert.NoError(t, err)
+	})
+
+	// test invalid FQDN
+	t.Run("test invalid FQDN", func(t *testing.T) {
+		_, err := dialContainerTCP("something.invalid", 12345)
+		assert.Error(t, err)
+	})
 
 }
