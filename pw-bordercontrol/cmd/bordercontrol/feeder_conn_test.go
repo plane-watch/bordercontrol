@@ -416,7 +416,12 @@ func TestProxyClientToServer(t *testing.T) {
 
 	t.Log("serverAddr: ", serverAddr)
 	t.Log("serverPort: ", serverPort)
-	clientConn, err := net.DialTCP("tcp4", nil, &net.TCPAddr{Zone: "", IP: net.IP("127.0.0.1"), Port: serverPort})
+	connectTo := net.TCPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: serverPort,
+		Zone: "",
+	}
+	clientConn, err := net.DialTCP("tcp4", nil, &connectTo)
 	assert.NoError(t, err)
 
 	wgServerConn.Wait()
