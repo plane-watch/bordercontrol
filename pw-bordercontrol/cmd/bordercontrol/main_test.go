@@ -15,5 +15,7 @@ func TestDFWTB(t *testing.T) {
 }
 
 func TestGetRepoInfo(t *testing.T) {
-	_, _ = getRepoInfo()
+	ch, ct := getRepoInfo()
+	assert.NotEqualValues(t, "unknown", ch)
+	assert.NotEqualValues(t, "unknown", ct)
 }
