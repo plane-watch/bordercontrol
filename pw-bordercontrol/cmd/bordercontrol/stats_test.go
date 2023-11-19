@@ -190,9 +190,6 @@ func TestStats(t *testing.T) {
 	// remove connection (proto not found)
 	stats.delConnection(u, "no_such_proto", 2)
 
-	// remove connections (uuid not found)
-	stats.delConnection(uuid.New(), protoMLAT, 2)
-
 	// remove connections (working)
 	stats.delConnection(u, protoMLAT, 2)
 

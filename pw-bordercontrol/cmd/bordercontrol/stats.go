@@ -224,7 +224,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 	// 	return
 	// }
 
-	_, found = stats.Feeders[uuid].Connections[proto]
+	_, found := stats.Feeders[uuid].Connections[proto]
 	if !found {
 		log.Error().Msg("proto not found in stats.Feeders[uuid].Connections")
 		return
