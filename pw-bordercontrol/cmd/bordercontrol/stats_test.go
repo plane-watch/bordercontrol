@@ -174,6 +174,10 @@ func TestStats(t *testing.T) {
 	// tests
 	checkPromMetricsExist(t, body, expectedMetrics)
 
+	// add some traffic
+	stats.incrementByteCounters(u, 1, 1024, 1048576)
+	stats.incrementByteCounters(u, 2, 1073741824, 1099511627776)
+
 	// test APIs
 	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s/api/v1/feeders/", statsBaseURL))
 	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s/api/v1/feeder/%s", statsBaseURL, u.String()))
