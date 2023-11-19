@@ -350,12 +350,23 @@ func TestTLS(t *testing.T) {
 		_, err = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, err, "could not send test data")
 
+		_, err = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, err, "could not send test data")
+
 		defer clientConn.Close()
 	}()
 
 	t.Log("starting test environment TLS client")
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
+
+	t.Run("test readFromClient", func(t *testing.T) {
+		t.Log("finally, testing readFromClient")
+		buf := make([]byte, 12)
+		_, err = readFromClient(c, buf)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("Hello World!"), buf)
+	})
 
 	t.Run("test checkConnTLSHandshakeComplete", func(t *testing.T) {
 		assert.True(t, checkConnTLSHandshakeComplete(c))
@@ -367,11 +378,4 @@ func TestTLS(t *testing.T) {
 		assert.Equal(t, testSNI, u)
 	})
 
-	t.Run("test readFromClient", func(t *testing.T) {
-		t.Log("finally, testing readFromClient")
-		buf := make([]byte, 12)
-		_, err = readFromClient(c, buf)
-		assert.NoError(t, err)
-		assert.Equal(t, []byte("Hello World!"), buf)
-	})
 }
