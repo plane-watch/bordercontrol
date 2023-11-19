@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"pw_bordercontrol/lib/atc"
 	"strings"
 	"testing"
 	"time"
@@ -91,6 +92,13 @@ func TestStats(t *testing.T) {
 		label:        "test-feeder",
 	}
 
+	// add valid feeder
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		ApiKey: u,
+	})
+	validFeeders.mu.Unlock()
+
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
@@ -115,7 +123,7 @@ func TestStats(t *testing.T) {
 		`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 400`,
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
-		`pw_bordercontrol_feeders 0`,
+		`pw_bordercontrol_feeders 1`,
 		`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
 		`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
 		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"} 100`, fc.label, fc.clientApiKey),
