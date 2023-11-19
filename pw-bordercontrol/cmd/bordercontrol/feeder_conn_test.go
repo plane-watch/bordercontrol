@@ -387,24 +387,27 @@ func TestProxyClientToServer(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	var (
-		serverConn     net.Conn
-		serverListener net.Listener
-		err            error
-		wg             sync.WaitGroup
+		serverConn       net.Conn
+		serverListener   net.Listener
+		err              error
+		wgServerListener sync.WaitGroup
+		wgServerConn     sync.WaitGroup
 	)
 
 	t.Log("preparing test client/server connections")
 
 	// spin up server that will accept one connection (serverConn)
-	wg.Add(1)
+	wgServerListener.Add(1)
+	wgServerConn.Add(1)
 	go func() {
 		serverListener, err = nettest.NewLocalListener("tcp")
 		assert.NoError(t, err)
+		wgServerListener.Done()
 		serverConn, err = serverListener.Accept()
 		assert.NoError(t, err)
-		wg.Done()
+		wgServerConn.Done()
 	}()
-	wg.Wait()
+	wgServerListener.Wait()
 
 	// spin up client connection
 	serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
@@ -412,6 +415,8 @@ func TestProxyClientToServer(t *testing.T) {
 	assert.NoError(t, err)
 	clientConn, err := net.DialTCP("tcp", nil, &net.TCPAddr{IP: net.IP(serverAddr), Port: serverPort})
 	assert.NoError(t, err)
+
+	wgServerConn.Wait()
 
 	// method to signal goroutines to exit
 	pStatus := proxyStatus{
