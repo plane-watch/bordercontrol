@@ -457,7 +457,7 @@ func TestTLS_NonTLSClient(t *testing.T) {
 	assert.NoError(t, err)
 	go func() {
 		_, err := c.Write([]byte("Hello World!"))
-		fmt.Println(err)
+		assert.NoError(t, err)
 	}()
 
 	t.Run("test readFromClient non TLS client", func(t *testing.T) {
@@ -465,6 +465,7 @@ func TestTLS_NonTLSClient(t *testing.T) {
 		buf := make([]byte, 12)
 		_, err = readFromClient(svrConn, buf)
 		assert.Error(t, err)
+		fmt.Println(err)
 	})
 
 	svrConn.Close()
