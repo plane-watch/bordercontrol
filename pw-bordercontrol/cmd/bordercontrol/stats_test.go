@@ -145,8 +145,8 @@ func TestStats(t *testing.T) {
 	checkPromMetricsExist(t, body, expectedMetrics)
 
 	// remove connections
-	stats.delConnection(u, &ip, &ip, protoBeast, 1)
-	stats.delConnection(u, &ip, &ip, protoMLAT, 2)
+	stats.delConnection(u, protoBeast, 1)
+	stats.delConnection(u, protoMLAT, 2)
 
 	body = getMetricsFromTestServer(t, requestURL)
 
