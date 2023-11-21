@@ -663,12 +663,12 @@ func TestProxyServerToClient(t *testing.T) {
 	)
 
 	// send data to be proxied from client-side
-	_, err = csServerConn.Write([]byte("Hello World!"))
+	_, err = ssServerConn.Write([]byte("Hello World!"))
 	assert.NoError(t, err)
 
 	// read proxied data from the server-side
 	buf := make([]byte, 12)
-	_, err = ssServerConn.Read(buf)
+	_, err = csServerConn.Read(buf)
 	assert.NoError(t, err)
 
 	// data should match!
