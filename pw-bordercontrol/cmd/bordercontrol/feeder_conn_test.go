@@ -506,12 +506,13 @@ func TestProxyClientToServer(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	var (
-		ssServerConn     net.Conn
-		ssClientConn     *net.TCPConn
-		serverListener   net.Listener
-		err              error
-		wgServerListener sync.WaitGroup
-		wgServerConn     sync.WaitGroup
+		ssServerConn      net.Conn
+		ssClientConn      *net.TCPConn
+		serverListener    net.Listener
+		err               error
+		wgServerSideConns sync.WaitGroup
+		wgServerListener  sync.WaitGroup
+		wgServerConn      sync.WaitGroup
 	)
 
 	t.Log("preparing test server-side connections")
@@ -519,6 +520,7 @@ func TestProxyClientToServer(t *testing.T) {
 	// spin up server-side server that will accept one connection
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
+	wgServerSideConns.Add(2)
 	go func() {
 		var e error
 		serverListener, e = nettest.NewLocalListener("tcp4")
@@ -527,10 +529,12 @@ func TestProxyClientToServer(t *testing.T) {
 		ssServerConn, e = serverListener.Accept()
 		assert.NoError(t, e)
 		wgServerConn.Done()
+		wgServerSideConns.Done()
 	}()
 	wgServerListener.Wait()
 
 	// spin up server-side client connection
+	wgServerSideConns.Add(1)
 	go func() {
 		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 		assert.NoError(t, err)
@@ -542,8 +546,10 @@ func TestProxyClientToServer(t *testing.T) {
 		}
 		ssClientConn, err = net.DialTCP("tcp4", nil, &connectTo)
 		assert.NoError(t, err)
+		wgServerSideConns.Done()
 	}()
 	wgServerConn.Wait()
+	wgServerSideConns.Wait()
 
 	// spin up client-side server & client connections
 	t.Log("preparing test client-side connections")
