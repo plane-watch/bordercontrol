@@ -506,16 +506,17 @@ func TestProxyClientToServer(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	var (
-		serverConn       net.Conn
+		ssServerConn     net.Conn
+		ssClientConn     *net.TCPConn
 		serverListener   net.Listener
 		err              error
 		wgServerListener sync.WaitGroup
 		wgServerConn     sync.WaitGroup
 	)
 
-	t.Log("preparing test client/server connections")
+	t.Log("preparing test server-side connections")
 
-	// spin up server that will accept one connection (serverConn)
+	// spin up server-side server that will accept one connection
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
 	go func() {
@@ -523,26 +524,29 @@ func TestProxyClientToServer(t *testing.T) {
 		serverListener, e = nettest.NewLocalListener("tcp4")
 		assert.NoError(t, e)
 		wgServerListener.Done()
-		serverConn, e = serverListener.Accept()
+		ssServerConn, e = serverListener.Accept()
 		assert.NoError(t, e)
 		wgServerConn.Done()
 	}()
 	wgServerListener.Wait()
 
-	// spin up client connection
-	// serverAddr := strings.Split(serverListener.Addr().String(), ":")[0]
-	serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
-	assert.NoError(t, err)
+	// spin up server-side client connection
+	go func() {
+		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
+		assert.NoError(t, err)
 
-	connectTo := net.TCPAddr{
-		IP:   net.IPv4(127, 0, 0, 1),
-		Port: serverPort,
-		Zone: "",
-	}
-	clientConn, err := net.DialTCP("tcp4", nil, &connectTo)
-	assert.NoError(t, err)
-
+		connectTo := net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: serverPort,
+			Zone: "",
+		}
+		ssClientConn, err = net.DialTCP("tcp4", nil, &connectTo)
+		assert.NoError(t, err)
+	}()
 	wgServerConn.Wait()
+
+	// spin up client-side server & client connections
+	csClientConn, csServerConn := net.Pipe()
 
 	// method to signal goroutines to exit
 	pStatus := proxyStatus{
@@ -552,8 +556,8 @@ func TestProxyClientToServer(t *testing.T) {
 	// test proxyClientToServer
 	lastAuthCheck := time.Now()
 	go proxyClientToServer(
-		serverConn,
-		clientConn,
+		csClientConn,
+		ssClientConn,
 		uint(1),
 		testSNI,
 		&pStatus,
@@ -562,12 +566,12 @@ func TestProxyClientToServer(t *testing.T) {
 	)
 
 	// send data to be proxied
-	_, err = serverConn.Write([]byte("Hello World!"))
+	_, err = csClientConn.Write([]byte("Hello World!"))
 	assert.NoError(t, err)
 
 	// read data from the other end of the proxy
 	buf := make([]byte, 12)
-	_, err = clientConn.Read(buf)
+	_, err = ssServerConn.Read(buf)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("Hello World!"), buf)
 
