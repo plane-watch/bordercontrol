@@ -208,7 +208,7 @@ func TestStats(t *testing.T) {
 
 	body = getMetricsFromTestServer(t, metricsURL)
 
-	fmt.Println(body)
+	// fmt.Println(body)
 
 	// new expected metrics
 	expectedMetrics = []string{
