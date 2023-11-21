@@ -520,7 +520,7 @@ func TestProxyClientToServer(t *testing.T) {
 	// spin up server-side server that will accept one connection
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
-	wgServerSideConns.Add(2)
+	wgServerSideConns.Add(1)
 	go func() {
 		var e error
 		serverListener, e = nettest.NewLocalListener("tcp4")
