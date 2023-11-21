@@ -546,6 +546,7 @@ func TestProxyClientToServer(t *testing.T) {
 	wgServerConn.Wait()
 
 	// spin up client-side server & client connections
+	t.Log("preparing test client-side connections")
 	csClientConn, csServerConn := net.Pipe()
 
 	// method to signal goroutines to exit
@@ -565,14 +566,16 @@ func TestProxyClientToServer(t *testing.T) {
 		log.Logger,
 	)
 
-	// send data to be proxied
-	_, err = csClientConn.Write([]byte("Hello World!"))
+	// send data to be proxied from client-side
+	_, err = csServerConn.Write([]byte("Hello World!"))
 	assert.NoError(t, err)
 
-	// read data from the other end of the proxy
+	// read proxied data from the server-side
 	buf := make([]byte, 12)
 	_, err = ssServerConn.Read(buf)
 	assert.NoError(t, err)
+
+	// data should match!
 	assert.Equal(t, []byte("Hello World!"), buf)
 
 	pStatus.mu.Lock()
