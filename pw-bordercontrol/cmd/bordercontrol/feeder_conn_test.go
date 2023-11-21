@@ -408,6 +408,12 @@ func TestTLS(t *testing.T) {
 		assert.Equal(t, []byte("Hello World!"), buf)
 	})
 
+	t.Run("test readFromClient EOF", func(t *testing.T) {
+		buf := make([]byte, 1024)
+		_, err = readFromClient(c, buf)
+		assert.Error(t, err)
+	})
+
 	t.Run("test checkConnTLSHandshakeComplete", func(t *testing.T) {
 		assert.True(t, checkConnTLSHandshakeComplete(c))
 	})
