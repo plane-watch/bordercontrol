@@ -650,7 +650,7 @@ func TestProxyServerToClient(t *testing.T) {
 		run: true,
 	}
 
-	// test proxyClientToServer
+	// test proxyServerToClient
 	lastAuthCheck := time.Now()
 	go proxyServerToClient(
 		csClientConn,
