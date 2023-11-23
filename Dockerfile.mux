@@ -1,3 +1,5 @@
+FROM ghcr.io/plane-watch/pw-pipeline:pw_ingest as pipeline
+
 FROM debian:bookworm-20231030-slim
 
 ARG S6_OVERLAY_VERSION=3.1.6.0
@@ -87,6 +89,7 @@ RUN set -x && \
     apt-get autoremove -y && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
 
+COPY --from=pipeline /app/pw_ingest /usr/local/bin/pw_ingest
 COPY pw-mux/rootfs/ /
 
 # Deploy s6 overlay
