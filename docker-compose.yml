@@ -21,6 +21,7 @@ x-mux-common: &mux-common
     - READSB_NET_BEAST_INPUT_PORT=12345
     - READSB_NET_ENABLE=true
     - READSB_NET_ONLY=true
+    - PW_INGEST_SINK=${PW_INGEST_SINK}
   tmpfs:
     - /run:exec,size=64M
     - /var/log
