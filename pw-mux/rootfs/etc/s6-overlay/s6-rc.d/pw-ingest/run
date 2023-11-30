@@ -27,6 +27,12 @@ PW_INGEST_CMD+=("--sink" "${PW_INGEST_SINK}")
 # simple   Gather ADSB data and sends it to the configured output.
 PW_INGEST_CMD+=("simple")
 
+# show version
+fdmove -c 2 1 \
+  "${PW_INGEST_BIN}" \
+    --version |
+  awk -W Interactive '{print "[pw_ingest] " $0}'
+
 # shellcheck disable=SC2016
 fdmove -c 2 1 \
   "${PW_INGEST_BIN}" \
