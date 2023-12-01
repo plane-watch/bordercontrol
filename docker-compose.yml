@@ -73,6 +73,8 @@ services:
     image: adsc-receiver
     tty: true
     restart: always
+    networks:
+      - bordercontrol_feeder
     environment:
       - PW_INGEST_SINK=${PW_INGEST_SINK}
       - DEBUG=true
