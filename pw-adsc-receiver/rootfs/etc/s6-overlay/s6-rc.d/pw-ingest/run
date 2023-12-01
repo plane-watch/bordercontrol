@@ -13,6 +13,9 @@ PW_INGEST_CMD+=("--fetch" "sbs1://127.0.0.1:30003")
 # Set output
 PW_INGEST_CMD+=("--sink" "${PW_INGEST_SINK}")
 
+# Set ADS-C mode
+PW_INGEST_CMD+=("--ads-c")
+
 # "simple" mode
 # simple   Gather ADSB data and sends it to the configured output.
 PW_INGEST_CMD+=("simple")
