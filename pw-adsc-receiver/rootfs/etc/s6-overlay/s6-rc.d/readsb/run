@@ -1,0 +1,33 @@
+#!/command/with-contenv bash
+#shellcheck shell=bash
+
+mkdir -p /run/readsb
+chmod -R 755 /run/readsb
+
+# Set readsb binary
+READSB_BIN="/usr/local/bin/readsb"
+
+##### LAUNCH READSB #####
+
+set -eo pipefail
+
+# shellcheck disable=SC2016
+fdmove -c 2 1 \
+    "${READSB_BIN}" \
+        --max-range 22000 \
+        --quiet \
+        --stats-every=3600 \
+        --net \
+        --net-only \
+        --net-bind-address=0.0.0.0 \
+        --net-sbs-in-port=31003 \
+        --net-sbs-port=30003 \
+        --net-verbatim \
+        |
+    sed --unbuffered '/^$/d' | 
+    awk -W Interactive '{print "[readsb] " strftime("%Y/%m/%d %H:%M:%S", systime()) " " $0}'
+
+# --max-range 22000 = larger than circumference of the earth, to allow all positions
+
+# prevent re-launching too fast
+sleep 5
