@@ -76,7 +76,10 @@ services:
     environment:
       - PW_INGEST_SINK=${PW_INGEST_SINK}
       - DEBUG=true
-    
+    ports:
+      - 31003:31003    # SBS In
+      - 30003:30003    # SBS Out
+
   # Multiplexer: Australia ACT
   mux-act:
     container_name: mux-act
