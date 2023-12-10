@@ -29,6 +29,7 @@ type FeederStats struct {
 	Label string  // feeder label
 	Lat   float64 // feeder lat
 	Lon   float64 // feeder lon
+	Code  string  // feeder_code
 
 	// Connection details
 	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
@@ -192,6 +193,7 @@ func (stats *Statistics) setFeederDetails(f *feederClient) {
 	y.Label = f.label
 	y.Lat = f.refLat
 	y.Lon = f.refLon
+	y.Code = f.feederCode
 	y.TimeUpdated = time.Now()
 
 	// write stats entry
@@ -270,7 +272,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 	// log.Debug().Msg("finished")
 }
 
-func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto string, connNum uint) {
+func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto, code string, connNum uint) {
 	// updates the connected status of a feeder
 
 	log := log.With().
@@ -279,6 +281,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Str("src", src.String()).
 		Str("dst", dst.String()).
 		Str("proto", proto).
+		Str("code", code).
 		Uint("connNum", connNum).
 		Logger()
 
@@ -303,10 +306,11 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
 		ConstLabels: prometheus.Labels{
-			"protocol": strings.ToLower(proto),
-			"uuid":     uuid.String(),
-			"label":    stats.Feeders[uuid].Label,
-			"connnum":  fmt.Sprintf("%d", connNum),
+			"protocol":    strings.ToLower(proto),
+			"uuid":        uuid.String(),
+			"label":       stats.Feeders[uuid].Label,
+			"connnum":     fmt.Sprintf("%d", connNum),
+			"feeder_code": code,
 		}})
 	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: promNamespace,
@@ -314,10 +318,11 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
 		ConstLabels: prometheus.Labels{
-			"protocol": strings.ToLower(proto),
-			"uuid":     uuid.String(),
-			"label":    stats.Feeders[uuid].Label,
-			"connnum":  fmt.Sprintf("%d", connNum),
+			"protocol":    strings.ToLower(proto),
+			"uuid":        uuid.String(),
+			"label":       stats.Feeders[uuid].Label,
+			"connnum":     fmt.Sprintf("%d", connNum),
+			"feeder_code": code,
 		}})
 	err := prometheus.Register(c.promMetricBytesIn)
 	if err != nil {

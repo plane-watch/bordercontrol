@@ -5,7 +5,7 @@
 PW_INGEST_BIN="/usr/local/bin/pw_ingest"
 
 # Set feeder tag/uuid
-PW_INGEST_CMD=("--tag" "${FEEDER_UUID}")
+PW_INGEST_CMD=("--tag" "${FEEDER_TAG}")
 
 # Set input
 PW_INGEST_CMD+=("--fetch" "beast://127.0.0.1:30005")

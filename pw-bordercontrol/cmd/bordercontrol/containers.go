@@ -184,6 +184,7 @@ func startFeederContainers(
 			Str("label", string(containerToStart.clientDetails.label)).
 			Str("uuid", string(containerToStart.clientDetails.clientApiKey.String())).
 			Str("src", string(containerToStart.srcIP.String())).
+			Str("code", string(containerToStart.clientDetails.feederCode)).
 			Logger()
 
 		// determine if container is already running
@@ -222,6 +223,7 @@ func startFeederContainers(
 				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.clientDetails.refLat),
 				fmt.Sprintf("FEEDER_LON=%f", containerToStart.clientDetails.refLon),
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
+				fmt.Sprintf("FEEDER_TAG=%s", containerToStart.clientDetails.feederCode),
 				// "READSB_STATS_EVERY=300",
 				"READSB_NET_ENABLE=true",
 				"READSB_NET_BEAST_INPUT_PORT=12345",

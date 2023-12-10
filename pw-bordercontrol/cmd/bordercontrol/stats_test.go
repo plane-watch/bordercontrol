@@ -139,8 +139,8 @@ func TestStats(t *testing.T) {
 
 	// add some fake feeder connections
 	stats.setFeederDetails(&fc)
-	stats.addConnection(u, &ip, &ip, protoBeast, 1)
-	stats.addConnection(u, &ip, &ip, protoMLAT, 2)
+	stats.addConnection(u, &ip, &ip, protoBeast, "ABCD-1234", 1)
+	stats.addConnection(u, &ip, &ip, protoMLAT, "ABCD-1234", 2)
 
 	// check num conns
 	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
@@ -185,7 +185,7 @@ func TestStats(t *testing.T) {
 	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s", statsBaseURL))
 
 	// add another beast connection
-	stats.addConnection(u, &ip, &ip, protoBeast, 3)
+	stats.addConnection(u, &ip, &ip, protoBeast, "ABCD-1234", 3)
 
 	// remove connections (working)
 	stats.delConnection(u, protoBeast, 1)

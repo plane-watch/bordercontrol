@@ -120,12 +120,13 @@ func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 
 			// mock response
 			resp := fmt.Sprintf(
-				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s"}]}`,
+				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s", "feeder_code":"%s"}]}`,
 				TestFeederAPIKeyWorking,
 				TestFeederLabel,
 				TestFeederLatitude,
 				TestFeederLongitude,
 				TestFeederMux,
+				TestFeederCode,
 			)
 
 			// response code
@@ -290,11 +291,12 @@ func TestGetFeeders_Working(t *testing.T) {
 
 	expectedFeeders := Feeders{
 		[]Feeder{{
-			ApiKey:    uuid.MustParse(TestFeederAPIKeyWorking),
-			Label:     TestFeederLabel,
-			Latitude:  TestFeederLatitude,
-			Longitude: TestFeederLongitude,
-			Mux:       TestFeederMux,
+			ApiKey:     uuid.MustParse(TestFeederAPIKeyWorking),
+			Label:      TestFeederLabel,
+			Latitude:   TestFeederLatitude,
+			Longitude:  TestFeederLongitude,
+			Mux:        TestFeederMux,
+			FeederCode: TestFeederCode,
 		}},
 	}
 
