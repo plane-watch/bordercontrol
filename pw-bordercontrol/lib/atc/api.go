@@ -128,15 +128,15 @@ func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refL
 	}
 	defer response.Body.Close()
 
-	// fmt.Println("response Status:", response.Status)
-	// fmt.Println("response Headers:", response.Header)
-	// body, _ := ioutil.ReadAll(response.Body)
-	// fmt.Println("response Body:", string(body))
+	fmt.Println("response Status:", response.Status)
+	fmt.Println("response Headers:", response.Header)
+	// body, _ := io.ReadAll(response.Body)
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return refLat, refLon, mux, label, err
 	}
+	fmt.Println("response Body:", string(body))
 
 	var feeder FeederB
 
