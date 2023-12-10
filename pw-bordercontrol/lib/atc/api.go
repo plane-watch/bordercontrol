@@ -21,40 +21,24 @@ type (
 	}
 
 	Feeders struct { // schema for /api/v1/feeders.json atc endpoint
-		Feeders []struct {
-			Altitude      float64 `json:",string"`
-			ApiKey        uuid.UUID
-			FeedDirection string
-			FeedProtocol  string
-			ID            int
-			Label         string
-			Latitude      float64 `json:",string"`
-			Longitude     float64 `json:",string"`
-			MlatEnabled   bool
-			Mux           string
-			User          string
-		}
+		Feeders []Feeder
 	}
 
-	// Feeders struct { // schema for /api/v1/feeders.json atc endpoint
-	// 	Feeders []Feeder
-	// }
+	Feeder struct { // part of schema for /api/v1/feeders.json atc endpoint
+		Altitude      float64 `json:",string"`
+		ApiKey        uuid.UUID
+		FeedDirection string
+		FeedProtocol  string
+		ID            int
+		Label         string
+		Latitude      float64 `json:",string"`
+		Longitude     float64 `json:",string"`
+		MlatEnabled   bool
+		Mux           string
+		User          string
+	}
 
-	// Feeder struct { // part of schema for /api/v1/feeders.json atc endpoint
-	// 	Altitude      float64 `json:",string"`
-	// 	ApiKey        uuid.UUID
-	// 	FeedDirection string
-	// 	FeedProtocol  string
-	// 	ID            int
-	// 	Label         string
-	// 	Latitude      float64 `json:",string"`
-	// 	Longitude     float64 `json:",string"`
-	// 	MlatEnabled   bool
-	// 	Mux           string
-	// 	User          string
-	// }
-
-	Feeder struct { // schema for /api/v1/feeders/{uuid}.json atc endpoint
+	FeederB struct { // schema for /api/v1/feeders/{uuid}.json atc endpoint
 		Feeder struct {
 			ApiKey      uuid.UUID `json:"api_key"`
 			Label       string    `json:"label"`
@@ -164,10 +148,10 @@ func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refL
 			return refLat, refLon, mux, label, err
 		}
 
-		refLat = feeder.Feeder.Latitude
-		refLon = feeder.Feeder.Longitude
-		mux = feeder.Feeder.Mux
-		label = feeder.Feeder.Label
+		refLat = feeder.Latitude
+		refLon = feeder.Longitude
+		mux = feeder.Mux
+		label = feeder.Label
 
 	} else {
 		errStr := fmt.Sprintf("ATC API response status: %s", response.Status)
