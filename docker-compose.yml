@@ -64,7 +64,7 @@ services:
     image: feed-in
     entrypoint: /bin/true
 
-  # Relay 
+  # Relay
   adsc-receiver:
     container_name: adsc-receiver
     build:
