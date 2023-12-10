@@ -21,24 +21,40 @@ type (
 	}
 
 	Feeders struct { // schema for /api/v1/feeders.json atc endpoint
-		Feeders []Feeder
+		Feeders []struct {
+			Altitude      float64 `json:",string"`
+			ApiKey        uuid.UUID
+			FeedDirection string
+			FeedProtocol  string
+			ID            int
+			Label         string
+			Latitude      float64 `json:",string"`
+			Longitude     float64 `json:",string"`
+			MlatEnabled   bool
+			Mux           string
+			User          string
+		}
 	}
 
-	Feeder struct { // part of schema for /api/v1/feeders.json atc endpoint
-		Altitude      float64 `json:",string"`
-		ApiKey        uuid.UUID
-		FeedDirection string
-		FeedProtocol  string
-		ID            int
-		Label         string
-		Latitude      float64 `json:",string"`
-		Longitude     float64 `json:",string"`
-		MlatEnabled   bool
-		Mux           string
-		User          string
-	}
+	// Feeders struct { // schema for /api/v1/feeders.json atc endpoint
+	// 	Feeders []Feeder
+	// }
 
-	FeederB struct { // schema for /api/v1/feeders/{uuid}.json atc endpoint
+	// Feeder struct { // part of schema for /api/v1/feeders.json atc endpoint
+	// 	Altitude      float64 `json:",string"`
+	// 	ApiKey        uuid.UUID
+	// 	FeedDirection string
+	// 	FeedProtocol  string
+	// 	ID            int
+	// 	Label         string
+	// 	Latitude      float64 `json:",string"`
+	// 	Longitude     float64 `json:",string"`
+	// 	MlatEnabled   bool
+	// 	Mux           string
+	// 	User          string
+	// }
+
+	Feeder struct { // schema for /api/v1/feeders/{uuid}.json atc endpoint
 		Feeder struct {
 			ApiKey      uuid.UUID `json:"api_key"`
 			Label       string    `json:"label"`
@@ -48,6 +64,7 @@ type (
 			Protocol    string    `json:"protocol"`
 			Elevation   float64   `json:"elevation,string"`
 			Mux         string    `json:"mux"`
+			FeederCode  string    `json:"feeder_code"`
 		} `json:"feeder"`
 	}
 
@@ -138,7 +155,7 @@ func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refL
 	}
 	fmt.Println("response Body:", string(body))
 
-	var feeder FeederB
+	var feeder Feeder
 
 	if response.StatusCode == 200 {
 
