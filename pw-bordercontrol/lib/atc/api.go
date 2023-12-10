@@ -27,6 +27,7 @@ type (
 	Feeder struct { // part of schema for /api/v1/feeders.json atc endpoint
 		Altitude      float64 `json:",string"`
 		ApiKey        uuid.UUID
+		FeederCode    string `json:"feeder_code"`
 		FeedDirection string
 		FeedProtocol  string
 		ID            int
@@ -36,20 +37,6 @@ type (
 		MlatEnabled   bool
 		Mux           string
 		User          string
-	}
-
-	FeederB struct { // schema for /api/v1/feeders/{uuid}.json atc endpoint
-		Feeder struct {
-			ApiKey      uuid.UUID `json:"api_key"`
-			Label       string    `json:"label"`
-			MlatEnabled bool      `json:"mlat_enabled"`
-			Latitude    float64   `json:"latitude,string"`
-			Longitude   float64   `json:"longitude,string"`
-			Protocol    string    `json:"protocol"`
-			Elevation   float64   `json:"elevation,string"`
-			Mux         string    `json:"mux"`
-			FeederCode  string    `json:"feeder_code"`
-		} `json:"feeder"`
 	}
 
 	atcCredentials struct { // schema for atc credentials
@@ -104,62 +91,6 @@ func authenticate(server *Server) (authToken string, err error) {
 	}
 
 	return authToken, nil
-}
-
-func GetFeederInfo(server *Server, feederApiKey uuid.UUID) (refLat float64, refLon float64, mux string, label string, err error) {
-
-	authToken, err := authenticate(server)
-	if err != nil {
-		return refLat, refLon, mux, label, err
-	}
-
-	atcUrl := server.Url.JoinPath(fmt.Sprintf("/api/v1/feeders/%s.json", feederApiKey.String()))
-
-	req, err := http.NewRequest("GET", atcUrl.String(), nil)
-	if err != nil {
-		return refLat, refLon, mux, label, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", authToken)
-
-	client := &http.Client{}
-	response, err := client.Do(req)
-	if err != nil {
-		return refLat, refLon, mux, label, err
-	}
-	defer response.Body.Close()
-
-	fmt.Println("response Status:", response.Status)
-	fmt.Println("response Headers:", response.Header)
-	// body, _ := io.ReadAll(response.Body)
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return refLat, refLon, mux, label, err
-	}
-	fmt.Println("response Body:", string(body))
-
-	var feeder Feeder
-
-	if response.StatusCode == 200 {
-
-		err := json.Unmarshal(body, &feeder)
-		if err != nil {
-			return refLat, refLon, mux, label, err
-		}
-
-		refLat = feeder.Latitude
-		refLon = feeder.Longitude
-		mux = feeder.Mux
-		label = feeder.Label
-
-	} else {
-		errStr := fmt.Sprintf("ATC API response status: %s", response.Status)
-		return refLat, refLon, mux, label, errors.New(errStr)
-	}
-
-	return refLat, refLon, mux, label, err
-
 }
 
 func GetFeeders(server *Server) (feeders Feeders, err error) {

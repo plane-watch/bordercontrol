@@ -26,6 +26,7 @@ const (
 	TestFeederLatitude      = 123.456789
 	TestFeederLongitude     = 98.765432
 	TestFeederMux           = "test-mux"
+	TestFeederCode          = "ABCD-1234"
 
 	// mock ATC server testing scenarios
 	MockServerTestScenarioWorking = iota
@@ -89,12 +90,13 @@ func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 			// mock response
 
 			resp := fmt.Sprintf(
-				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s"}}`,
+				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s","feeder_code:"%s"}}`,
 				TestFeederAPIKeyWorking,
 				TestFeederLabel,
 				TestFeederLatitude,
 				TestFeederLongitude,
 				TestFeederMux,
+				TestFeederCode,
 			)
 
 			// response code
@@ -265,74 +267,6 @@ func TestAuthenticate_NoResponse(t *testing.T) {
 	// test
 	_, err = authenticate(&s)
 	assert.Error(t, err)
-}
-
-func TestGetFeederInfo_Working(t *testing.T) {
-
-	server := prepMockATCServer(t, MockServerTestScenarioWorking)
-	defer server.Close()
-
-	// prep url
-	u, err := url.Parse(server.URL)
-	assert.NoError(t, err)
-
-	// function argument
-	s := Server{
-		Url:      (*u),
-		Username: TestUser,
-		Password: TestPassword,
-	}
-
-	refLat, refLon, mux, label, err := GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
-	assert.NoError(t, err)
-	assert.Equal(t, TestFeederLatitude, refLat)
-	assert.Equal(t, TestFeederLongitude, refLon)
-	assert.Equal(t, TestFeederMux, mux)
-	assert.Equal(t, TestFeederLabel, label)
-
-}
-
-func TestGetFeederInfo_BadResponse(t *testing.T) {
-
-	// prep test server
-	server := prepMockATCServer(t, MockServerTestScenarioBadResponseCodeFeeder)
-	defer server.Close()
-
-	// prep url
-	u, err := url.Parse(server.URL)
-	assert.NoError(t, err)
-
-	// function argument
-	s := Server{
-		Url:      (*u),
-		Username: TestUser,
-		Password: TestPassword,
-	}
-
-	_, _, _, _, err = GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
-	assert.Error(t, err)
-
-}
-
-func TestGetFeederInfo_NoResponse(t *testing.T) {
-
-	// prep test server
-	server := prepMockATCServer(t, MockServerTestScenarioNoResponse)
-
-	// prep url
-	u, err := url.Parse(server.URL)
-	assert.NoError(t, err)
-
-	// function argument
-	s := Server{
-		Url:      (*u),
-		Username: TestUser,
-		Password: TestPassword,
-	}
-
-	_, _, _, _, err = GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
-	assert.Error(t, err)
-
 }
 
 func TestGetFeeders_Working(t *testing.T) {
