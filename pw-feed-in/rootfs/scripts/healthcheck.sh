@@ -33,6 +33,14 @@ else
     EXITCODE=1
 fi
 
+# check FEEDER_TAG exists
+if /command/s6-env bash -c '[[ -n "$FEEDER_TAG" ]]'; then
+    echo "FEEDER_TAG_VALID=true"
+else
+    echo "FEEDER_TAG_VALID=false"
+    EXITCODE=1
+fi
+
 # update /run/healthcheck
 if [ "$(cat /run/healthcheck)" != "$EXITCODE" ]; then
     echo "$EXITCODE" > /run/healthcheck
@@ -41,7 +49,9 @@ fi
 # if container has been unhealthy for 10mins+ then stop container
 if [ "$(cat /run/healthcheck)" != "0" ]; then
     if test "$(find /run/healthcheck -mmin +10)"; then
-        s6-svscanctl -t /var/run/s6/services
+        # kill container init, which will stop container
+        # as container should be started with autoremove, it should be deleted
+        kill 1
     fi
 fi
 
