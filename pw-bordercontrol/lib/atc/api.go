@@ -27,7 +27,7 @@ type (
 	Feeder struct { // part of schema for /api/v1/feeders.json atc endpoint
 		Altitude      float64 `json:",string"`
 		ApiKey        uuid.UUID
-		FeederCode    string `json:"feeder_code"`
+		FeederCode    string
 		FeedDirection string
 		FeedProtocol  string
 		ID            int
