@@ -528,8 +528,6 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 			Int("containersToStartRequestsLength", len(containersToStartRequests)).
 			Logger()
 
-			// TODO: use a context here for timeout
-
 		// check outstanding start requests
 		if len(containersToStartRequests) > 20 {
 			err := errors.New("too many container start requests in queue")
