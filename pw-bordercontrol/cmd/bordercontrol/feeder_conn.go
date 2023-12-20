@@ -525,7 +525,6 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 
 		log = log.With().
 			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
-			Int("containersToStartRequestsLength", len(containersToStartRequests)).
 			Logger()
 
 		// request start of the feed-in container with submission timeout
