@@ -523,7 +523,10 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	switch connProto {
 	case protoBeast:
 
-		log = log.With().Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).Logger()
+		log = log.With().
+			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
+			Int("containersToStartRequestsLength", len(containersToStartRequests)).
+			Logger()
 
 		// check outstanding start requests
 		if len(containersToStartRequests) > 20 {
