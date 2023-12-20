@@ -528,22 +528,15 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 			Int("containersToStartRequestsLength", len(containersToStartRequests)).
 			Logger()
 
-		// check outstanding start requests
-		if len(containersToStartRequests) > 20 {
-			err := errors.New("too many container start requests in queue")
-			log.Err(err).Msg("cannot start feed-in container")
-			return err
-		}
-
-		// start the container with timeout
+		// request start of the feed-in container with submission timeout
 		select {
 		case containersToStartRequests <- startContainerRequest{
 			clientDetails: clientDetails,
 			srcIP:         remoteIP,
 		}:
 		case <-time.After(5 * time.Second):
-			err := errors.New("timeout (5 second) waiting to submit container start request")
-			log.Err(err).Msg("cannot start feed-in container")
+			err := errors.New("5s timeout waiting to submit container start request")
+			log.Err(err).Msg("could not start feed-in container")
 			return err
 		}
 
