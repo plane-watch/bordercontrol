@@ -525,6 +525,13 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 
 		log = log.With().Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).Logger()
 
+		// check outstanding start requests
+		if len(containersToStartRequests) > 20 {
+			err := errors.New("too many container start requests in queue")
+			log.Err(err).Msg("cannot start feed-in container")
+			return err
+		}
+
 		// start the container
 		containersToStartRequests <- startContainerRequest{
 			clientDetails: clientDetails,
