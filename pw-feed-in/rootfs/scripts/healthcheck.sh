@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
+# Sleep for random seconds between 1 and 30
+sleep "$((1 + $RANDOM % 30))"
+
 EXITCODE=0
 
 # check beast connection inbound from bordercontrol

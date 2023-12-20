@@ -84,4 +84,4 @@ ENV S6_LOGGING=0 \
 # Set s6 init as entrypoint
 ENTRYPOINT [ "/init" ]
 
-HEALTHCHECK --interval=300s --timeout=10s --start-period=600s --retries=5 CMD /scripts/healthcheck.sh
+HEALTHCHECK --interval=300s --timeout=40s --start-period=600s --retries=5 CMD /scripts/healthcheck.sh
