@@ -8,7 +8,7 @@ PW_INGEST_BIN="/usr/local/bin/pw_ingest"
 PW_INGEST_CMD=("--tag" "${FEEDER_TAG}")
 
 # Set input
-PW_INGEST_CMD+=("--listen" "beast://${PW_BEAST_LISTEN_ADDR:-0.0.0.0}:${PW_BEAST_LISTEN_PORT:-12345}")
+PW_INGEST_CMD+=("--${PW_INGEST_LISTEN_MODE:listen}" "${PW_INGEST_LISTEN_PROTO:beast}://${PW_BEAST_LISTEN_ADDR:-0.0.0.0}:${PW_BEAST_LISTEN_PORT:-12345}")
 
 # Set output
 PW_INGEST_CMD+=("--sink" "${PW_INGEST_SINK}")
