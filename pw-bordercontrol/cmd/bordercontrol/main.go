@@ -241,11 +241,20 @@ func runServer(ctx *cli.Context) error {
 	containersToStartResponses := make(chan startContainerResponse)
 	defer close(containersToStartResponses)
 
-	// prepare stop channel for startFeederContainers
-	startFeederContainersStop := make(chan bool)
-
 	// start goroutine to start feeder containers
-	go startFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), ctx.String("pwingestpublish"), containersToStartRequests, containersToStartResponses, startFeederContainersStop)
+
+	go func() {
+		for {
+			conf := &startFeederContainersConfig{
+				feedInImageName:            ctx.String("feedinimage"),
+				feedInContainerPrefix:      ctx.String("feedincontainerprefix"),
+				pwIngestPublish:            ctx.String("pwingestpublish"),
+				containersToStartRequests:  containersToStartRequests,
+				containersToStartResponses: containersToStartResponses,
+			}
+			_ = startFeederContainers(*conf)
+		}
+	}()
 
 	// start goroutine to check feed-in containers
 	go func() {
@@ -256,6 +265,7 @@ func runServer(ctx *cli.Context) error {
 				checkFeederContainerSigs: chanSIGUSR1,
 			}
 			_ = checkFeederContainers(*conf)
+			time.Sleep(1 * time.Minute)
 		}
 	}()
 

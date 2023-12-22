@@ -23,8 +23,8 @@ import (
 const (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-	TestFeedInImageName   = "wardsco/sleep:latest"
-	TestfeedInImagePrefix = "test-feed-in-"
+	TestFeedInImageName       = "wardsco/sleep:latest"
+	TestfeedInContainerPrefix = "test-feed-in-"
 
 	// mock feeder details
 	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25" // not a real feeder api key, generated with uuidgen
@@ -104,12 +104,16 @@ func TestContainersWithKill(t *testing.T) {
 	containersToStartResponses := make(chan startContainerResponse)
 	defer close(containersToStartResponses)
 
-	// prepare stop channel for startFeederContainers
-	stopChan := make(chan bool)
-
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
+	confA := &startFeederContainersConfig{
+		feedInImageName:            TestFeedInImageName,
+		feedInContainerPrefix:      TestfeedInContainerPrefix,
+		pwIngestPublish:            TestPWIngestSink,
+		containersToStartRequests:  containersToStartRequests,
+		containersToStartResponses: containersToStartResponses,
+	}
+	go startFeederContainers(*confA)
 
 	// start container
 	t.Log("requesting container start")
@@ -187,7 +191,7 @@ func TestContainersWithKill(t *testing.T) {
 
 	// check prom metrics
 	t.Log("check prom container metrics with current image")
-	feedInContainerPrefix = TestfeedInImagePrefix
+	feedInContainerPrefix = TestfeedInContainerPrefix
 	feedInImage = TestFeedInImageName
 	statsManagerMu.RLock()
 	promMetrics := getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
@@ -201,7 +205,7 @@ func TestContainersWithKill(t *testing.T) {
 	//
 	// check prom metrics
 	t.Log("check prom container metrics with not current image")
-	feedInContainerPrefix = TestfeedInImagePrefix
+	feedInContainerPrefix = TestfeedInContainerPrefix
 	feedInImage = "foo"
 	statsManagerMu.RLock()
 	promMetrics = getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
@@ -217,7 +221,7 @@ func TestContainersWithKill(t *testing.T) {
 	t.Log("running checkFeederContainers")
 	conf := &checkFeederContainersConfig{
 		feedInImageName:          "foo",
-		feedInContainerPrefix:    TestfeedInImagePrefix,
+		feedInContainerPrefix:    TestfeedInContainerPrefix,
 		checkFeederContainerSigs: testChan,
 	}
 	err = checkFeederContainers(*conf)
@@ -234,7 +238,6 @@ func TestContainersWithKill(t *testing.T) {
 
 	// clean up
 	t.Log("cleaning up")
-	stopChan <- true
 	TestDaemon.Stop(t)
 	TestDaemon.Cleanup(t)
 }
@@ -302,12 +305,16 @@ func TestContainersWithoutKill(t *testing.T) {
 	containersToStartResponses := make(chan startContainerResponse)
 	defer close(containersToStartResponses)
 
-	stopChan := make(chan bool)
-	defer close(stopChan)
-
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
+	confA := &startFeederContainersConfig{
+		feedInImageName:            TestFeedInImageName,
+		feedInContainerPrefix:      TestfeedInContainerPrefix,
+		pwIngestPublish:            TestPWIngestSink,
+		containersToStartRequests:  containersToStartRequests,
+		containersToStartResponses: containersToStartResponses,
+	}
+	go startFeederContainers(*confA)
 
 	// start container
 	t.Log("requesting container start")
@@ -332,12 +339,12 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// test checkFeederContainers
 	t.Log("running checkFeederContainers")
-	conf := &checkFeederContainersConfig{
+	confB := &checkFeederContainersConfig{
 		feedInImageName:          TestFeedInImageName,
-		feedInContainerPrefix:    TestfeedInImagePrefix,
+		feedInContainerPrefix:    TestfeedInContainerPrefix,
 		checkFeederContainerSigs: testChan,
 	}
-	err = checkFeederContainers(*conf)
+	err = checkFeederContainers(*confB)
 	assert.NoError(t, err)
 
 	// ensure container has been killed
@@ -347,7 +354,6 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// clean up
 	t.Log("cleaning up")
-	stopChan <- true
 	TestDaemon.Stop(t)
 	TestDaemon.Cleanup(t)
 

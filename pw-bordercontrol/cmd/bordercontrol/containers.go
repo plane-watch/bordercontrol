@@ -138,14 +138,15 @@ ContainerLoop:
 	return nil
 }
 
-func startFeederContainers(
-	feedInImageName string,
-	feedInImagePrefix string,
-	pwIngestPublish string,
-	containersToStartRequests chan startContainerRequest,
-	containersToStartResponses chan startContainerResponse,
-	stopChan chan bool,
-) error {
+type startFeederContainersConfig struct {
+	feedInImageName            string                      // Name of docker image for feed-in containers.
+	feedInContainerPrefix      string                      // Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	pwIngestPublish            string                      // URL to pass to the --sink flag of pw-ingest in feed-in container.
+	containersToStartRequests  chan startContainerRequest  // Channel to receive container start requests from.
+	containersToStartResponses chan startContainerResponse // Channel to send container start responses to.
+}
+
+func startFeederContainers(conf startFeederContainersConfig) error {
 	// reads startContainerRequests from channel containersToStart and starts container
 
 	log := log.With().
@@ -167,17 +168,8 @@ func startFeederContainers(
 
 	for {
 
-		var containerToStart startContainerRequest
-
-		select {
-
-		// quit this goroutine if asked to
-		case _ = <-stopChan:
-			return nil
-
 		// read from channel (this blocks until a request comes in)
-		case containerToStart = <-containersToStartRequests:
-		}
+		containerToStart := <-conf.containersToStartRequests
 
 		// prep response object
 		response := startContainerResponse{}
@@ -195,7 +187,7 @@ func startFeederContainers(
 
 		// determine if container is already running
 
-		response.containerName = fmt.Sprintf("%s%s", feedInImagePrefix, containerToStart.clientDetails.clientApiKey.String())
+		response.containerName = fmt.Sprintf("%s%s", conf.feedInContainerPrefix, containerToStart.clientDetails.clientApiKey.String())
 
 		// prepare filter to find feed-in container
 		filterFeedIn := filters.NewArgs()
@@ -235,7 +227,7 @@ func startFeederContainers(
 				"PW_INGEST_INPUT_PROTO=beast",
 				"PW_INGEST_INPUT_ADDR=0.0.0.0",
 				"PW_INGEST_INPUT_PORT=12345",
-				fmt.Sprintf("PW_INGEST_SINK=%s", pwIngestPublish),
+				fmt.Sprintf("PW_INGEST_SINK=%s", conf.pwIngestPublish),
 			}
 
 			// prepare labels
@@ -248,7 +240,7 @@ func startFeederContainers(
 
 			// prepare container config
 			containerConfig := container.Config{
-				Image:  feedInImageName,
+				Image:  conf.feedInImageName,
 				Env:    envVars[:],
 				Labels: containerLabels,
 			}
@@ -292,7 +284,7 @@ func startFeederContainers(
 		}
 
 		// send response
-		containersToStartResponses <- response
+		conf.containersToStartResponses <- response
 
 		// reset logger
 		log = originalLog
