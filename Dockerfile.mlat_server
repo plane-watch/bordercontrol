@@ -20,14 +20,6 @@ RUN set -x && \
     TEMP_PACKAGES+=(build-essential) && \
     TEMP_PACKAGES+=(cmake) && \
     TEMP_PACKAGES+=(pkg-config) && \
-    # prerequisites for readsb-protobuf
-    KEPT_PACKAGES+=(protobuf-c-compiler) && \
-    KEPT_PACKAGES+=(libprotobuf-c1) && \
-    TEMP_PACKAGES+=(libprotobuf-c-dev) && \
-    TEMP_PACKAGES+=(librrd-dev) && \
-    KEPT_PACKAGES+=(libncurses6) && \
-    TEMP_PACKAGES+=(libncurses5-dev) && \
-    KEPT_PACKAGES+=(binutils) && \
     # prerequisites for mlat-server
     KEPT_PACKAGES+=(python3) && \
     KEPT_PACKAGES+=(python3-pip) && \
@@ -46,25 +38,6 @@ RUN set -x && \
         "${KEPT_PACKAGES[@]}" \
         "${TEMP_PACKAGES[@]}" \
         && \
-    # install mictronics readsb
-    BRANCH_READSB="dev" && \
-    # readsb: clone repo
-    git clone \
-      --branch "$BRANCH_READSB" \
-      --depth 1 \
-      --single-branch \
-      'https://github.com/Mictronics/readsb-protobuf.git' \
-      /src/readsb-protobuf \
-      && \
-    # readsb: build & install (note, -j seems to have issues, so not using...)
-    pushd /src/readsb-protobuf && \
-    make BLADERF=no RTLSDR=no PLUTOSDR=no HAVE_BIASTEE=no && \
-    find "/src/readsb-protobuf" -maxdepth 1 -executable -type f -exec cp -v {} /usr/local/bin/ \; && \
-    popd && \
-    ldconfig && \
-    # readsb: simple tests
-    readsb --version && \
-    viewadsb --version && \
     # Install mlat-server
     git clone --single-branch --depth 1 https://github.com/wiedehopf/mlat-server.git /opt/mlat-server && \
     pushd /opt/mlat-server && \

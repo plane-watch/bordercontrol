@@ -5,11 +5,11 @@ networks:
   bordercontrol_feeder:
     name: bordercontrol_feeder
 
-x-mux-common: &mux-common
+x-mlat-server-common: &x-mlat-server-common
   build:
     context: .
-    dockerfile: Dockerfile.mux
-  image: feed-multiplexer
+    dockerfile: Dockerfile.mlat_server
+  image: mlat-server
   restart: always
   tty: true
   networks:
@@ -63,70 +63,70 @@ services:
   mux-act:
     container_name: mux-act
     hostname: mux-act
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: Australia NSW
   mux-nsw:
     container_name: mux-nsw
     hostname: mux-nsw
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: Australia NT
   mux-nt:
     container_name: mux-nt
     hostname: mux-nt
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: QLD
   mux-qld:
     container_name: mux-qld
     hostname: mux-qld
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: SA
   mux-sa:
     container_name: mux-sa
     hostname: mux-sa
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: TAS
   mux-tas:
     container_name: mux-tas
     hostname: mux-tas
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: VIC
   mux-vic:
     container_name: mux-vic
     hostname: mux-vic
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: WA
   mux-wa:
     container_name: mux-wa
     hostname: mux-wa
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: NZ
   mux-nz:
     container_name: mux-nz
     hostname: mux-nz
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: EU
   mux-eu:
     container_name: mux-eu
     hostname: mux-eu
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: USA
   mux-us:
     container_name: mux-us
     hostname: mux-us
-    <<: *mux-common
+    <<: *x-mlat-server-common
 
   # MLAT: ASIA
   mux-asia:
     container_name: mux-asia
     hostname: mux-asia
-    <<: *mux-common
+    <<: *x-mlat-server-common
