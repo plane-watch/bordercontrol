@@ -215,7 +215,12 @@ func TestContainersWithKill(t *testing.T) {
 	// test checkFeederContainers
 	// by passing "foo" as the feedInImageName, it should kill the previously created container
 	t.Log("running checkFeederContainers")
-	err = checkFeederContainers("foo", TestfeedInImagePrefix, testChan)
+	conf := &checkFeederContainersConfig{
+		feedInImageName:          "foo",
+		feedInContainerPrefix:    TestfeedInImagePrefix,
+		checkFeederContainerSigs: testChan,
+	}
+	err = checkFeederContainers(*conf)
 	assert.NoError(t, err)
 
 	// wait for container to be removed
@@ -327,7 +332,12 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// test checkFeederContainers
 	t.Log("running checkFeederContainers")
-	err = checkFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, testChan)
+	conf := &checkFeederContainersConfig{
+		feedInImageName:          TestFeedInImageName,
+		feedInContainerPrefix:    TestfeedInImagePrefix,
+		checkFeederContainerSigs: testChan,
+	}
+	err = checkFeederContainers(*conf)
 	assert.NoError(t, err)
 
 	// ensure container has been killed

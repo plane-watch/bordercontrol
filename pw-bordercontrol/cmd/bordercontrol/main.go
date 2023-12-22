@@ -250,7 +250,12 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to check feed-in containers
 	go func() {
 		for {
-			_ = checkFeederContainers(ctx.String("feedinimage"), ctx.String("feedincontainerprefix"), chanSIGUSR1)
+			conf := &checkFeederContainersConfig{
+				feedInImageName:          ctx.String("feedinimage"),
+				feedInContainerPrefix:    ctx.String("feedincontainerprefix"),
+				checkFeederContainerSigs: chanSIGUSR1,
+			}
+			_ = checkFeederContainers(*conf)
 		}
 	}()
 

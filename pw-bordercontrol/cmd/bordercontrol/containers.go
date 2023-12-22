@@ -42,7 +42,13 @@ var getDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	return &cctx, cli, err
 }
 
-func checkFeederContainers(feedInImageName string, feedInImagePrefix string, checkFeederContainerSigs chan os.Signal) error {
+type checkFeederContainersConfig struct {
+	feedInImageName          string         // Name of docker image for feed-in containers.
+	feedInContainerPrefix    string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	checkFeederContainerSigs chan os.Signal // Channel to receive signals. Received signal will skip sleeps and cause containers to be checked/recreated immediately.
+}
+
+func checkFeederContainers(conf checkFeederContainersConfig) error {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
@@ -71,7 +77,7 @@ func checkFeederContainers(feedInImageName string, feedInImagePrefix string, che
 	// prepare filters to find feed-in containers
 	log.Trace().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
-	filterFeedIn.Add("name", fmt.Sprintf("%s*", feedInImagePrefix))
+	filterFeedIn.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 	// find containers
 	log.Trace().Msg("find containers")
@@ -89,11 +95,11 @@ ContainerLoop:
 			Str("container_id", container.ID).
 			Str("container_image", container.Image).
 			Str("container_name", container.Names[0]).
-			Str("feedInImageName", feedInImageName).
+			Str("feedInImageName", conf.feedInImageName).
 			Msg("checking container")
 
 		// check containers are running latest feed-in image
-		if container.Image != feedInImageName {
+		if container.Image != conf.feedInImageName {
 
 			log := log.With().Str("container", container.Names[0][1:]).Logger()
 
@@ -123,7 +129,7 @@ ContainerLoop:
 
 	// sleep unless/until siguser1 is caught
 	select {
-	case s := <-checkFeederContainerSigs:
+	case s := <-conf.checkFeederContainerSigs:
 		log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
 		break
 	case <-time.After(sleepTime * time.Second):
