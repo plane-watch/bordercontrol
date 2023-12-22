@@ -224,13 +224,9 @@ func startFeederContainers(
 				fmt.Sprintf("FEEDER_LON=%f", containerToStart.clientDetails.refLon),
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
 				fmt.Sprintf("FEEDER_TAG=%s", containerToStart.clientDetails.feederCode),
-				// "READSB_STATS_EVERY=300",
-				"READSB_NET_ENABLE=true",
-				"READSB_NET_BEAST_INPUT_PORT=12345",
-				"READSB_NET_BEAST_OUTPUT_PORT=30005",
-				"READSB_NET_ONLY=true",
-				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", containerToStart.clientDetails.mux),
 				"PW_INGEST_PUBLISH=location-updates",
+				"PW_INGEST_BEAST_LISTEN_ADDR=0.0.0.0",
+				"PW_INGEST_BEAST_LISTEN_PORT=12345",
 				fmt.Sprintf("PW_INGEST_SINK=%s", pwIngestPublish),
 			}
 
