@@ -59,24 +59,6 @@ services:
     image: feed-in
     entrypoint: /bin/true
 
-  # Relay
-  adsc-receiver:
-    container_name: adsc-receiver
-    build:
-      context: .
-      dockerfile: Dockerfile.adsc-receiver
-    image: adsc-receiver
-    tty: true
-    restart: always
-    networks:
-      - bordercontrol_feeder
-    environment:
-      - PW_INGEST_SINK=${PW_INGEST_SINK}
-      - DEBUG=true
-    ports:
-      - 31003:31003    # SBS In
-      - 30003:30003    # SBS Out
-
   # MLAT: Australia ACT
   mux-act:
     container_name: mux-act
