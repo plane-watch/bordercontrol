@@ -90,7 +90,7 @@ func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 			// mock response
 
 			resp := fmt.Sprintf(
-				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s","feeder_code:"%s"}}`,
+				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s","FeederCode:"%s"}}`,
 				TestFeederAPIKeyWorking,
 				TestFeederLabel,
 				TestFeederLatitude,
@@ -120,7 +120,7 @@ func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 
 			// mock response
 			resp := fmt.Sprintf(
-				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s", "feeder_code":"%s"}]}`,
+				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s", "FeederCode":"%s"}]}`,
 				TestFeederAPIKeyWorking,
 				TestFeederLabel,
 				TestFeederLatitude,
