@@ -225,10 +225,10 @@ func startFeederContainers(
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
 				fmt.Sprintf("FEEDER_TAG=%s", containerToStart.clientDetails.feederCode),
 				"PW_INGEST_PUBLISH=location-updates",
-				"PW_INGEST_LISTEN_MODE=listen",
-				"PW_INGEST_LISTEN_PROTO=beast",
-				"PW_INGEST_BEAST_LISTEN_ADDR=0.0.0.0",
-				"PW_INGEST_BEAST_LISTEN_PORT=12345",
+				"PW_INGEST_INPUT_MODE=listen",
+				"PW_INGEST_INPUT_PROTO=beast",
+				"PW_INGEST_INPUT_ADDR=0.0.0.0",
+				"PW_INGEST_INPUT_PORT=12345",
 				fmt.Sprintf("PW_INGEST_SINK=%s", pwIngestPublish),
 			}
 
