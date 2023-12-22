@@ -16,3 +16,4 @@ Spawns an instance of `pw_ingest` configured as-per below.
 | `PW_INGEST_INPUT_ADDR`  | The IP address to listen on / fetch from | `0.0.0.0` |
 | `PW_INGEST_INPUT_PORT`  | The TCP port to listen on / fetch from | `12345` |
 | `PW_INGEST_SINK` | (Required) The place to send decoded JSON in URL Form, eg `nats://user:pass@host:port/vhost?ttl=60` | *unset* |
+| `PW_INGEST_ENABLE_ADSC` | (Optional) Set to `true` to enable ADS-C | `false` |

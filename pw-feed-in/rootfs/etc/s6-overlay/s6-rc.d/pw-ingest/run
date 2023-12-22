@@ -4,6 +4,11 @@
 # Set pw_ingest binary
 PW_INGEST_BIN="/usr/local/bin/pw_ingest"
 
+# Set ADS-C mode
+if [[ "${PW_INGEST_ENABLE_ADSC,,}" == "true" ]]; then
+  PW_INGEST_CMD+=("--ads-c")
+fi
+
 # Set feeder tag/uuid
 PW_INGEST_CMD=("--tag" "${FEEDER_TAG}")
 
