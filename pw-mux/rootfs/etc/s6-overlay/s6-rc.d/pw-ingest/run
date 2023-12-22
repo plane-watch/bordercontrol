@@ -4,29 +4,24 @@
 # Set pw_ingest binary
 PW_INGEST_BIN="/usr/local/bin/pw_ingest"
 
-# Set ADS-C mode
-if [[ "${PW_INGEST_ENABLE_ADSC,,}" == "true" ]]; then
-  PW_INGEST_CMD+=("--ads-c")
-fi
-
 # Set feeder tag/uuid
-PW_INGEST_CMD=("--tag" "${FEEDER_TAG}")
+PW_INGEST_CMD=("--tag" "mlat-$(hostname)")
 
 # Set input
-PW_INGEST_CMD+=("--${PW_INGEST_INPUT_MODE}" "${PW_INGEST_INPUT_PROTO}://${PW_INGEST_INPUT_ADDR}:${PW_INGEST_INPUT_PORT}")
+PW_INGEST_CMD+=("--fetch" "sbs1://127.0.0.1:30003")
 
 # Set output
 PW_INGEST_CMD+=("--sink" "${PW_INGEST_SINK}")
 
-# Set LAT if given
-if [[ -n "${FEEDER_LAT}" ]]; then
-    PW_INGEST_CMD+=("--ref-lat" "${FEEDER_LAT}")
-fi
+# # Set LAT if given
+# if [[ -n "${FEEDER_LAT}" ]]; then
+#     PW_INGEST_CMD+=("--ref-lat" "${FEEDER_LAT}")
+# fi
 
-# Set LON if given
-if [[ -n "${FEEDER_LON}" ]]; then
-    PW_INGEST_CMD+=("--ref-lon" "${FEEDER_LON}")
-fi
+# # Set LON if given
+# if [[ -n "${FEEDER_LON}" ]]; then
+#     PW_INGEST_CMD+=("--ref-lon" "${FEEDER_LON}")
+# fi
 
 # "simple" mode
 # simple   Gather ADSB data and sends it to the configured output.

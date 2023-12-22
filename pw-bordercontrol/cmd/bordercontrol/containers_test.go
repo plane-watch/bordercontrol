@@ -32,6 +32,7 @@ const (
 	TestFeederLatitude  = 123.456789
 	TestFeederLongitude = 98.765432
 	TestFeederMux       = "test-mux"
+	TestFeederCode      = "ABCD-1234"
 
 	TestPWIngestSink = "nats://pw-ingest-sink:12345"
 )
@@ -39,12 +40,6 @@ const (
 func TestContainersWithKill(t *testing.T) {
 
 	var (
-		ContainerEnvVarFeederLatOK                bool
-		ContainerEnvVarFeederLonOK                bool
-		ContainerEnvVarFeederUUIDOK               bool
-		ContainerEnvVarFeederReadsbNetConnectorOK bool
-		ContainerEnvVarFeederPWIngestSinkOK       bool
-
 		ContainerNetworkOK bool
 	)
 
@@ -124,7 +119,8 @@ func TestContainersWithKill(t *testing.T) {
 			refLat:       TestFeederLatitude,
 			refLon:       TestFeederLongitude,
 			mux:          TestFeederMux,
-			label:        TestFeederMux,
+			label:        TestFeederLabel,
+			feederCode:   TestFeederCode,
 		},
 		srcIP: net.IPv4(127, 0, 0, 1),
 	}
@@ -143,25 +139,21 @@ func TestContainersWithKill(t *testing.T) {
 
 	// check environment variables
 	t.Log("checking container environment variables")
+	envVars := make(map[string]string)
 	for _, e := range ct.Config.Env {
-		switch e {
-		case fmt.Sprintf("FEEDER_LAT=%f", TestFeederLatitude):
-			ContainerEnvVarFeederLatOK = true
-		case fmt.Sprintf("FEEDER_LON=%f", TestFeederLongitude):
-			ContainerEnvVarFeederLonOK = true
-		case fmt.Sprintf("FEEDER_UUID=%s", strings.ToLower(TestFeederAPIKey)):
-			ContainerEnvVarFeederUUIDOK = true
-		case fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", TestFeederMux):
-			ContainerEnvVarFeederReadsbNetConnectorOK = true
-		case fmt.Sprintf("PW_INGEST_SINK=%s", TestPWIngestSink):
-			ContainerEnvVarFeederPWIngestSinkOK = true
-		}
+		envVars[strings.Split(e, "=")[0]] = strings.Split(e, "=")[1]
 	}
-	assert.True(t, ContainerEnvVarFeederLatOK)
-	assert.True(t, ContainerEnvVarFeederLonOK)
-	assert.True(t, ContainerEnvVarFeederUUIDOK)
-	assert.True(t, ContainerEnvVarFeederReadsbNetConnectorOK)
-	assert.True(t, ContainerEnvVarFeederPWIngestSinkOK)
+
+	assert.Equal(t, fmt.Sprintf("%f", TestFeederLatitude), envVars["FEEDER_LAT"])
+	assert.Equal(t, fmt.Sprintf("%f", TestFeederLongitude), envVars["FEEDER_LON"])
+	assert.Equal(t, strings.ToLower(fmt.Sprintf("%s", TestFeederAPIKey)), envVars["FEEDER_UUID"])
+	assert.Equal(t, TestFeederCode, envVars["FEEDER_TAG"])
+	assert.Equal(t, TestPWIngestSink, envVars["PW_INGEST_SINK"])
+	assert.Equal(t, "location-updates", envVars["PW_INGEST_PUBLISH"])
+	assert.Equal(t, "listen", envVars["PW_INGEST_INPUT_MODE"])
+	assert.Equal(t, "beast", envVars["PW_INGEST_INPUT_PROTO"])
+	assert.Equal(t, "0.0.0.0", envVars["PW_INGEST_INPUT_ADDR"])
+	assert.Equal(t, "12345", envVars["PW_INGEST_INPUT_PORT"])
 
 	// check container autoremove set to true
 	t.Log("check container autoremove set to true")

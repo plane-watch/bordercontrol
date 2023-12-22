@@ -120,12 +120,13 @@ func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 
 			// mock response
 			resp := fmt.Sprintf(
-				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s"}]}`,
+				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s", "FeederCode":"%s"}]}`,
 				TestFeederAPIKeyWorking,
 				TestFeederLabel,
 				TestFeederLatitude,
 				TestFeederLongitude,
 				TestFeederMux,
+				TestFeederCode,
 			)
 
 			// response code
@@ -269,74 +270,6 @@ func TestAuthenticate_NoResponse(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestGetFeederInfo_Working(t *testing.T) {
-
-	server := prepMockATCServer(t, MockServerTestScenarioWorking)
-	defer server.Close()
-
-	// prep url
-	u, err := url.Parse(server.URL)
-	assert.NoError(t, err)
-
-	// function argument
-	s := Server{
-		Url:      (*u),
-		Username: TestUser,
-		Password: TestPassword,
-	}
-
-	refLat, refLon, mux, label, err := GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
-	assert.NoError(t, err)
-	assert.Equal(t, TestFeederLatitude, refLat)
-	assert.Equal(t, TestFeederLongitude, refLon)
-	assert.Equal(t, TestFeederMux, mux)
-	assert.Equal(t, TestFeederLabel, label)
-
-}
-
-func TestGetFeederInfo_BadResponse(t *testing.T) {
-
-	// prep test server
-	server := prepMockATCServer(t, MockServerTestScenarioBadResponseCodeFeeder)
-	defer server.Close()
-
-	// prep url
-	u, err := url.Parse(server.URL)
-	assert.NoError(t, err)
-
-	// function argument
-	s := Server{
-		Url:      (*u),
-		Username: TestUser,
-		Password: TestPassword,
-	}
-
-	_, _, _, _, err = GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
-	assert.Error(t, err)
-
-}
-
-func TestGetFeederInfo_NoResponse(t *testing.T) {
-
-	// prep test server
-	server := prepMockATCServer(t, MockServerTestScenarioNoResponse)
-
-	// prep url
-	u, err := url.Parse(server.URL)
-	assert.NoError(t, err)
-
-	// function argument
-	s := Server{
-		Url:      (*u),
-		Username: TestUser,
-		Password: TestPassword,
-	}
-
-	_, _, _, _, err = GetFeederInfo(&s, uuid.MustParse(TestFeederAPIKeyWorking))
-	assert.Error(t, err)
-
-}
-
 func TestGetFeeders_Working(t *testing.T) {
 
 	server := prepMockATCServer(t, MockServerTestScenarioWorking)
@@ -358,11 +291,12 @@ func TestGetFeeders_Working(t *testing.T) {
 
 	expectedFeeders := Feeders{
 		[]Feeder{{
-			ApiKey:    uuid.MustParse(TestFeederAPIKeyWorking),
-			Label:     TestFeederLabel,
-			Latitude:  TestFeederLatitude,
-			Longitude: TestFeederLongitude,
-			Mux:       TestFeederMux,
+			ApiKey:     uuid.MustParse(TestFeederAPIKeyWorking),
+			Label:      TestFeederLabel,
+			Latitude:   TestFeederLatitude,
+			Longitude:  TestFeederLongitude,
+			Mux:        TestFeederMux,
+			FeederCode: TestFeederCode,
 		}},
 	}
 

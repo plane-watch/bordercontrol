@@ -139,8 +139,8 @@ func TestStats(t *testing.T) {
 
 	// add some fake feeder connections
 	stats.setFeederDetails(&fc)
-	stats.addConnection(u, &ip, &ip, protoBeast, 1)
-	stats.addConnection(u, &ip, &ip, protoMLAT, 2)
+	stats.addConnection(u, &ip, &ip, protoBeast, "ABCD-1234", 1)
+	stats.addConnection(u, &ip, &ip, protoMLAT, "ABCD-1234", 2)
 
 	// check num conns
 	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
@@ -165,10 +165,10 @@ func TestStats(t *testing.T) {
 		`pw_bordercontrol_feeders 1`,
 		`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
 		`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"} 100`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"} 300`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"} 200`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"} 400`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"} 100`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"} 300`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"} 200`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"} 400`, fc.label, fc.clientApiKey),
 	}
 
 	// tests
@@ -185,7 +185,7 @@ func TestStats(t *testing.T) {
 	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s", statsBaseURL))
 
 	// add another beast connection
-	stats.addConnection(u, &ip, &ip, protoBeast, 3)
+	stats.addConnection(u, &ip, &ip, protoBeast, "ABCD-1234", 3)
 
 	// remove connections (working)
 	stats.delConnection(u, protoBeast, 1)
@@ -225,10 +225,10 @@ func TestStats(t *testing.T) {
 		`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
 	}
 	notExpectedMetrics := []string{
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
 	}
 
 	checkPromMetricsExist(t, body, expectedMetrics)

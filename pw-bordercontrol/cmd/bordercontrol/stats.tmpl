@@ -17,6 +17,7 @@
       <tr>
           <th>Feeder</th>
           <th>UUID</th>
+          <th>Code</th>
           <th>Proto</th>
           <th>Conn #</th>
           <th>Src</th>
@@ -30,6 +31,7 @@
             <tr>
                 <td>{{ $felement.Label }}</td>
                 <td><a href="/api/v1/feeder/{{ $index }}">{{ $index }}</a></td>
+                <td>{{ $felement.Code }}</td>
                 <td style="text-align: center;">{{ $pindex }}</td>
                 <td style="text-align: center;">{{ $cindex }}</td>
                 <td>{{ $celement.Src }}</td>

@@ -19,6 +19,7 @@ mkdir -p /run/mlat-server/workdir
 fdmove -c 2 1 \
     /opt/mlat-server/mlat-server \
         --client-listen 0.0.0.0:12346 \
+        --basestation-listen 0.0.0.0:30003 \
         --motd "plane.watch:${HOSTNAME}" \
         --work-dir /run/mlat-server/workdir \
         --status-interval 3600 |
