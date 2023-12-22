@@ -146,7 +146,7 @@ func TestContainersWithKill(t *testing.T) {
 
 	assert.Equal(t, fmt.Sprintf("%f", TestFeederLatitude), envVars["FEEDER_LAT"])
 	assert.Equal(t, fmt.Sprintf("%f", TestFeederLongitude), envVars["FEEDER_LON"])
-	assert.Equal(t, fmt.Sprintf("%s", TestFeederAPIKey), envVars["FEEDER_UUID"])
+	assert.Equal(t, strings.ToLower(fmt.Sprintf("%s", TestFeederAPIKey)), envVars["FEEDER_UUID"])
 	assert.Equal(t, TestFeederCode, envVars["FEEDER_TAG"])
 	assert.Equal(t, TestPWIngestSink, envVars["PW_INGEST_SINK"])
 	assert.Equal(t, "location-updates", envVars["PW_INGEST_PUBLISH"])
