@@ -50,6 +50,12 @@ RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
 ENV S6_LOGGING=0 \
     S6_VERBOSITY=1
 
+# Set defaults
+ENV PW_INGEST_INPUT_MODE=listen \
+    PW_INGEST_INPUT_PROTO=beast \
+    PW_INGEST_INPUT_ADDR=0.0.0.0 \
+    PW_INGEST_INPUT_PORT=12345
+
 # Set s6 init as entrypoint
 ENTRYPOINT [ "/init" ]
 

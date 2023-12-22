@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/command/with-contenv bash
 # shellcheck shell=bash
 
 # Sleep for random seconds between 1 and 30
@@ -8,7 +8,7 @@ EXITCODE=0
 
 # check beast connection inbound from bordercontrol
 CONNECTED_BEAST_IN=false
-if ss -ntH state established | tr -s " " | cut -d " " -f 3 | grep ":12345" > /dev/null 2>&1; then
+if ss -ntH state established | tr -s " " | cut -d " " -f 3 | grep ":${PW_INGEST_INPUT_PORT}" > /dev/null 2>&1; then
     CONNECTED_BEAST_IN=true
     echo "CONNECTED_BEAST_IN=true"
 else
