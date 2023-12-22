@@ -51,6 +51,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - bordercontrol_feeder
+    network_mode: "host"
     ports:
       - 8080:8080      # Stats Web UI (http)
       - 12345:12345    # BEAST
