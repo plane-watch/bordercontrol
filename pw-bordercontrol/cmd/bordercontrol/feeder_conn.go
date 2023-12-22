@@ -32,9 +32,9 @@ type (
 
 	// struct to hold feeder client information
 	feederClient struct {
-		clientApiKey   uuid.UUID
-		refLat, refLon float64
-		mux, label     string
+		clientApiKey           uuid.UUID
+		refLat, refLon         float64
+		mux, label, feederCode string
 	}
 
 	// struct for proxy goroutines
@@ -298,7 +298,10 @@ func authenticateFeeder(connIn net.Conn) (clientDetails *feederClient, err error
 	if err != nil {
 		return clientDetails, err
 	}
-	log = log.With().Str("uuid", clientDetails.clientApiKey.String()).Logger()
+	log = log.With().
+		Str("uuid", clientDetails.clientApiKey.String()).
+		Str("code", clientDetails.feederCode).
+		Logger()
 	// log.Trace().Msg("feeder API key received from SNI")
 
 	// check valid api key against atc
@@ -500,6 +503,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 		Str("uuid", clientDetails.clientApiKey.String()).
 		Str("mux", clientDetails.mux).
 		Str("label", clientDetails.label).
+		Str("code", clientDetails.feederCode).
 		Logger()
 
 	// check number of connections, and drop connection if limit exceeded
@@ -519,12 +523,20 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	switch connProto {
 	case protoBeast:
 
-		log = log.With().Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).Logger()
+		log = log.With().
+			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
+			Logger()
 
-		// start the container
-		containersToStartRequests <- startContainerRequest{
+		// request start of the feed-in container with submission timeout
+		select {
+		case containersToStartRequests <- startContainerRequest{
 			clientDetails: clientDetails,
 			srcIP:         remoteIP,
+		}:
+		case <-time.After(5 * time.Second):
+			err := errors.New("5s timeout waiting to submit container start request")
+			log.Err(err).Msg("could not start feed-in container")
+			return err
 		}
 
 		// wait for request to be actioned
@@ -597,7 +609,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	}
 
 	// update stats
-	stats.addConnection(clientDetails.clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), connProto, connNum)
+	stats.addConnection(clientDetails.clientApiKey, connIn.RemoteAddr(), connOut.RemoteAddr(), connProto, clientDetails.feederCode, connNum)
 	defer stats.delConnection(clientDetails.clientApiKey, connProto, connNum)
 
 	// method to signal goroutines to exit

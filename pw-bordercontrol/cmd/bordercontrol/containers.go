@@ -184,6 +184,7 @@ func startFeederContainers(
 			Str("label", string(containerToStart.clientDetails.label)).
 			Str("uuid", string(containerToStart.clientDetails.clientApiKey.String())).
 			Str("src", string(containerToStart.srcIP.String())).
+			Str("code", string(containerToStart.clientDetails.feederCode)).
 			Logger()
 
 		// determine if container is already running
@@ -222,13 +223,12 @@ func startFeederContainers(
 				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.clientDetails.refLat),
 				fmt.Sprintf("FEEDER_LON=%f", containerToStart.clientDetails.refLon),
 				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
-				// "READSB_STATS_EVERY=300",
-				"READSB_NET_ENABLE=true",
-				"READSB_NET_BEAST_INPUT_PORT=12345",
-				"READSB_NET_BEAST_OUTPUT_PORT=30005",
-				"READSB_NET_ONLY=true",
-				fmt.Sprintf("READSB_NET_CONNECTOR=%s,12345,beast_out", containerToStart.clientDetails.mux),
+				fmt.Sprintf("FEEDER_TAG=%s", containerToStart.clientDetails.feederCode),
 				"PW_INGEST_PUBLISH=location-updates",
+				"PW_INGEST_INPUT_MODE=listen",
+				"PW_INGEST_INPUT_PROTO=beast",
+				"PW_INGEST_INPUT_ADDR=0.0.0.0",
+				"PW_INGEST_INPUT_PORT=12345",
 				fmt.Sprintf("PW_INGEST_SINK=%s", pwIngestPublish),
 			}
 

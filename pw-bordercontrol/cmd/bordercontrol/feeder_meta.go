@@ -47,6 +47,7 @@ func getFeederInfo(f *feederClient) error {
 			f.refLon = v.Longitude
 			f.mux = v.Mux
 			f.label = v.Label
+			f.feederCode = v.FeederCode
 			found = true
 			break
 		}
