@@ -2,6 +2,9 @@
 version: '3.8'
 
 networks:
+  bordercontrol_frontend:
+    name: bordercontrol_frontend
+    driver: host
   bordercontrol_feeder:
     name: bordercontrol_feeder
 
@@ -50,8 +53,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
+      - bordercontrol_frontend
       - bordercontrol_feeder
-    network_mode: "host"
     ports:
       - 8080:8080      # Stats Web UI (http)
       - 12345:12345    # BEAST
