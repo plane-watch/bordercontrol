@@ -26,6 +26,7 @@ const (
 	TestFeederLatitude      = 123.456789
 	TestFeederLongitude     = 98.765432
 	TestFeederMux           = "test-mux"
+	TestFeederCode          = "ABCD-1234"
 
 	// mock ATC server testing scenarios
 	MockServerTestScenarioWorking = iota
@@ -89,12 +90,13 @@ func prepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 			// mock response
 
 			resp := fmt.Sprintf(
-				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s"}}`,
+				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s","FeederCode:"%s"}}`,
 				TestFeederAPIKeyWorking,
 				TestFeederLabel,
 				TestFeederLatitude,
 				TestFeederLongitude,
 				TestFeederMux,
+				TestFeederCode,
 			)
 
 			// response code
