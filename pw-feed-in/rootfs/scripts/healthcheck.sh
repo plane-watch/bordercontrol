@@ -1,4 +1,4 @@
-#!/command/with-contenv bash
+#!/usr/bin/env bash
 # shellcheck shell=bash
 
 # Sleep for random seconds between 1 and 30
