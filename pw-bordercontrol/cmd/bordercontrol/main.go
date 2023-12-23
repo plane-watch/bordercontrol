@@ -330,6 +330,7 @@ func runServer(ctx *cli.Context) error {
 
 	// serve forever
 	for {
+		time.Sleep(time.Second)
 	}
 
 	return nil

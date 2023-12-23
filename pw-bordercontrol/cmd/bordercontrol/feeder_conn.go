@@ -313,7 +313,7 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 	// log.Trace().Msg("feeder API key valid")
 
 	// get feeder info (lat/lon/mux/label) from atc cache
-	err = getFeederInfo(clientDetails)
+	err = getFeederInfo(&clientDetails)
 
 	// update stats
 	stats.setFeederDetails(clientDetails)
@@ -541,6 +541,8 @@ func proxyClientConnection(conf proxyConfig) error {
 	switch conf.connProto {
 	case protoBEAST:
 
+		dstContainerName = "feed-in container"
+
 		log = log.With().
 			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
 			Logger()
@@ -553,7 +555,7 @@ func proxyClientConnection(conf proxyConfig) error {
 		}:
 		case <-time.After(5 * time.Second):
 			err := errors.New("5s timeout waiting to submit container start request")
-			log.Err(err).Msg("could not start feed-in container")
+			log.Err(err).Msg(fmt.Sprintf("could not start %s", dstContainerName))
 			return err
 		}
 
@@ -562,12 +564,12 @@ func proxyClientConnection(conf proxyConfig) error {
 
 		// check for start errors
 		if startedContainer.err != nil {
-			log.Err(startedContainer.err).Msg("error starting feed-in container")
+			log.Err(startedContainer.err).Msg(fmt.Sprintf("error starting %s", dstContainerName))
 		}
 
 		// wait for container start if needed
 		if startedContainer.containerStartDelay {
-			log.Debug().Msg("waiting for feed-in container to start")
+			log.Debug().Msg(fmt.Sprintf("waiting for %s to start", dstContainerName))
 			time.Sleep(5 * time.Second)
 		}
 
@@ -575,13 +577,14 @@ func proxyClientConnection(conf proxyConfig) error {
 		connOut, err = dialContainerTCP(fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
 		if err != nil {
 			// handle connection errors to feed-in container
-			log.Err(err).Msg("error connecting to feed-in container")
+			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
 			return err
 		}
 
-		dstContainerName = "feed-in container"
-
 	case protoMLAT:
+
+		dstContainerName = "mlat-server"
+
 		// update log context
 		log.With().Str("dst", fmt.Sprintf("%s:12346", clientDetails.mux))
 
@@ -589,11 +592,9 @@ func proxyClientConnection(conf proxyConfig) error {
 		connOut, err = dialContainerTCP(clientDetails.mux, 12346)
 		if err != nil {
 			// handle connection errors to mux container
-			log.Err(err).Msg("error connecting to mux container")
+			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
 			return err
 		}
-
-		dstContainerName = "mlat-server"
 
 	default:
 		err := errors.New("unsupported protocol")
