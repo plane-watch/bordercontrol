@@ -16,13 +16,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// struct for requesting that the startFeederContainers goroutine start a container
+// struct for requests to the startFeederContainers goroutine start a container
 type startContainerRequest struct {
 	clientDetails feederClient // lat, long, mux, label, api key
 	srcIP         net.IP       // client IP address
 
 }
 
+// struct for responses from the startFeederContainers goroutine start a container
 type startContainerResponse struct {
 	err                 error  // holds error from starting container
 	containerStartDelay bool   // do we need to wait for container services to start? (pointer to allow calling function to read data)
@@ -101,6 +102,7 @@ ContainerLoop:
 		// check containers are running latest feed-in image
 		if container.Image != conf.feedInImageName {
 
+			// update log context with container name
 			log := log.With().Str("container", container.Names[0][1:]).Logger()
 
 			// If a container is found running an out-of-date image, then remove it.
@@ -147,8 +149,10 @@ type startFeederContainersConfig struct {
 }
 
 func startFeederContainers(conf startFeederContainersConfig) error {
-	// reads startContainerRequests from channel containersToStart and starts container
+	// reads startContainerRequests from channel containersToStartRequests and starts container
+	// responds via channel containersToStartResponses
 
+	// update log context with function name
 	log := log.With().
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
@@ -226,7 +230,7 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 			fmt.Sprintf("PW_INGEST_SINK=%s", conf.pwIngestPublish),
 		}
 
-		// prepare labels
+		// prepare labels for container
 		containerLabels := make(map[string]string)
 		containerLabels["plane.watch.label"] = containerToStart.clientDetails.label
 		containerLabels["plane.watch.mux"] = containerToStart.clientDetails.mux

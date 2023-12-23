@@ -49,8 +49,6 @@ const (
 	maxConnectionsPerProto = 1
 
 	// limits connection attempts to
-	//   "maxIncomingConnectionRequestsPerSrcIP" (2) attempts in a
-	//   "maxIncomingConnectionRequestSeconds" (10) second period
 	maxIncomingConnectionRequestsPerSrcIP = 3
 	maxIncomingConnectionRequestSeconds   = 10
 
@@ -76,7 +74,7 @@ func (t *incomingConnectionTracker) getNum() (num uint) {
 
 		// determine next available connection number
 		t.connectionNumber++
-		if t.connectionNumber == 0 {
+		if t.connectionNumber == 0 { // don't have a connection with number 0
 			t.connectionNumber++
 		}
 
@@ -458,7 +456,7 @@ type proxyConfig struct {
 }
 
 func proxyClientConnection(conf proxyConfig) error {
-	// handles incoming BEAST connections
+	// handles incoming connections
 
 	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).

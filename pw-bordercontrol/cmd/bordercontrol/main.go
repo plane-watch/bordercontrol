@@ -64,6 +64,7 @@ const (
 
 func main() {
 
+	// set up cli context
 	app := &cli.App{
 		Name:  "Plane Watch Feeder Endpoint",
 		Usage: "Server for multiple stunnel-based endpoints",
@@ -135,12 +136,14 @@ func main() {
 		Action: runServer,
 	}
 
+	// set up logging
 	logging.IncludeVerbosityFlags(app)
 	logging.ConfigureForCli()
 
 	// get commit hash and commit time from git info
 	commithash, committime = getRepoInfo()
 
+	// runs before runServer() is called
 	app.Before = func(ctx *cli.Context) error {
 
 		// set global var containing feed-in image name
@@ -161,6 +164,7 @@ func main() {
 }
 
 func getRepoInfo() (commitHash, commitTime string) {
+	// returns commit hash and commit time
 
 	commitHash = "unknown"
 	commitTime = "unknown"
@@ -184,7 +188,6 @@ func getRepoInfo() (commitHash, commitTime string) {
 	}
 
 	return commitHash, commitTime
-
 }
 
 func prepSignalChannels() {
@@ -249,6 +252,8 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to start feeder containers
 
 	go func() {
+
+		// prep config
 		conf := startFeederContainersConfig{
 			feedInImageName:            ctx.String("feedinimage"),
 			feedInContainerPrefix:      ctx.String("feedincontainerprefix"),
@@ -256,20 +261,28 @@ func runServer(ctx *cli.Context) error {
 			containersToStartRequests:  containersToStartRequests,
 			containersToStartResponses: containersToStartResponses,
 		}
+
+		// run forever
 		for {
 			_ = startFeederContainers(conf)
+			// no sleep here as this goroutune needs to be relaunched after each container start
 		}
 	}()
 
 	// start goroutine to check feed-in containers
 	go func() {
+
+		// prep config
 		conf := checkFeederContainersConfig{
 			feedInImageName:          ctx.String("feedinimage"),
 			feedInContainerPrefix:    ctx.String("feedincontainerprefix"),
 			checkFeederContainerSigs: chanSIGUSR1,
 		}
+
+		// run forever
 		for {
 			_ = checkFeederContainers(conf)
+			// no sleep here as this goroutune needs to be relaunched after each container kill
 		}
 	}()
 
@@ -284,6 +297,8 @@ func runServer(ctx *cli.Context) error {
 
 	// start listening for incoming BEAST connections
 	go func() {
+
+		// prep config
 		ip := net.ParseIP(strings.Split(ctx.String("listenbeast"), ":")[0])
 		port, err := strconv.Atoi(strings.Split(ctx.String("listenbeast"), ":")[1])
 		if err != nil {
@@ -299,14 +314,18 @@ func runServer(ctx *cli.Context) error {
 			containersToStartRequests:  containersToStartRequests,
 			containersToStartResponses: containersToStartResponses,
 		}
+
+		// listen forever
 		for {
 			listener(conf)
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 1) // if there's a problem, slow down restarting
 		}
 	}()
 
 	// start listening for incoming MLAT connections
 	go func() {
+
+		// prep config
 		ip := net.ParseIP(strings.Split(ctx.String("listenmlat"), ":")[0])
 		port, err := strconv.Atoi(strings.Split(ctx.String("listenmlat"), ":")[1])
 		if err != nil {
@@ -322,9 +341,11 @@ func runServer(ctx *cli.Context) error {
 			containersToStartRequests:  containersToStartRequests,
 			containersToStartResponses: containersToStartResponses,
 		}
+
+		// listen forever
 		for {
 			listener(conf)
-			time.Sleep(time.Second * 1)
+			time.Sleep(time.Second * 1) // if there's a problem, slow down restarting
 		}
 	}()
 
@@ -372,6 +393,8 @@ func listener(conf listenConfig) {
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
+
+		// prep proxy config
 		proxyConf := proxyConfig{
 			connIn:                     conn,
 			connProto:                  conf.listenProto,
