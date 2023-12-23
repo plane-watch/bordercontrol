@@ -373,6 +373,13 @@ func listener(conf listenConfig) {
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go proxyClientConnection(conn, conf.listenProto, incomingConnTracker.getNum(), conf.containersToStartRequests, conf.containersToStartResponses)
+		proxyConf := proxyConfig{
+			connIn:                     conn,
+			connProto:                  conf.listenProto,
+			connNum:                    incomingConnTracker.getNum(),
+			containersToStartRequests:  conf.containersToStartRequests,
+			containersToStartResponses: conf.containersToStartResponses,
+		}
+		go proxyClientConnection(proxyConf)
 	}
 }

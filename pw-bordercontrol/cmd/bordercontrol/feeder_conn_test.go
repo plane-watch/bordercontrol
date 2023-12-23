@@ -562,15 +562,16 @@ func TestProxyClientToServer(t *testing.T) {
 
 	// test proxyClientToServer
 	lastAuthCheck := time.Now()
-	go proxyClientToServer(
-		csClientConn,
-		ssClientConn,
-		uint(1),
-		testSNI,
-		&pStatus,
-		&lastAuthCheck,
-		log.Logger,
-	)
+	conf := protocolProxyConfig{
+		clientConn:    csClientConn,
+		serverConn:    ssClientConn,
+		connNum:       uint(1),
+		clientApiKey:  testSNI,
+		pStatus:       &pStatus,
+		lastAuthCheck: &lastAuthCheck,
+		log:           log.Logger,
+	}
+	go proxyClientToServer(conf)
 
 	// send data to be proxied from client-side
 	_, err = csServerConn.Write([]byte("Hello World!"))
@@ -652,15 +653,18 @@ func TestProxyServerToClient(t *testing.T) {
 
 	// test proxyServerToClient
 	lastAuthCheck := time.Now()
-	go proxyServerToClient(
-		csClientConn,
-		ssClientConn,
-		uint(1),
-		testSNI,
-		&pStatus,
-		&lastAuthCheck,
-		log.Logger,
-	)
+
+	conf := protocolProxyConfig{
+		clientConn:    csClientConn,
+		serverConn:    ssClientConn,
+		connNum:       uint(1),
+		clientApiKey:  testSNI,
+		pStatus:       &pStatus,
+		lastAuthCheck: &lastAuthCheck,
+		log:           log.Logger,
+	}
+
+	go proxyServerToClient(conf)
 
 	// send data to be proxied from client-side
 	_, err = ssServerConn.Write([]byte("Hello World!"))
