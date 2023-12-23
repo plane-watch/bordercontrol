@@ -278,10 +278,11 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 			log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
 		}
 
-		// send response
-		conf.containersToStartResponses <- response
-
 	}
+
+	// send response
+	conf.containersToStartResponses <- response
+
 	// log.Trace().Msg("finished")
 	return nil
 }
