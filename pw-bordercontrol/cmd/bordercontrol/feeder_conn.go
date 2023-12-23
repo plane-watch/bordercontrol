@@ -560,7 +560,14 @@ func proxyClientConnection(conf proxyConfig) error {
 		}
 
 		// wait for request to be actioned
-		startedContainer := <-conf.containersToStartResponses
+		var startedContainer startContainerResponse
+		select {
+		case startedContainer = <-conf.containersToStartResponses:
+		case <-time.After(30 * time.Second):
+			err := errors.New("30s timeout waiting for container start request to be fulfilled")
+			log.Err(err).Msg(fmt.Sprintf("timeout waiting for %s", dstContainerName))
+			return err
+		}
 
 		// check for start errors
 		if startedContainer.err != nil {
