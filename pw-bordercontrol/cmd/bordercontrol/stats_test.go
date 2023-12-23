@@ -138,7 +138,7 @@ func TestStats(t *testing.T) {
 	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
 
 	// add some fake feeder connections
-	stats.setFeederDetails(&fc)
+	stats.setFeederDetails(fc)
 	stats.addConnection(u, &ip, &ip, protoBEAST, "ABCD-1234", 1)
 	stats.addConnection(u, &ip, &ip, protoMLAT, "ABCD-1234", 2)
 

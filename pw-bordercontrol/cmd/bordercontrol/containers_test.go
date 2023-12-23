@@ -118,7 +118,7 @@ func TestContainersWithKill(t *testing.T) {
 	// start container
 	t.Log("requesting container start")
 	containersToStartRequests <- startContainerRequest{
-		clientDetails: &feederClient{
+		clientDetails: feederClient{
 			clientApiKey: uuid.MustParse(TestFeederAPIKey),
 			refLat:       TestFeederLatitude,
 			refLon:       TestFeederLongitude,
@@ -319,7 +319,7 @@ func TestContainersWithoutKill(t *testing.T) {
 	// start container
 	t.Log("requesting container start")
 	containersToStartRequests <- startContainerRequest{
-		clientDetails: &feederClient{
+		clientDetails: feederClient{
 			clientApiKey: uuid.MustParse(TestFeederAPIKey),
 			refLat:       TestFeederLatitude,
 			refLon:       TestFeederLongitude,

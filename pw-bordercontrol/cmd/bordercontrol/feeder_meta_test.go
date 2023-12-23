@@ -46,7 +46,7 @@ func TestGetFeederInfo(t *testing.T) {
 	}
 
 	t.Run("test valid feeder", func(t *testing.T) {
-		err := getFeederInfo(&f)
+		err := getFeederInfo(f)
 		assert.NoError(t, err)
 		assert.Equal(t, lat, f.refLat)
 		assert.Equal(t, lon, f.refLon)
@@ -55,7 +55,7 @@ func TestGetFeederInfo(t *testing.T) {
 	})
 
 	t.Run("test invalid feeder", func(t *testing.T) {
-		err := getFeederInfo(&feederClient{})
+		err := getFeederInfo(feederClient{})
 		assert.Error(t, err)
 	})
 

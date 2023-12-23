@@ -169,7 +169,7 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	}
 }
 
-func (stats *Statistics) setFeederDetails(f *feederClient) {
+func (stats *Statistics) setFeederDetails(f feederClient) {
 	// updates the details of a feeder
 
 	// log := log.With().

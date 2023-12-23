@@ -275,10 +275,10 @@ func getUUIDfromSNI(c net.Conn) (u uuid.UUID, err error) {
 	return uuid.Parse(c.(*tls.Conn).ConnectionState().ServerName)
 }
 
-func authenticateFeeder(connIn net.Conn) (clientDetails *feederClient, err error) {
+func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error) {
 	// authenticates a feeder
 
-	clientDetails = &feederClient{}
+	clientDetails = feederClient{}
 
 	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "authenticateFeeder"}).
@@ -470,7 +470,7 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	var (
 		connOut          *net.TCPConn
-		clientDetails    *feederClient
+		clientDetails    feederClient
 		lastAuthCheck    time.Time
 		err              error
 		wg               sync.WaitGroup

@@ -18,8 +18,8 @@ import (
 
 // struct for requesting that the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	clientDetails *feederClient // lat, long, mux, label, api key
-	srcIP         net.IP        // client IP address
+	clientDetails feederClient // lat, long, mux, label, api key
+	srcIP         net.IP       // client IP address
 
 }
 
@@ -178,11 +178,11 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 		log := log.With().
 			// Float64("lat", containerToStart.clientDetails.refLat).
 			// Float64("lon", containerToStart.clientDetails.refLon).
-			Str("mux", string(containerToStart.clientDetails.mux)).
-			Str("label", string(containerToStart.clientDetails.label)).
-			Str("uuid", string(containerToStart.clientDetails.clientApiKey.String())).
-			Str("src", string(containerToStart.srcIP.String())).
-			Str("code", string(containerToStart.clientDetails.feederCode)).
+			Str("mux", containerToStart.clientDetails.mux).
+			Str("label", containerToStart.clientDetails.label).
+			Str("uuid", containerToStart.clientDetails.clientApiKey.String()).
+			Str("src", containerToStart.srcIP.String()).
+			Str("code", containerToStart.clientDetails.feederCode).
 			Logger()
 
 		// determine if container is already running
