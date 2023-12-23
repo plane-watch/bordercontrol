@@ -93,17 +93,17 @@ func TestStats(t *testing.T) {
 	body := getMetricsFromTestServer(t, metricsURL)
 
 	expectedMetrics := []string{
-		`pw_bordercontrol_connections{protocol="beast"} 0`,
-		`pw_bordercontrol_connections{protocol="mlat"} 0`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 0`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 0`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 0`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 0`,
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 0`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 0`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 0`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 0`, protoMLAT),
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 		`pw_bordercontrol_feeders 0`,
-		`pw_bordercontrol_feeders_active{protocol="beast"} 0`,
-		`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoMLAT),
 	}
 
 	// tests
@@ -154,21 +154,22 @@ func TestStats(t *testing.T) {
 
 	// new expected metrics
 	expectedMetrics = []string{
-		`pw_bordercontrol_connections{protocol="beast"} 1`,
-		`pw_bordercontrol_connections{protocol="mlat"} 1`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 100`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 300`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 200`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 400`,
+
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 1`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 1`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 100`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 300`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 200`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 400`, protoMLAT),
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 		`pw_bordercontrol_feeders 1`,
-		`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
-		`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"} 100`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"} 300`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"} 200`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"} 400`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 1`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 1`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 100`, fc.label, protoBEAST, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 300`, fc.label, protoMLAT, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 200`, fc.label, protoBEAST, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 400`, fc.label, protoMLAT, fc.clientApiKey),
 	}
 
 	// tests
@@ -212,23 +213,23 @@ func TestStats(t *testing.T) {
 
 	// new expected metrics
 	expectedMetrics = []string{
-		`pw_bordercontrol_connections{protocol="beast"} 0`,
-		`pw_bordercontrol_connections{protocol="mlat"} 0`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 1124`,
-		`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 1.073742124e+09`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 1.048776e+06`,
-		`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 1.099511628176e+12`,
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 1124`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 1.073742124e+09`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 1.048776e+06`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 1.099511628176e+12`, protoMLAT),
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 		`pw_bordercontrol_feeders 1`,
-		`pw_bordercontrol_feeders_active{protocol="beast"} 0`,
-		`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoBEAST),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoMLAT),
 	}
 	notExpectedMetrics := []string{
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="beast",uuid="%s"}`, fc.label, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="mlat",uuid="%s"}`, fc.label, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoBEAST, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoMLAT, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoBEAST, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoMLAT, fc.clientApiKey),
 	}
 
 	checkPromMetricsExist(t, body, expectedMetrics)
