@@ -250,14 +250,14 @@ func runServer(ctx *cli.Context) error {
 
 	go func() {
 		for {
-			conf := &startFeederContainersConfig{
+			conf := startFeederContainersConfig{
 				feedInImageName:            ctx.String("feedinimage"),
 				feedInContainerPrefix:      ctx.String("feedincontainerprefix"),
 				pwIngestPublish:            ctx.String("pwingestpublish"),
 				containersToStartRequests:  containersToStartRequests,
 				containersToStartResponses: containersToStartResponses,
 			}
-			_ = startFeederContainers(*conf)
+			_ = startFeederContainers(conf)
 			time.Sleep(1 * time.Minute)
 		}
 	}()
@@ -291,7 +291,7 @@ func runServer(ctx *cli.Context) error {
 		if err != nil {
 			log.Err(err).Str("addr", ctx.String("listenbeast")).Msg("invalid listen port")
 		}
-		conf := &listenConfig{
+		conf := listenConfig{
 			listenProto: protoBEAST,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
@@ -302,7 +302,7 @@ func runServer(ctx *cli.Context) error {
 			containersToStartResponses: containersToStartResponses,
 		}
 		for {
-			listener(*conf)
+			listener(conf)
 			time.Sleep(time.Second * 1)
 		}
 	}()
@@ -314,7 +314,7 @@ func runServer(ctx *cli.Context) error {
 		if err != nil {
 			log.Err(err).Str("addr", ctx.String("listenmlat")).Msg("invalid listen port")
 		}
-		conf := &listenConfig{
+		conf := listenConfig{
 			listenProto: protoMLAT,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
@@ -325,7 +325,7 @@ func runServer(ctx *cli.Context) error {
 			containersToStartResponses: containersToStartResponses,
 		}
 		for {
-			listener(*conf)
+			listener(conf)
 			time.Sleep(time.Second * 1)
 		}
 	}()

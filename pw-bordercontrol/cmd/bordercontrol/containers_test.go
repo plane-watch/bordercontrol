@@ -106,14 +106,14 @@ func TestContainersWithKill(t *testing.T) {
 
 	// start process to test
 	t.Log("starting startFeederContainers")
-	confA := &startFeederContainersConfig{
+	confA := startFeederContainersConfig{
 		feedInImageName:            TestFeedInImageName,
 		feedInContainerPrefix:      TestfeedInContainerPrefix,
 		pwIngestPublish:            TestPWIngestSink,
 		containersToStartRequests:  containersToStartRequests,
 		containersToStartResponses: containersToStartResponses,
 	}
-	go startFeederContainers(*confA)
+	go startFeederContainers(confA)
 
 	// start container
 	t.Log("requesting container start")
