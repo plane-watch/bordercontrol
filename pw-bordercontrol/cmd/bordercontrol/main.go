@@ -249,29 +249,27 @@ func runServer(ctx *cli.Context) error {
 	// start goroutine to start feeder containers
 
 	go func() {
+		conf := startFeederContainersConfig{
+			feedInImageName:            ctx.String("feedinimage"),
+			feedInContainerPrefix:      ctx.String("feedincontainerprefix"),
+			pwIngestPublish:            ctx.String("pwingestpublish"),
+			containersToStartRequests:  containersToStartRequests,
+			containersToStartResponses: containersToStartResponses,
+		}
 		for {
-			conf := startFeederContainersConfig{
-				feedInImageName:            ctx.String("feedinimage"),
-				feedInContainerPrefix:      ctx.String("feedincontainerprefix"),
-				pwIngestPublish:            ctx.String("pwingestpublish"),
-				containersToStartRequests:  containersToStartRequests,
-				containersToStartResponses: containersToStartResponses,
-			}
 			_ = startFeederContainers(conf)
-			time.Sleep(1 * time.Minute)
 		}
 	}()
 
 	// start goroutine to check feed-in containers
 	go func() {
+		conf := checkFeederContainersConfig{
+			feedInImageName:          ctx.String("feedinimage"),
+			feedInContainerPrefix:    ctx.String("feedincontainerprefix"),
+			checkFeederContainerSigs: chanSIGUSR1,
+		}
 		for {
-			conf := &checkFeederContainersConfig{
-				feedInImageName:          ctx.String("feedinimage"),
-				feedInContainerPrefix:    ctx.String("feedincontainerprefix"),
-				checkFeederContainerSigs: chanSIGUSR1,
-			}
-			_ = checkFeederContainers(*conf)
-			time.Sleep(1 * time.Minute)
+			_ = checkFeederContainers(conf)
 		}
 	}()
 
