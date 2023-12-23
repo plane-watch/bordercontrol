@@ -462,7 +462,7 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).
-		Str("connProto", string(conf.connProto)).
+		Str("proto", string(conf.connProto)).
 		Uint("connNum", conf.connNum).
 		Logger()
 
