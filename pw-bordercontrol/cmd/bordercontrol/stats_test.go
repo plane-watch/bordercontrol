@@ -134,17 +134,17 @@ func TestStats(t *testing.T) {
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
 	// check num conns
-	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
-	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
 
 	// add some fake feeder connections
 	stats.setFeederDetails(&fc)
-	stats.addConnection(u, &ip, &ip, protoBeast, "ABCD-1234", 1)
+	stats.addConnection(u, &ip, &ip, protoBEAST, "ABCD-1234", 1)
 	stats.addConnection(u, &ip, &ip, protoMLAT, "ABCD-1234", 2)
 
 	// check num conns
-	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
-	assert.Equal(t, 1, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 1, stats.getNumConnections(u, protoBEAST))
+	assert.Equal(t, 1, stats.getNumConnections(u, protoBEAST))
 
 	// add some traffic
 	stats.incrementByteCounters(u, 1, 100, 200)
@@ -185,16 +185,16 @@ func TestStats(t *testing.T) {
 	_ = getMetricsFromTestServer(t, fmt.Sprintf("%s", statsBaseURL))
 
 	// add another beast connection
-	stats.addConnection(u, &ip, &ip, protoBeast, "ABCD-1234", 3)
+	stats.addConnection(u, &ip, &ip, protoBEAST, "ABCD-1234", 3)
 
 	// remove connections (working)
-	stats.delConnection(u, protoBeast, 1)
+	stats.delConnection(u, protoBEAST, 1)
 
 	// remove connections (working)
-	stats.delConnection(u, protoBeast, 3)
+	stats.delConnection(u, protoBEAST, 3)
 
 	// remove connection (connnum not found)
-	stats.delConnection(u, protoBeast, 1)
+	stats.delConnection(u, protoBEAST, 1)
 
 	// remove connection (proto not found)
 	stats.delConnection(u, "no_such_proto", 2)
@@ -203,8 +203,8 @@ func TestStats(t *testing.T) {
 	stats.delConnection(u, protoMLAT, 2)
 
 	// check num conns
-	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
-	assert.Equal(t, 0, stats.getNumConnections(u, protoBeast))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
 
 	body = getMetricsFromTestServer(t, metricsURL)
 

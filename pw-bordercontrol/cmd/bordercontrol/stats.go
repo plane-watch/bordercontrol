@@ -33,7 +33,7 @@ type FeederStats struct {
 
 	// Connection details
 	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
-	Connections map[string]ProtocolDetail
+	Connections map[feedProtocol]ProtocolDetail
 
 	TimeUpdated time.Time // time these stats were updated
 }
@@ -81,9 +81,8 @@ var (
 	matchUUID            *regexp.Regexp // regex to match UUID
 )
 
-func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto string) int {
+func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto feedProtocol) int {
 	// returns the number of connections for a given uuid and protocol
-	proto = strings.ToUpper(proto)
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
 	return stats.Feeders[uuid].Connections[proto].ConnectionCount
@@ -124,7 +123,7 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, byt
 				y.Connections[proto].ConnectionDetails[connNum] = c
 
 				switch proto {
-				case protoBeast:
+				case protoBEAST:
 					stats.BytesInBEAST += bytesIn
 					stats.BytesOutBEAST += bytesOut
 				case protoMLAT:
@@ -159,9 +158,9 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	_, ok := stats.Feeders[uuid]
 	if !ok {
 		stats.Feeders[uuid] = FeederStats{
-			Connections: make(map[string]ProtocolDetail),
+			Connections: make(map[feedProtocol]ProtocolDetail),
 		}
-		stats.Feeders[uuid].Connections[protoBeast] = ProtocolDetail{
+		stats.Feeders[uuid].Connections[protoBEAST] = ProtocolDetail{
 			ConnectionDetails: make(map[uint]ConnectionDetail),
 		}
 		stats.Feeders[uuid].Connections[protoMLAT] = ProtocolDetail{
@@ -200,13 +199,13 @@ func (stats *Statistics) setFeederDetails(f *feederClient) {
 	stats.Feeders[f.clientApiKey] = y
 }
 
-func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uint) {
+func (stats *Statistics) delConnection(uuid uuid.UUID, proto feedProtocol, connNum uint) {
 	// updates the connected status of a feeder
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "delConnection"}).
 		Str("uuid", uuid.String()).
-		Str("proto", proto).
+		Str("proto", string(proto)).
 		Uint("connNum", connNum).
 		Logger()
 
@@ -261,7 +260,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 	stats.Feeders[uuid] = feeder
 
 	// do we completely remove the entry?
-	if stats.Feeders[uuid].Connections[protoBeast].ConnectionCount == 0 {
+	if stats.Feeders[uuid].Connections[protoBEAST].ConnectionCount == 0 {
 		if stats.Feeders[uuid].Connections[protoMLAT].ConnectionCount == 0 {
 			delete(stats.Feeders, uuid)
 		}
@@ -272,7 +271,7 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto string, connNum uin
 	// log.Debug().Msg("finished")
 }
 
-func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto, code string, connNum uint) {
+func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto feedProtocol, code string, connNum uint) {
 	// updates the connected status of a feeder
 
 	log := log.With().
@@ -280,7 +279,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Str("uuid", uuid.String()).
 		Str("src", src.String()).
 		Str("dst", dst.String()).
-		Str("proto", proto).
+		Str("proto", string(proto)).
 		Str("code", code).
 		Uint("connNum", connNum).
 		Logger()
@@ -306,7 +305,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
 		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(proto),
+			"protocol":    string(proto),
 			"uuid":        uuid.String(),
 			"label":       stats.Feeders[uuid].Label,
 			"connnum":     fmt.Sprintf("%d", connNum),
@@ -318,7 +317,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
 		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(proto),
+			"protocol":    string(proto),
 			"uuid":        uuid.String(),
 			"label":       stats.Feeders[uuid].Label,
 			"connnum":     fmt.Sprintf("%d", connNum),

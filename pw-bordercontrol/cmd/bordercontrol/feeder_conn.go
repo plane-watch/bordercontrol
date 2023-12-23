@@ -439,12 +439,12 @@ func proxyServerToClient(clientConn net.Conn, serverConn *net.TCPConn, connNum u
 	}
 }
 
-func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) error {
+func proxyClientConnection(connIn net.Conn, connProto feedProtocol, connNum uint, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) error {
 	// handles incoming BEAST connections
 
 	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).
-		Str("connProto", connProto).
+		Str("connProto", string(connProto)).
 		Uint("connNum", connNum).
 		Logger()
 
@@ -521,7 +521,7 @@ func proxyClientConnection(connIn net.Conn, connProto string, connNum uint, cont
 	// If the client has been authenticated, then we can do stuff with the data
 
 	switch connProto {
-	case protoBeast:
+	case protoBEAST:
 
 		log = log.With().
 			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
