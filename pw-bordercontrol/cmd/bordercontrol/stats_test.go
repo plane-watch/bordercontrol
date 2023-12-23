@@ -96,17 +96,17 @@ func TestStats(t *testing.T) {
 	body := getMetricsFromTestServer(t, metricsURL)
 
 	expectedMetrics := []string{
-		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoMLAT),
-		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 0`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 0`, protoMLAT),
-		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 0`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 0`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, strings.ToLower(string(protoMLAT))),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 0`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 0`, strings.ToLower(string(protoMLAT))),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 0`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 0`, strings.ToLower(string(protoMLAT))),
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 		`pw_bordercontrol_feeders 0`,
-		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, strings.ToLower(string(protoMLAT))),
 	}
 
 	// tests
@@ -158,21 +158,21 @@ func TestStats(t *testing.T) {
 	// new expected metrics
 	expectedMetrics = []string{
 
-		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 1`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 1`, protoMLAT),
-		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 100`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 300`, protoMLAT),
-		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 200`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 400`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 1`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 1`, strings.ToLower(string(protoMLAT))),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 100`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 300`, strings.ToLower(string(protoMLAT))),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 200`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 400`, strings.ToLower(string(protoMLAT))),
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 		`pw_bordercontrol_feeders 1`,
-		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 1`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 1`, protoMLAT),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 100`, fc.label, protoBEAST, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 300`, fc.label, protoMLAT, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 200`, fc.label, protoBEAST, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 400`, fc.label, protoMLAT, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 1`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 1`, strings.ToLower(string(protoMLAT))),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 100`, fc.label, strings.ToLower(string(protoBEAST)), fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 300`, fc.label, strings.ToLower(string(protoMLAT)), fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 200`, fc.label, strings.ToLower(string(protoBEAST)), fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"} 400`, fc.label, strings.ToLower(string(protoMLAT)), fc.clientApiKey),
 	}
 
 	// tests
@@ -208,7 +208,7 @@ func TestStats(t *testing.T) {
 
 	// check num conns
 	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
-	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoMLAT))
 
 	body = getMetricsFromTestServer(t, metricsURL)
 
@@ -216,23 +216,23 @@ func TestStats(t *testing.T) {
 
 	// new expected metrics
 	expectedMetrics = []string{
-		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, protoMLAT),
-		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 1124`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 1.073742124e+09`, protoMLAT),
-		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 1.048776e+06`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 1.099511628176e+12`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_connections{protocol="%s"} 0`, strings.ToLower(string(protoMLAT))),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 1124`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_data_in_bytes_total{protocol="%s"} 1.073742124e+09`, strings.ToLower(string(protoMLAT))),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 1.048776e+06`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_data_out_bytes_total{protocol="%s"} 1.099511628176e+12`, strings.ToLower(string(protoMLAT))),
 		`pw_bordercontrol_feedercontainers_image_current 0`,
 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
 		`pw_bordercontrol_feeders 1`,
-		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoBEAST),
-		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, protoMLAT),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, strings.ToLower(string(protoBEAST))),
+		fmt.Sprintf(`pw_bordercontrol_feeders_active{protocol="%s"} 0`, strings.ToLower(string(protoMLAT))),
 	}
 	notExpectedMetrics := []string{
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoBEAST, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoMLAT, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoBEAST, fc.clientApiKey),
-		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, protoMLAT, fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, strings.ToLower(string(protoBEAST)), fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, strings.ToLower(string(protoMLAT)), fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="1",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, strings.ToLower(string(protoBEAST)), fc.clientApiKey),
+		fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="2",feeder_code="ABCD-1234",label="%s",protocol="%s",uuid="%s"}`, fc.label, strings.ToLower(string(protoMLAT)), fc.clientApiKey),
 	}
 
 	checkPromMetricsExist(t, body, expectedMetrics)
