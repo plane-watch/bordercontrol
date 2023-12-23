@@ -2,11 +2,13 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -283,8 +285,24 @@ func runServer(ctx *cli.Context) error {
 	}()
 
 	// start listening for incoming BEAST connections
-	wg.Add(1)
-	go listenBEAST(ctx, &wg, containersToStartRequests, containersToStartResponses)
+	go func() {
+		ip := net.ParseIP(ctx.String("listenbeast"))
+		port, err := strconv.Atoi(strings.Split(ctx.String("listenbeast"))[1])
+		if err != nil {
+			log.Err(err).Str("addr", ctx.String("listenbeast")).Msg("invalid BEAST listen port")
+		}
+		conf := &listenBEASTConfig{
+			listenAddr: net.TCPAddr{
+				IP:   ip,
+				Port: port,
+				Zone: "",
+			},
+		}
+		for {
+			listenBEAST(*conf)
+			time.Sleep(time.Second * 1)
+		}
+	}()
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
@@ -297,20 +315,26 @@ func runServer(ctx *cli.Context) error {
 }
 
 type listenBEASTConfig struct {
-	listenAddr net.TCPAddr // TCP address to listen on for incoming stunnel'd BEAST connections
+	listenAddr                 net.TCPAddr                 // TCP address to listen on for incoming stunnel'd BEAST connections
+	containersToStartRequests  chan startContainerRequest  // Channel to send container start requests to.
+	containersToStartResponses chan startContainerResponse // Channel to receive container start responses from.
 }
 
-func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) {
+func listenBEAST(conf listenBEASTConfig) {
 	// BEAST listener
 
 	log := log.With().
-		Str("ip", strings.Split(ctx.String("listenbeast"), ":")[0]).
-		Str("port", strings.Split(ctx.String("listenbeast"), ":")[1]).
+		Str("ip", conf.listenAddr.IP.String()).
+		Int("port", conf.listenAddr.Port).
 		Logger()
 
 	// start TLS server
 	log.Info().Msg("starting BEAST listener")
-	tlsListener, err := tls.Listen("tcp", ctx.String("listenbeast"), &tlsConfig)
+	tlsListener, err := tls.Listen(
+		"tcp",
+		fmt.Sprintf("%s:%d", conf.listenAddr.IP.String(), conf.listenAddr.Port),
+		&tlsConfig,
+	)
 	if err != nil {
 		log.Err(err).Msg("error with tls.Listen")
 		os.Exit(1)
@@ -324,10 +348,8 @@ func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests
 			log.Err(err).Msg("error with tlsListener.Accept")
 			continue
 		}
-		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), containersToStartRequests, containersToStartResponses)
+		go proxyClientConnection(conn, protoBeast, incomingConnTracker.getNum(), conf.containersToStartRequests, conf.containersToStartResponses)
 	}
-
-	wg.Done()
 }
 
 func listenMLAT(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) {
