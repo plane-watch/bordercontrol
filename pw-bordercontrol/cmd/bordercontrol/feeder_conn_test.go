@@ -375,6 +375,8 @@ func TestTLS(t *testing.T) {
 		Timeout: 10 * time.Second,
 	}
 
+	sendData := make(chan bool)
+
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
 	go func() {
@@ -387,6 +389,9 @@ func TestTLS(t *testing.T) {
 		// perform handshake
 		e = clientConn.Handshake()
 		assert.NoError(t, e, "could not handshake with test server")
+
+		// wait tp send data until instructed
+		_ = <-sendData
 
 		_, e = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, e, "could not send test data")
@@ -406,6 +411,9 @@ func TestTLS(t *testing.T) {
 		assert.NoError(t, err)
 		fmt.Println(clientDetails)
 	})
+
+	// now send some data
+	sendData <- true
 
 	t.Run("test readFromClient working", func(t *testing.T) {
 		buf := make([]byte, 12)
