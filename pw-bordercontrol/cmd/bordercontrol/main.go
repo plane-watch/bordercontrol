@@ -345,7 +345,7 @@ type listenConfig struct {
 }
 
 func listener(conf listenConfig) {
-	// BEAST listener
+	// incoming connection listener
 
 	log := log.With().
 		Str("proto", string(conf.listenProto)).
@@ -380,6 +380,8 @@ func listener(conf listenConfig) {
 			containersToStartRequests:  conf.containersToStartRequests,
 			containersToStartResponses: conf.containersToStartResponses,
 		}
+
+		// initiate proxying of the connection
 		go proxyClientConnection(proxyConf)
 	}
 }
