@@ -138,7 +138,7 @@ func TestStats(t *testing.T) {
 
 	// check num conns
 	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
-	assert.Equal(t, 0, stats.getNumConnections(u, protoBEAST))
+	assert.Equal(t, 0, stats.getNumConnections(u, protoMLAT))
 
 	// add some fake feeder connections
 	stats.setFeederDetails(fc)
@@ -147,7 +147,7 @@ func TestStats(t *testing.T) {
 
 	// check num conns
 	assert.Equal(t, 1, stats.getNumConnections(u, protoBEAST))
-	assert.Equal(t, 1, stats.getNumConnections(u, protoBEAST))
+	assert.Equal(t, 1, stats.getNumConnections(u, protoMLAT))
 
 	// add some traffic
 	stats.incrementByteCounters(u, 1, 100, 200)
