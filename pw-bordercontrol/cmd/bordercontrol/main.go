@@ -292,11 +292,14 @@ func runServer(ctx *cli.Context) error {
 			log.Err(err).Str("addr", ctx.String("listenbeast")).Msg("invalid listen port")
 		}
 		conf := &listenConfig{
+			listenProto: protoBEAST,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
 				Port: port,
 				Zone: "",
 			},
+			containersToStartRequests:  containersToStartRequests,
+			containersToStartResponses: containersToStartResponses,
 		}
 		for {
 			listener(*conf)
@@ -312,11 +315,14 @@ func runServer(ctx *cli.Context) error {
 			log.Err(err).Str("addr", ctx.String("listenmlat")).Msg("invalid listen port")
 		}
 		conf := &listenConfig{
+			listenProto: protoMLAT,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
 				Port: port,
 				Zone: "",
 			},
+			containersToStartRequests:  containersToStartRequests,
+			containersToStartResponses: containersToStartResponses,
 		}
 		for {
 			listener(*conf)
