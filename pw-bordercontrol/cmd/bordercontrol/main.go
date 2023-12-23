@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"net"
 	"os"
 	"os/signal"
 	"runtime"
@@ -253,6 +254,7 @@ func runServer(ctx *cli.Context) error {
 				containersToStartResponses: containersToStartResponses,
 			}
 			_ = startFeederContainers(*conf)
+			time.Sleep(1 * time.Minute)
 		}
 	}()
 
@@ -292,6 +294,10 @@ func runServer(ctx *cli.Context) error {
 	wg.Wait()
 
 	return nil
+}
+
+type listenBEASTConfig struct {
+	listenAddr net.TCPAddr // TCP address to listen on for incoming stunnel'd BEAST connections
 }
 
 func listenBEAST(ctx *cli.Context, wg *sync.WaitGroup, containersToStartRequests chan startContainerRequest, containersToStartResponses chan startContainerResponse) {
