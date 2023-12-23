@@ -286,7 +286,7 @@ func runServer(ctx *cli.Context) error {
 
 	// start listening for incoming BEAST connections
 	go func() {
-		ip := net.ParseIP(ctx.String("listenbeast"))
+		ip := net.ParseIP(strings.Split(ctx.String("listenbeast"), ":")[0])
 		port, err := strconv.Atoi(strings.Split(ctx.String("listenbeast"), ":")[1])
 		if err != nil {
 			log.Err(err).Str("addr", ctx.String("listenbeast")).Msg("invalid BEAST listen port")
