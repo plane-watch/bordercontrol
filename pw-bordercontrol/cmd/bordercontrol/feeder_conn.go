@@ -593,7 +593,7 @@ func proxyClientConnection(conf proxyConfig) error {
 			return err
 		}
 
-		dstContainerName = "mux container"
+		dstContainerName = "mlat-server"
 
 	default:
 		err := errors.New("unsupported protocol")
