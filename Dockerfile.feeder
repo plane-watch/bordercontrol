@@ -16,11 +16,36 @@ RUN set -x && \
     KEPT_PACKAGES+=(procps) && \
     KEPT_PACKAGES+=(iproute2) && \
     KEPT_PACKAGES+=(xz-utils) && \
+    # readsb
+    TEMP_PACKAGES+=(librrd-dev) && \
+    TEMP_PACKAGES+=(libprotobuf-c-dev) && \
+    KEPT_PACKAGES+=(protobuf-c-compiler) && \
+    TEMP_PACKAGES+=(libncurses5-dev) && \
+    TEMP_PACKAGES+=(libusb-1.0-0-dev) && \
+    TEMP_PACKAGES+=(build-essential) && \
+    TEMP_PACKAGES+=(cmake) && \
+    TEMP_PACKAGES+=(debhelper) && \
+    TEMP_PACKAGES+=(pkg-config) && \
+    TEMP_PACKAGES+=(fakeroot) && \
+    # ------
     apt-get update && \
     apt-get install -y --no-install-recommends \
         "${KEPT_PACKAGES[@]}" \
         "${TEMP_PACKAGES[@]}" \
         && \
+    # readsb-protobuf
+    git clone \
+        -b v4.0.2 \
+        --depth 1 \
+        --single-branch \
+        https://github.com/Mictronics/readsb-protobuf.git \
+        /src/readsb-protobuf \
+        && \
+    pushd /src/readsb-protobuf && \
+    make && \
+    cp -v ./readsb /usr/local/bin/readsb && \
+    cp -v ./viewadsb /usr/local/bin/viewadsb && \
+    popd && \
     # deploy healthchecks framework
     git clone \
       --depth=1 \
