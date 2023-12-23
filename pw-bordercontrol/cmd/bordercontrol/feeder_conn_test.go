@@ -401,6 +401,12 @@ func TestTLS(t *testing.T) {
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
 
+	t.Run("test authenticateFeeder working", func(t *testing.T) {
+		clientDetails, err := authenticateFeeder(c)
+		assert.NoError(t, err)
+		fmt.Println(clientDetails)
+	})
+
 	t.Run("test readFromClient working", func(t *testing.T) {
 		buf := make([]byte, 12)
 		_, err = readFromClient(c, buf)
