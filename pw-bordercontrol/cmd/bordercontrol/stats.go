@@ -305,7 +305,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
 		ConstLabels: prometheus.Labels{
-			"protocol":    string(proto),
+			"protocol":    strings.ToLower(string(proto)),
 			"uuid":        uuid.String(),
 			"label":       stats.Feeders[uuid].Label,
 			"connnum":     fmt.Sprintf("%d", connNum),
@@ -317,7 +317,7 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
 		ConstLabels: prometheus.Labels{
-			"protocol":    string(proto),
+			"protocol":    strings.ToLower(string(proto)),
 			"uuid":        uuid.String(),
 			"label":       stats.Feeders[uuid].Label,
 			"connnum":     fmt.Sprintf("%d", connNum),
