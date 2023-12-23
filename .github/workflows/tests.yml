@@ -84,8 +84,8 @@ jobs:
           push: false
           file: ./Dockerfile.feeder
       -
-        name: Build mux
+        name: Build mlat-server
         uses: docker/build-push-action@v5
         with:
           push: false
-          file: ./Dockerfile.mux
+          file: ./Dockerfile.mlat-server

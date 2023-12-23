@@ -8,7 +8,7 @@ networks:
 x-mlat-server-common: &x-mlat-server-common
   build:
     context: .
-    dockerfile: Dockerfile.mlat_server
+    dockerfile: Dockerfile.mlat-server
   image: mlat-server
   restart: always
   tty: true
