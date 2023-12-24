@@ -433,7 +433,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	}
 	// prepare container network config
 	endpointsConfig := make(map[string]*network.EndpointSettings)
-	endpointsConfig[feedInContainerNetwork] = &network.EndpointSettings{}
+	endpointsConfig["bridge"] = &network.EndpointSettings{}
 	networkingConfig := network.NetworkingConfig{
 		EndpointsConfig: endpointsConfig,
 	}
