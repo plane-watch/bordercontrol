@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"pw_bordercontrol/lib/atc"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -58,5 +60,40 @@ func TestGetFeederInfo(t *testing.T) {
 		err := getFeederInfo(&feederClient{})
 		assert.Error(t, err)
 	})
+
+}
+
+func TestUpdateFeederDB(t *testing.T) {
+
+	// set up mock server
+	server := atc.PrepMockATCServer(t, atc.MockServerTestScenarioWorking)
+	defer server.Close()
+
+	// prep config
+	conf := updateFeederDBConfig{
+		updateFreq: time.Second,
+		atcUrl:     server.URL,
+		atcUser:    atc.TestUser,
+		atcPass:    atc.TestPassword,
+	}
+
+	// start updater
+	go updateFeederDB(&conf)
+
+	// wait for ATC update
+	time.Sleep(time.Second * 2)
+
+	// stop ATC update
+	conf.stopMu.Lock()
+	conf.stop = true
+	conf.stopMu.Unlock()
+
+	// wait for ATC update to finish
+	time.Sleep(time.Second * 2)
+
+	// check feeders
+	validFeeders.mu.Lock()
+	fmt.Println(validFeeders.Feeders)
+	validFeeders.mu.Unlock()
 
 }
