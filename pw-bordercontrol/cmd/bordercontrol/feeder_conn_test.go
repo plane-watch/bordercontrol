@@ -796,7 +796,7 @@ func TestAuthenticateFeeder_InvalidAPIKey(t *testing.T) {
 	// set up tls config
 	tlsConfig := tls.Config{
 		RootCAs:            scp,
-		ServerName:         testSNI.String(),
+		ServerName:         uuid.NewString(),
 		InsecureSkipVerify: true,
 	}
 
