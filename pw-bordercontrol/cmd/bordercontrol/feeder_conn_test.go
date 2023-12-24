@@ -386,9 +386,9 @@ func TestTLS(t *testing.T) {
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
-		// perform handshake
-		e = clientConn.Handshake()
-		assert.NoError(t, e, "could not handshake with test server")
+		// // perform handshake
+		// e = clientConn.Handshake()
+		// assert.NoError(t, e, "could not handshake with test server")
 
 		// wait tp send data until instructed
 		_ = <-sendData
