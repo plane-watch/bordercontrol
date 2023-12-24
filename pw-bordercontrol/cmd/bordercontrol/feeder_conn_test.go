@@ -908,7 +908,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	assert.NoError(t, err, "could not use system cert pool for test")
 
 	// set up tls config
-	tlsConfig := tls.Config{
+	tlsClientConfig := tls.Config{
 		RootCAs:            scp,
 		ServerName:         testSNI.String(),
 		InsecureSkipVerify: true,
@@ -924,7 +924,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	var clientConn *tls.Conn
 	go func() {
 		// dial remote
-		clientConn, err = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		clientConn, err = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
 		assert.Error(t, err, "could not dial test server")
 		if err == nil {
 			defer clientConn.Close()
