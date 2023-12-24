@@ -56,7 +56,7 @@ func prepTestEnvironmentTLSListener(t *testing.T) net.Listener {
 
 	var tlsListener net.Listener
 
-	t.Run("preparing test environment TLS listener", func(t *testing.T) {
+	t.Run("preparing test environment TLS Listener", func(t *testing.T) {
 
 		// get testing host/port
 		n, err := nettest.NewLocalListener("tcp")

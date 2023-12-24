@@ -553,47 +553,10 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 
 func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 
-	t.Log("preparing test environment TLS cert/key")
-
-	// prep cert file
-	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
-	assert.NoError(t, err, "could not create temporary certificate file for test")
-	defer func() {
-		// clean up after testing
-		certFile.Close()
-		os.Remove(certFile.Name())
-	}()
-
-	// prep key file
-	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
-	assert.NoError(t, err, "could not create temporary private key file for test")
-	defer func() {
-		// clean up after testing
-		keyFile.Close()
-		os.Remove(keyFile.Name())
-	}()
-
-	// generate cert/key for testing
-	err = generateTLSCertAndKey(keyFile, certFile)
-	assert.NoError(t, err, "could not generate cert/key for test")
-
-	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
-	assert.NoError(t, err, "could not load TLS cert/key for test")
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
-	// get testing host/port
-	n, err := nettest.NewLocalListener("tcp")
-	assert.NoError(t, err, "could not generate new local listener for test")
-	tlsListenAddr := n.Addr().String()
-	err = n.Close()
-	assert.NoError(t, err, "could not close temp local listener for test")
-
-	// configure temp listener
-	tlsListener, err := tls.Listen("tcp4", tlsListenAddr, &tlsConfig)
-	assert.NoError(t, err)
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
 	defer tlsListener.Close()
-	t.Logf("Listening on: %s", tlsListenAddr)
 
 	// channels to control test flow
 	closeSvrConn := make(chan bool)
@@ -612,7 +575,7 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 		_ = <-closeSvrConn
 	}(t)
 
-	c, err := net.Dial("tcp4", tlsListener.Addr().String())
+	c, err := net.Dial("tcp", tlsListener.Addr().String())
 	assert.NoError(t, err)
 	defer c.Close()
 
