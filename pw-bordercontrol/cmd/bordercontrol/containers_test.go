@@ -402,7 +402,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	// ensure TCP echo server image is downloaded
 	t.Log("pull TCP echo server image")
-	imageirc, err := cli.ImagePull(*ctx, "istio/tcp-echo-server:1.2", types.ImagePullOptions{})
+	imageirc, err := cli.ImagePull(*ctx, "venilnoronha/tcp-echo-server:latest", types.ImagePullOptions{})
 	assert.NoError(t, err)
 	defer imageirc.Close()
 
@@ -418,7 +418,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	t.Log("create TCP echo server container")
 	tcpEchoServerContainerConfig := &container.Config{
-		Image: "istio/tcp-echo-server:1.2",
+		Image: "venilnoronha/tcp-echo-server:latest",
 		ExposedPorts: nat.PortSet{
 			"9000/tcp": struct{}{},
 		},
