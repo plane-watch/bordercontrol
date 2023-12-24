@@ -554,8 +554,6 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 
 }
 
-//
-
 func TestProxyClientToServer(t *testing.T) {
 
 	// set logging to trace level
@@ -570,6 +568,10 @@ func TestProxyClientToServer(t *testing.T) {
 	// test connections
 	clientOuter, clientInner := net.Pipe()
 	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
 
 	// method to signal goroutines to exit
 	pStatus := proxyStatus{
