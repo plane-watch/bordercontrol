@@ -13,9 +13,12 @@ func TestIsValidApiKey(t *testing.T) {
 
 	// prepare test data
 	u := uuid.New()
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		ApiKey: u,
 	})
+	validFeeders.mu.Unlock()
 
 	t.Run("check valid api key", func(t *testing.T) {
 		assert.True(t, isValidApiKey(u))
@@ -34,6 +37,8 @@ func TestGetFeederInfo(t *testing.T) {
 	lon := 87.65432
 	mux := "testing"
 	label := "testfeeder"
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		ApiKey:    u,
 		Latitude:  lat,
@@ -41,6 +46,7 @@ func TestGetFeederInfo(t *testing.T) {
 		Mux:       mux,
 		Label:     label,
 	})
+	validFeeders.mu.Unlock()
 
 	f := feederClient{
 		clientApiKey: u,
@@ -63,6 +69,11 @@ func TestGetFeederInfo(t *testing.T) {
 }
 
 func TestUpdateFeederDB(t *testing.T) {
+
+	// reset validFeeders
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.mu.Unlock()
 
 	// set up mock server
 	server := atc.PrepMockATCServer(t, atc.MockServerTestScenarioWorking)

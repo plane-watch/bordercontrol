@@ -226,6 +226,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -236,6 +237,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -302,6 +304,7 @@ func TestProxyServerToClient_Working(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -312,6 +315,7 @@ func TestProxyServerToClient_Working(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -378,6 +382,7 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -388,6 +393,7 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -465,6 +471,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -475,6 +482,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -700,6 +708,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 	t.Run("test authenticateFeeder working", func(t *testing.T) {
 
 		// prepare test data
+		validFeeders.mu.Lock()
 		validFeeders.Feeders = []atc.Feeder{}
 		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 			Altitude:   1,
@@ -710,6 +719,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 			Longitude:  98.76543,
 			Mux:        "test_mux",
 		})
+		validFeeders.mu.Unlock()
 
 		// test authenticateFeeder
 		clientDetails, err := authenticateFeeder(c)
@@ -1060,6 +1070,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	}(t)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -1070,6 +1081,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "127.0.0.1", // connect to the tcp echo server
 	})
+	validFeeders.mu.Unlock()
 
 	// set up TLS environment, listener & client config
 	prepTestEnvironmentTLS(t)
