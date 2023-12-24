@@ -804,6 +804,54 @@ func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
 
 }
 
+func TestAuthenticateFeeder_EOF(t *testing.T) {
+	// Test where client sends a correctly-formatted UUID,
+	// but that UUID is not in the database as an allowed feeder.
+
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
+	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
+
+	// set SNI to a UUID not in the database
+	tlsClientConfig.ServerName = "l33t h4x0r"
+
+	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
+	go func(t *testing.T) {
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
+		// dial remote
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		clientConn.Close()
+
+	}(t)
+
+	t.Log("starting test environment TLS client")
+	c, err := tlsListener.Accept()
+	defer c.Close()
+	assert.NoError(t, err, "could not accept test connection")
+
+	// test authenticateFeeder
+	_, err = authenticateFeeder(c)
+	assert.Error(t, err)
+	assert.Equal(t, "invalid UUID length: 10", err.Error())
+
+}
+
 func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	// set logging to trace level
