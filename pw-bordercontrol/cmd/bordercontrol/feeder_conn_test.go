@@ -220,6 +220,132 @@ func TestDialContainerTCP(t *testing.T) {
 	})
 }
 
+func TestProxyClientToServer(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	wg := sync.WaitGroup{}
+
+	// init stats
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	conf := protocolProxyConfig{
+		clientConn:    clientInner,
+		serverConn:    serverInner,
+		connNum:       uint(1),
+		clientApiKey:  testSNI,
+		pStatus:       &pStatus,
+		lastAuthCheck: &lastAuthCheck,
+		log:           log.Logger,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyClientToServer(conf)
+	}()
+
+	// send data to be proxied from client-side
+	_, err := clientOuter.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	_, err = serverOuter.Read(buf)
+	assert.NoError(t, err)
+
+	// data should match!
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+	wg.Wait()
+
+}
+
+func TestProxyServerToClient(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	wg := sync.WaitGroup{}
+
+	// init stats
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	conf := protocolProxyConfig{
+		clientConn:    clientInner,
+		serverConn:    serverInner,
+		connNum:       uint(1),
+		clientApiKey:  testSNI,
+		pStatus:       &pStatus,
+		lastAuthCheck: &lastAuthCheck,
+		log:           log.Logger,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyServerToClient(conf)
+	}()
+
+	// send data to be proxied from client-side
+	_, err := serverOuter.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	_, err = clientOuter.Read(buf)
+	assert.NoError(t, err)
+
+	// data should match!
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+	wg.Wait()
+
+}
+
 func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 
 	// Thanks to: https://go.dev/src/crypto/tls/generate_cert.go
@@ -303,6 +429,44 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 	return nil
 }
 
+func prepTestEnvironmentTLS(t *testing.T) {
+	t.Run("preparing test environment TLS cert/key", func(t *testing.T) {
+
+		// prep signal channels
+		prepSignalChannels()
+
+		// prep cert file
+		certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+		assert.NoError(t, err, "could not create temporary certificate file for test")
+		defer func(t *testing.T) {
+			t.Log("closing certFile")
+			certFile.Close()
+			t.Log("deleting certFile")
+			os.Remove(certFile.Name())
+		}(t)
+
+		// prep key file
+		keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+		assert.NoError(t, err, "could not create temporary private key file for test")
+		defer func(t *testing.T) {
+			t.Log("closing keyFile")
+			keyFile.Close()
+			t.Log("deleting certFile")
+			os.Remove(keyFile.Name())
+		}(t)
+
+		// generate cert/key for testing
+		t.Log("generating TLS cert & key")
+		err = generateTLSCertAndKey(keyFile, certFile)
+		assert.NoError(t, err, "could not generate cert/key for test")
+
+		// prep tls config for mocked server
+		kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
+		assert.NoError(t, err, "could not load TLS cert/key for test")
+		tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+	})
+}
+
 func TestAuthenticateFeeder_Working(t *testing.T) {
 
 	// prep waitgoup
@@ -314,33 +478,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 	stats.mu.Unlock()
 
-	t.Log("preparing test environment TLS cert/key")
-
-	// prep signal channels
-	prepSignalChannels()
-
-	// prep cert file
-	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
-	assert.NoError(t, err, "could not create temporary certificate file for test")
-
-	// prep key file
-	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
-	assert.NoError(t, err, "could not create temporary private key file for test")
-
-	// generate cert/key for testing
-	err = generateTLSCertAndKey(keyFile, certFile)
-	assert.NoError(t, err, "could not generate cert/key for test")
-
-	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
-	assert.NoError(t, err, "could not load TLS cert/key for test")
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
-	// clean up after testing
-	certFile.Close()
-	os.Remove(certFile.Name())
-	keyFile.Close()
-	os.Remove(keyFile.Name())
+	prepTestEnvironmentTLS(t)
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
@@ -550,132 +688,6 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 	})
 
 	closeSvrConn <- true
-	wg.Wait()
-
-}
-
-func TestProxyClientToServer(t *testing.T) {
-
-	// set logging to trace level
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-
-	wg := sync.WaitGroup{}
-
-	// init stats
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
-
-	// test connections
-	clientOuter, clientInner := net.Pipe()
-	serverOuter, serverInner := net.Pipe()
-	defer clientOuter.Close()
-	defer clientInner.Close()
-	defer serverOuter.Close()
-	defer serverInner.Close()
-
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
-
-	// test proxyClientToServer
-	lastAuthCheck := time.Now()
-	conf := protocolProxyConfig{
-		clientConn:    clientInner,
-		serverConn:    serverInner,
-		connNum:       uint(1),
-		clientApiKey:  testSNI,
-		pStatus:       &pStatus,
-		lastAuthCheck: &lastAuthCheck,
-		log:           log.Logger,
-	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		proxyClientToServer(conf)
-	}()
-
-	// send data to be proxied from client-side
-	_, err := clientOuter.Write([]byte("Hello World!"))
-	assert.NoError(t, err)
-
-	// read proxied data from the server-side
-	buf := make([]byte, 12)
-	_, err = serverOuter.Read(buf)
-	assert.NoError(t, err)
-
-	// data should match!
-	assert.Equal(t, []byte("Hello World!"), buf)
-
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
-
-	wg.Wait()
-
-}
-
-func TestProxyServerToClient(t *testing.T) {
-
-	// set logging to trace level
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-
-	wg := sync.WaitGroup{}
-
-	// init stats
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
-
-	// test connections
-	clientOuter, clientInner := net.Pipe()
-	serverOuter, serverInner := net.Pipe()
-	defer clientOuter.Close()
-	defer clientInner.Close()
-	defer serverOuter.Close()
-	defer serverInner.Close()
-
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
-
-	// test proxyClientToServer
-	lastAuthCheck := time.Now()
-	conf := protocolProxyConfig{
-		clientConn:    clientInner,
-		serverConn:    serverInner,
-		connNum:       uint(1),
-		clientApiKey:  testSNI,
-		pStatus:       &pStatus,
-		lastAuthCheck: &lastAuthCheck,
-		log:           log.Logger,
-	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		proxyServerToClient(conf)
-	}()
-
-	// send data to be proxied from client-side
-	_, err := serverOuter.Write([]byte("Hello World!"))
-	assert.NoError(t, err)
-
-	// read proxied data from the server-side
-	buf := make([]byte, 12)
-	_, err = clientOuter.Read(buf)
-	assert.NoError(t, err)
-
-	// data should match!
-	assert.Equal(t, []byte("Hello World!"), buf)
-
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
-
 	wg.Wait()
 
 }
