@@ -9,6 +9,7 @@ import (
 	"os"
 	"pw_bordercontrol/lib/atc"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -498,9 +499,10 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		Timeout: 10 * time.Second,
 	}
 
+	// define waitgroup
+	wg := sync.WaitGroup{}
+
 	// define channels for test flow
-	sendData := make(chan bool)
-	recvData := make(chan bool)
 	closeConn := make(chan bool)
 
 	// define test data
@@ -510,24 +512,22 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
 	go func(t *testing.T) {
+		wg.Add(1)
+
 		// dial remote
 		var e error
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
-		// wait to send data until instructed
-		_ = <-sendData
-
-		// send some test data
+		// send data
 		nW, e := clientConn.Write(bytesToSend)
 		assert.NoError(t, e, "could not send test data from client to server")
 		assert.Equal(t, len(bytesToSend), nW)
 
 		bytesReceived := make([]byte, len(bytesThatShouldBeReceived))
 
-		// wait to receive more data until instructed
-		_ = <-recvData
+		// receive data
 		nR, e := clientConn.Read(bytesReceived)
 		assert.NoError(t, e, "could not receive test data from server to client")
 		assert.Equal(t, len(bytesThatShouldBeReceived), nR)
@@ -535,6 +535,8 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 		// wait to close the connection
 		_ = <-closeConn
+
+		wg.Done()
 
 	}(t)
 
@@ -552,20 +554,20 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	}
 
 	go func(t *testing.T) {
+		wg.Add(1)
 		var err error
 		err = proxyClientConnection(pc)
 		assert.Error(t, err)
-		assert.Equal(t, "EOF", err.Error())
+		if err != nil {
+			assert.Equal(t, "EOF", err.Error())
+		}
+		wg.Done()
 	}(t)
-
-	t.Log("testing client to server")
-	sendData <- true
-
-	t.Log("testing server to client")
-	recvData <- true
 
 	t.Log("closing the connection from client side")
 	closeConn <- true
+
+	wg.Wait()
 
 	// clean up
 	t.Log("cleaning up")
