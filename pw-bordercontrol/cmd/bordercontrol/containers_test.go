@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"pw_bordercontrol/lib/atc"
@@ -568,6 +569,12 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	closeConn <- true
 
 	wg.Wait()
+
+	tcpEchoServerLog, err := cli.ContainerLogs(*ctx, tcpEchoServer.ID, types.ContainerLogsOptions{})
+	assert.NoError(t, err)
+	tcpEchoServerLogBytes, err := io.ReadAll(tcpEchoServerLog)
+	assert.NoError(t, err)
+	fmt.Println(string(tcpEchoServerLogBytes))
 
 	// clean up
 	t.Log("cleaning up")
