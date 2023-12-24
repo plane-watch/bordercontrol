@@ -30,15 +30,17 @@ func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 }
 
 func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) {
-	fmt.Println("-----")
-	fmt.Println(body)
-	fmt.Println("-----")
 	for _, expectedMetric := range expectedMetrics {
 		t.Log("checking existence of:", expectedMetric)
 		assert.Equal(t,
 			1,
 			strings.Count(body, expectedMetric),
 		)
+		if t.Failed() {
+			fmt.Println("---- BEGIN BODY ----")
+			fmt.Println(body)
+			fmt.Println("---- END BODY ----")
+		}
 	}
 }
 
