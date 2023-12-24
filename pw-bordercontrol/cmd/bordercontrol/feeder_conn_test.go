@@ -1068,6 +1068,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	// define channels for controlling test goroutines
 	closeConn := make(chan bool)
 	serverQuit := make(chan bool)
+	testsComplete := make(chan bool)
 
 	// start test MLAT server - simple TCP echo server)
 	wg.Add(1)
@@ -1095,6 +1096,9 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		n, err = serverConn.Write(buf[:n])
 		assert.NoError(t, err, "could not write to client connection")
 		t.Logf("test MLAT server sent: '%s'", string(buf[:n]))
+
+		// signify tests are now complete
+		testsComplete <- true
 
 		// keep server running until requested to quit
 		_ = <-serverQuit
@@ -1147,7 +1151,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	err = n.Close()
 	assert.NoError(t, err, "could not close temp local listener for test")
 
-	// configure temp listener
+	// configure testing TLS listener
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
 	assert.NoError(t, err)
 	defer tlsListener.Close()
@@ -1202,7 +1206,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	}(t)
 
-	// accept the connection from the above goroutine
+	// accept the TLS connection from the above goroutine
 	connIn, err := tlsListener.Accept()
 	assert.NoError(t, err)
 
@@ -1215,6 +1219,8 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		containersToStartResponses: make(chan startContainerResponse),
 	}
 
+	// hand off the incoming test connection to the proxy
+
 	wg.Add(1)
 	go func(t *testing.T) {
 		defer wg.Done()
@@ -1223,9 +1229,18 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		assert.NoError(t, err)
 	}(t)
 
-	t.Log("closing the connection from client side")
+	// wait for tests to complete
+	_ = <-testsComplete
+
+	t.Log("closing client connection")
 	closeConn <- true
+
+	t.Log("terminating test MLAT server")
 	serverQuit <- true
 
+	// wait for goroutines to finish
+	t.Log("waiting for goroutines to finish")
 	wg.Wait()
+
+	t.Log("test complete")
 }
