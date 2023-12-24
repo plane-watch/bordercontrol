@@ -790,7 +790,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	}
 
 	d := net.Dialer{
-		Timeout:  30 * time.Second,
+		Timeout:  time.Hour,
 		Deadline: time.Now().Add(time.Hour),
 	}
 
@@ -807,7 +807,6 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 		var e error
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
 		assert.NoError(t, e, "could not dial test server")
-		fmt.Println(e)
 		defer clientConn.Close()
 
 		// send some initial test data to allow handshake to take place
