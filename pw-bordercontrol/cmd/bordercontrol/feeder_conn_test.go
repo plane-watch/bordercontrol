@@ -1071,6 +1071,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	testsComplete := make(chan bool)
 
 	// start test MLAT server - simple TCP echo server)
+	t.Log("starting test MLAT server (TCP echo server) on 127.0.0.1:12346")
 	wg.Add(1)
 	go func(t *testing.T) {
 		defer wg.Done()
