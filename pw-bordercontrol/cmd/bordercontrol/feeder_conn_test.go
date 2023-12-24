@@ -512,36 +512,46 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 	defer tlsListener.Close()
 	t.Logf("Listening on: %s", tlsListenAddr)
 
+	// channels to control test flow
+	closeSvrConn := make(chan bool)
+	readFromSvrConn := make(chan bool)
+
 	t.Log("starting test environment TLS server")
 	var wg sync.WaitGroup
 	var svrConn net.Conn
 	wg.Add(1)
-	go func() {
+	go func(t *testing.T) {
+		defer wg.Done()
 		var e error
 		svrConn, e = tlsListener.Accept()
 		assert.NoError(t, e, "could not accept test connection")
-		wg.Done()
-	}()
+		defer svrConn.Close()
+		_ = <-closeSvrConn
+
+	}(t)
 
 	c, err := net.Dial("tcp4", tlsListener.Addr().String())
 	assert.NoError(t, err)
+	defer c.Close()
 
-	wg.Wait()
-
-	go func() {
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
 		_, err := c.Write([]byte("Hello World!"))
 		assert.NoError(t, err)
-	}()
+		readFromSvrConn <- true
+	}(t)
 
 	t.Run("test readFromClient non TLS client", func(t *testing.T) {
 		buf := make([]byte, 12)
+		_ = <-readFromSvrConn
 		_, err = readFromClient(svrConn, buf)
 		assert.Error(t, err)
 		assert.Equal(t, "tls: first record does not look like a TLS handshake", err.Error())
 	})
 
-	svrConn.Close()
-	c.Close()
+	wg.Wait()
+
 }
 
 func TestProxyClientToServer(t *testing.T) {
