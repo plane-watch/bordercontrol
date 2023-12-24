@@ -666,7 +666,7 @@ func TestProxyServerToClient(t *testing.T) {
 
 	// read proxied data from the server-side
 	buf := make([]byte, 12)
-	_, err = serverInner.Read(buf)
+	_, err = clientOuter.Read(buf)
 	assert.NoError(t, err)
 
 	// data should match!
