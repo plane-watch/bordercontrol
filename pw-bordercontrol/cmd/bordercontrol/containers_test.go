@@ -407,8 +407,14 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	defer imageirc.Close()
 
 	t.Log("load TCP echo server image")
-	_, err = cli.ImageLoad(*ctx, imageirc, false)
+	imagelr, err := cli.ImageLoad(*ctx, imageirc, false)
 	assert.NoError(t, err)
+
+	fmt.Println("BEGIN IMAGE LOAD RESPONSE:")
+	resp, err := io.ReadAll(imagelr.Body)
+	assert.NoError(t, err)
+	fmt.Println(string(resp))
+	fmt.Println("END IMAGE LOAD RESPONSE:")
 
 	t.Log("create TCP echo server container")
 	tcpEchoServerContainerConfig := &container.Config{
