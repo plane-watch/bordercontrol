@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"os/exec"
 	"pw_bordercontrol/lib/atc"
 	"strconv"
 	"strings"
@@ -771,6 +772,14 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	assert.NoError(t, err, "could not set up test listener")
 	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 	defer tlsListener.Close()
+
+	// troubleshoot
+	cmd := exec.Command("netstat", "-nat")
+	err = cmd.Run()
+	assert.NoError(t, err)
+	err = cmd.Wait()
+	assert.NoError(t, err)
+	fmt.Println(cmd.Stdout)
 
 	// load root CAs
 	scp, err := x509.SystemCertPool()
