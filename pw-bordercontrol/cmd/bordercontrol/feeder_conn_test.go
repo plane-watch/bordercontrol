@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"net"
 	"os"
-	"os/exec"
 	"pw_bordercontrol/lib/atc"
 	"strconv"
 	"strings"
@@ -304,7 +303,7 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 	return nil
 }
 
-func TestTLS(t *testing.T) {
+func TestAuthenticateFeeder_Working(t *testing.T) {
 
 	// init stats
 	t.Log("init stats")
@@ -334,22 +333,11 @@ func TestTLS(t *testing.T) {
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
-	// // test reload via signal
-	// t.Log("sending SIGHUP for cert/key reload (working)")
-	// chanSIGHUP <- syscall.SIGHUP
-
-	// // wait for the channel to be read
-	// time.Sleep(time.Second)
-
 	// clean up after testing
 	certFile.Close()
 	os.Remove(certFile.Name())
 	keyFile.Close()
 	os.Remove(keyFile.Name())
-
-	// // test reload via signal
-	// t.Log("sending SIGHUP for cert/key reload")
-	// chanSIGHUP <- syscall.SIGHUP
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
@@ -472,7 +460,7 @@ func TestTLS(t *testing.T) {
 	})
 }
 
-func TestTLS_NonTLSClient(t *testing.T) {
+func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 
 	t.Log("preparing test environment TLS cert/key")
 
@@ -732,13 +720,13 @@ func TestProxyServerToClient(t *testing.T) {
 
 }
 
-func troubleshootRunNetstat(t *testing.T) {
-	// troubleshoot
-	cmd := exec.Command("netstat", "-nat")
-	out, err := cmd.Output()
-	assert.NoError(t, err)
-	fmt.Println(string(out))
-}
+// func troubleshootRunNetstat(t *testing.T) {
+// 	// troubleshoot
+// 	cmd := exec.Command("netstat", "-nat")
+// 	out, err := cmd.Output()
+// 	assert.NoError(t, err)
+// 	fmt.Println(string(out))
+// }
 
 func TestAuthenticateFeeder_WrongAPIKey(t *testing.T) {
 	// Test where client sends a correctly-formatted UUID,
