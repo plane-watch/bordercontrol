@@ -439,11 +439,15 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 		fmt.Println(i)
 
 		// send data to be proxied from client-side
-		_, err := clientOuter.Write([]byte("Hello World!"))
+		err := clientOuter.SetDeadline(time.Now().Add(time.Second * 2))
+		assert.NoError(t, err)
+		_, err = clientOuter.Write([]byte("Hello World!"))
 		assert.NoError(t, err)
 
 		// read proxied data from the server-side
 		buf := make([]byte, 12)
+		err = serverOuter.SetDeadline(time.Now().Add(time.Second * 2))
+		assert.NoError(t, err)
 		_, err = serverOuter.Read(buf)
 		assert.NoError(t, err)
 
