@@ -333,20 +333,14 @@ func TestTLS(t *testing.T) {
 	// wait for the channel to be read
 	time.Sleep(time.Second)
 
-	// defer func() {
-	// 	// clean up after testing
+	// clean up after testing
 	certFile.Close()
 	os.Remove(certFile.Name())
-	// }()
-
-	// defer func() {
-	// clean up after testing
 	keyFile.Close()
 	os.Remove(keyFile.Name())
-	// }()
 
 	// test reload via signal
-	t.Log("sending SIGHUP for cert/key reload (should log error)")
+	t.Log("sending SIGHUP for cert/key reload")
 	chanSIGHUP <- syscall.SIGHUP
 
 	// get testing host/port
@@ -390,11 +384,11 @@ func TestTLS(t *testing.T) {
 		// e = clientConn.Handshake()
 		// assert.NoError(t, e, "could not handshake with test server")
 
-		// wait tp send data until instructed
-		_ = <-sendData
-
 		_, e = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, e, "could not send test data")
+
+		// wait tp send more data until instructed
+		_ = <-sendData
 
 		_, e = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, e, "could not send test data")
