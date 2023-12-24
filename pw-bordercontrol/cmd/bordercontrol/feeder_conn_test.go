@@ -925,7 +925,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 		// dial remote
 		clientConn, e := tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
 		assert.Error(t, e, "could not dial test server")
-		if err == nil {
+		if e == nil {
 			defer clientConn.Close()
 		}
 
