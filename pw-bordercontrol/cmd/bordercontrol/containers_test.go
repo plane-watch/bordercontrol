@@ -446,7 +446,8 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	go func(t *testing.T) {
 		err := proxyClientConnection(pc)
-		fmt.Println(err)
+		assert.Error(t, err)
+		assert.Equal(t, "EOF", err.Error())
 	}(t)
 
 	t.Log("testing client to server")
@@ -560,7 +561,8 @@ func TestProxyClientConnection_BEAST(t *testing.T) {
 
 	go func(t *testing.T) {
 		err := proxyClientConnection(pc)
-		fmt.Println(err)
+		assert.Error(t, err)
+		assert.Equal(t, "EOF", err.Error())
 	}(t)
 
 	t.Log("testing client to server")
