@@ -305,6 +305,9 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 
 func TestAuthenticateFeeder_Working(t *testing.T) {
 
+	// prep waitgoup
+	wg := sync.WaitGroup{}
+
 	// init stats
 	t.Log("init stats")
 	stats.mu.Lock()
@@ -357,7 +360,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 	assert.NoError(t, err, "could not use system cert pool for test")
 
 	// set up tls config
-	tlsConfig := tls.Config{
+	tlsClientConfig := tls.Config{
 		RootCAs:            scp,
 		ServerName:         testSNI.String(),
 		InsecureSkipVerify: true,
@@ -371,10 +374,13 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		// dial remote
 		var e error
-		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
@@ -458,6 +464,8 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 		_, err = readFromClient(clientConn, buf)
 		assert.Error(t, err)
 	})
+
+	wg.Wait()
 }
 
 func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
