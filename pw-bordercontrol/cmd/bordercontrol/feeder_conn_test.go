@@ -740,6 +740,10 @@ func troubleshootRunNetstat(t *testing.T) {
 
 func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
+	// init stats
+	t.Log("init stats")
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+
 	t.Log("preparing test environment TLS cert/key")
 
 	// prep signal channels
@@ -762,11 +766,22 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
+	// // test reload via signal
+	// t.Log("sending SIGHUP for cert/key reload (working)")
+	// chanSIGHUP <- syscall.SIGHUP
+
+	// // wait for the channel to be read
+	// time.Sleep(time.Second)
+
 	// clean up after testing
 	certFile.Close()
 	os.Remove(certFile.Name())
 	keyFile.Close()
 	os.Remove(keyFile.Name())
+
+	// // test reload via signal
+	// t.Log("sending SIGHUP for cert/key reload")
+	// chanSIGHUP <- syscall.SIGHUP
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
@@ -777,7 +792,8 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 	// configure temp listener
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
-	assert.NoError(t, err, "could not set up test listener")
+	assert.NoError(t, err)
+	defer tlsListener.Close()
 	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 
 	// load root CAs
@@ -785,32 +801,24 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	assert.NoError(t, err, "could not use system cert pool for test")
 
 	// set up tls config
-	tlsClientConfig := tls.Config{
+	tlsConfig := tls.Config{
 		RootCAs:            scp,
 		ServerName:         testSNI.String(),
 		InsecureSkipVerify: true,
 	}
 
 	d := net.Dialer{
-		Timeout:   time.Second * 30,
-		Deadline:  time.Now().Add(time.Minute),
-		DualStack: false,
+		Timeout: 10 * time.Second,
 	}
 
 	sendData := make(chan bool)
-	dialConn := make(chan bool)
 
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
 	go func() {
-
-		_ = <-dialConn
-
 		// dial remote
 		var e error
-		troubleshootRunNetstat(t)
-		t.Log(fmt.Sprintf("Connecting to: %s", tlsListenAddr))
-		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
@@ -827,18 +835,71 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	}()
 
 	t.Log("starting test environment TLS client")
-	dialConn <- true
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
-	defer c.Close()
 
-	// test authenticateFeeder
-	_, err = authenticateFeeder(c)
-	assert.Error(t, err)
+	// make buffer to hold data read from client
+	buf := make([]byte, sendRecvBufferSize)
+
+	// give the unauthenticated client 10 seconds to perform TLS handshake
+	c.SetDeadline(time.Now().Add(time.Second * 10))
+
+	// read data from client
+	_, err = readFromClient(c, buf)
+	if err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			assert.NoError(t, err)
+		}
+	}
+
+	t.Run("test authenticateFeeder working", func(t *testing.T) {
+
+		// prepare test data
+		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+			Altitude:   1,
+			ApiKey:     testSNI,
+			FeederCode: "ABCD-1234",
+			Label:      "test_feeder",
+			Latitude:   123.45678,
+			Longitude:  98.76543,
+			Mux:        "test_mux",
+		})
+
+		// test authenticateFeeder
+		clientDetails, err := authenticateFeeder(c)
+		assert.NoError(t, err)
+		assert.Equal(t, testSNI, clientDetails.clientApiKey)
+		assert.Equal(t, 123.45678, clientDetails.refLat)
+		assert.Equal(t, 98.76543, clientDetails.refLon)
+		assert.Equal(t, "test_mux", clientDetails.mux)
+		assert.Equal(t, "test_feeder", clientDetails.label)
+		assert.Equal(t, "ABCD-1234", clientDetails.feederCode)
+	})
 
 	// now send some data
 	sendData <- true
 
-	defer tlsListener.Close()
+	t.Run("test readFromClient working", func(t *testing.T) {
+		buf := make([]byte, 12)
+		_, err = readFromClient(c, buf)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("Hello World!"), buf)
+	})
 
+	t.Run("test checkConnTLSHandshakeComplete", func(t *testing.T) {
+		assert.True(t, checkConnTLSHandshakeComplete(c))
+	})
+
+	t.Run("test getUUIDfromSNI", func(t *testing.T) {
+		u, err := getUUIDfromSNI(c)
+		assert.NoError(t, err)
+		assert.Equal(t, testSNI, u)
+	})
+
+	c.Close()
+	t.Run("test readFromClient closed", func(t *testing.T) {
+		buf := make([]byte, 12)
+		_, err = readFromClient(clientConn, buf)
+		assert.Error(t, err)
+	})
 }
