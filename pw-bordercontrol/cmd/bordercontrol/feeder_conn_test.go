@@ -730,6 +730,14 @@ func TestProxyServerToClient(t *testing.T) {
 
 }
 
+func troubleshootRunNetstat() {
+	// troubleshoot
+	cmd := exec.Command("netstat", "-nat")
+	out, err := cmd.Output()
+	assert.NoError(t, err)
+	fmt.Println(string(out))
+}
+
 func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 	t.Log("preparing test environment TLS cert/key")
@@ -772,12 +780,6 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	assert.NoError(t, err, "could not set up test listener")
 	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 
-	// troubleshoot
-	cmd := exec.Command("netstat", "-nat")
-	out, err := cmd.Output()
-	assert.NoError(t, err)
-	fmt.Println(string(out))
-
 	// load root CAs
 	scp, err := x509.SystemCertPool()
 	assert.NoError(t, err, "could not use system cert pool for test")
@@ -805,6 +807,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 		// dial remote
 		var e error
+		troubleshootRunNetstat()
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
