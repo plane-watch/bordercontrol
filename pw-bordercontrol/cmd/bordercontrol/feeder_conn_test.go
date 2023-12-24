@@ -432,7 +432,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	validFeeders.Feeders = []atc.Feeder{}
 
 	// wait for feeder to expire
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 10)
 
 	// send data to be proxied from client-side
 	_, err := serverOuter.Write([]byte("Hello World!"))
