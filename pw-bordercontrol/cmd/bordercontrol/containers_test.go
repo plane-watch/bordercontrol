@@ -570,7 +570,9 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	wg.Wait()
 
-	tcpEchoServerLog, err := cli.ContainerLogs(*ctx, tcpEchoServer.ID, types.ContainerLogsOptions{})
+	tcpEchoServerLog, err := cli.ContainerLogs(*ctx, tcpEchoServer.ID, types.ContainerLogsOptions{
+		ShowStdout: true,
+	})
 	assert.NoError(t, err)
 	tcpEchoServerLogBytes, err := io.ReadAll(tcpEchoServerLog)
 	assert.NoError(t, err)
