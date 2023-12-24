@@ -1175,9 +1175,10 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	// start test environment TLS client
 	t.Log("starting test environment TLS client")
-	var clientConn *tls.Conn
-	wg.Add(1)
 
+	var clientConn *tls.Conn
+
+	wg.Add(1)
 	go func(t *testing.T) {
 		defer wg.Done()
 
