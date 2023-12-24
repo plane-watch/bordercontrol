@@ -339,13 +339,14 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 }
 
 type protocolProxyConfig struct {
-	clientConn    net.Conn       // Client-side connection (feeder out on the internet).
-	serverConn    net.Conn       // Server-side connection (feed-in container or mlat server).
-	connNum       uint           // Connection number (used for statistics and stuff).
-	clientApiKey  uuid.UUID      // Client's API Key (from stunnel SNI).
-	pStatus       *proxyStatus   // Proxy status. Provides the ability to tell the proxy to self-terminate.
-	lastAuthCheck *time.Time     // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
-	log           zerolog.Logger // Log. This allows the proxy to inherit a logging context.
+	clientConn                  net.Conn       // Client-side connection (feeder out on the internet).
+	serverConn                  net.Conn       // Server-side connection (feed-in container or mlat server).
+	connNum                     uint           // Connection number (used for statistics and stuff).
+	clientApiKey                uuid.UUID      // Client's API Key (from stunnel SNI).
+	pStatus                     *proxyStatus   // Proxy status. Provides the ability to tell the proxy to self-terminate.
+	lastAuthCheck               *time.Time     // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
+	log                         zerolog.Logger // Log. This allows the proxy to inherit a logging context.
+	feederValidityCheckInterval time.Duration  // How often to check the feeder is still valid.
 }
 
 func proxyClientToServer(conf protocolProxyConfig) {
@@ -643,13 +644,14 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	// prepare proxy config
 	protoProxyConf := protocolProxyConfig{
-		clientConn:    conf.connIn,
-		serverConn:    connOut,
-		connNum:       conf.connNum,
-		clientApiKey:  clientDetails.clientApiKey,
-		pStatus:       &pStatus,
-		lastAuthCheck: &lastAuthCheck,
-		log:           log,
+		clientConn:                  conf.connIn,
+		serverConn:                  connOut,
+		connNum:                     conf.connNum,
+		clientApiKey:                clientDetails.clientApiKey,
+		pStatus:                     &pStatus,
+		lastAuthCheck:               &lastAuthCheck,
+		log:                         log,
+		feederValidityCheckInterval: time.Second * 60,
 	}
 
 	// handle data from feeder client to feed-in container
