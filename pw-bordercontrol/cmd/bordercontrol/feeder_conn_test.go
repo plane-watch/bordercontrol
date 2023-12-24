@@ -572,6 +572,7 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 		svrConn, e = tlsListener.Accept()
 		assert.NoError(t, e, "could not accept test connection")
 		defer svrConn.Close()
+		readFromSvrConn <- true
 		_ = <-closeSvrConn
 	}(t)
 
@@ -589,6 +590,7 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 
 	t.Run("test readFromClient non TLS client", func(t *testing.T) {
 		buf := make([]byte, 12)
+		_ = <-readFromSvrConn
 		_ = <-readFromSvrConn
 		_, err = readFromClient(svrConn, buf)
 		assert.Error(t, err)
