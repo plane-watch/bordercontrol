@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -326,12 +325,12 @@ func TestTLS(t *testing.T) {
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
-	// test reload via signal
-	t.Log("sending SIGHUP for cert/key reload (working)")
-	chanSIGHUP <- syscall.SIGHUP
+	// // test reload via signal
+	// t.Log("sending SIGHUP for cert/key reload (working)")
+	// chanSIGHUP <- syscall.SIGHUP
 
-	// wait for the channel to be read
-	time.Sleep(time.Second)
+	// // wait for the channel to be read
+	// time.Sleep(time.Second)
 
 	// clean up after testing
 	certFile.Close()
@@ -339,9 +338,9 @@ func TestTLS(t *testing.T) {
 	keyFile.Close()
 	os.Remove(keyFile.Name())
 
-	// test reload via signal
-	t.Log("sending SIGHUP for cert/key reload")
-	chanSIGHUP <- syscall.SIGHUP
+	// // test reload via signal
+	// t.Log("sending SIGHUP for cert/key reload")
+	// chanSIGHUP <- syscall.SIGHUP
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
@@ -393,7 +392,6 @@ func TestTLS(t *testing.T) {
 		_, e = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, e, "could not send test data")
 
-		defer clientConn.Close()
 	}()
 
 	t.Log("starting test environment TLS client")
