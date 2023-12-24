@@ -541,6 +541,12 @@ func TestProxyClientToServer(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
 	var (
 		ssServerConn      net.Conn
 		ssClientConn      *net.TCPConn
@@ -557,7 +563,7 @@ func TestProxyClientToServer(t *testing.T) {
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
 	wgServerSideConns.Add(1)
-	go func() {
+	go func(t *testing.T) {
 		var e error
 		serverListener, e = nettest.NewLocalListener("tcp4")
 		assert.NoError(t, e)
@@ -566,12 +572,12 @@ func TestProxyClientToServer(t *testing.T) {
 		assert.NoError(t, e)
 		wgServerConn.Done()
 		wgServerSideConns.Done()
-	}()
+	}(t)
 	wgServerListener.Wait()
 
 	// spin up server-side client connection
 	wgServerSideConns.Add(1)
-	go func() {
+	go func(t *testing.T) {
 		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 		assert.NoError(t, err)
 
@@ -583,7 +589,7 @@ func TestProxyClientToServer(t *testing.T) {
 		ssClientConn, err = net.DialTCP("tcp4", nil, &connectTo)
 		assert.NoError(t, err)
 		wgServerSideConns.Done()
-	}()
+	}(t)
 	wgServerConn.Wait()
 	wgServerSideConns.Wait()
 
@@ -632,6 +638,12 @@ func TestProxyServerToClient(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
 	var (
 		ssServerConn      net.Conn
 		ssClientConn      *net.TCPConn
@@ -648,7 +660,7 @@ func TestProxyServerToClient(t *testing.T) {
 	wgServerListener.Add(1)
 	wgServerConn.Add(1)
 	wgServerSideConns.Add(1)
-	go func() {
+	go func(t *testing.T) {
 		var e error
 		serverListener, e = nettest.NewLocalListener("tcp4")
 		assert.NoError(t, e)
@@ -657,12 +669,12 @@ func TestProxyServerToClient(t *testing.T) {
 		assert.NoError(t, e)
 		wgServerConn.Done()
 		wgServerSideConns.Done()
-	}()
+	}(t)
 	wgServerListener.Wait()
 
 	// spin up server-side client connection
 	wgServerSideConns.Add(1)
-	go func() {
+	go func(t *testing.T) {
 		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
 		assert.NoError(t, err)
 
@@ -674,7 +686,7 @@ func TestProxyServerToClient(t *testing.T) {
 		ssClientConn, err = net.DialTCP("tcp4", nil, &connectTo)
 		assert.NoError(t, err)
 		wgServerSideConns.Done()
-	}()
+	}(t)
 	wgServerConn.Wait()
 	wgServerSideConns.Wait()
 
