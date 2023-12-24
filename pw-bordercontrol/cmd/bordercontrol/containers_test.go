@@ -395,10 +395,10 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		n, err := serverConn.Read(buf)
 		assert.NoError(t, err, "could not read from client connection")
 
-		t.Logf("test MLAT server received: ", string(buf[:n]))
+		t.Logf("test MLAT server received: '%s'", string(buf[:n]))
 
 		n, err = serverConn.Write(buf[:n])
-		t.Logf("test MLAT server sent: ", string(buf[:n]))
+		t.Logf("test MLAT server sent: '%s'", string(buf[:n]))
 
 		_ = <-serverQuit
 
