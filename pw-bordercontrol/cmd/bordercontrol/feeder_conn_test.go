@@ -730,7 +730,7 @@ func TestProxyServerToClient(t *testing.T) {
 
 }
 
-func troubleshootRunNetstat() {
+func troubleshootRunNetstat(t *testing.T) {
 	// troubleshoot
 	cmd := exec.Command("netstat", "-nat")
 	out, err := cmd.Output()
@@ -807,7 +807,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 		// dial remote
 		var e error
-		troubleshootRunNetstat()
+		troubleshootRunNetstat(t)
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
