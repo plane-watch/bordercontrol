@@ -437,6 +437,9 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	err = cli.ContainerStart(*ctx, tcpEchoServer.ID, types.ContainerStartOptions{})
 	time.Sleep(time.Second * 5) // wait for container to start
 
+	x, err := cli.ContainerList(*ctx, types.ContainerListOptions{})
+	fmt.Println(x)
+
 	t.Log("preparing test environment TLS cert/key")
 
 	// prepare test data
