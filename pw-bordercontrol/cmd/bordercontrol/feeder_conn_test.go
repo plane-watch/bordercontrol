@@ -429,7 +429,9 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 	}()
 
 	// make feeder invalid
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.mu.Unlock()
 
 	// wait for feeder to expire
 	time.Sleep(time.Second * 10)
@@ -514,7 +516,9 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	}()
 
 	// make feeder invalid
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.mu.Unlock()
 
 	// wait for feeder to expire
 	time.Sleep(time.Second * 10)
