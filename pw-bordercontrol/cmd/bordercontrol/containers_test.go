@@ -413,10 +413,14 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	tcpEchoServerContainerConfig := &container.Config{
 		Image: "istio/tcp-echo-server:1.2",
 		ExposedPorts: nat.PortSet{
-			"4140/tcp": struct{}{},
+			"9000/tcp": struct{}{},
 		},
+		Tty:          true,
+		AttachStdout: true,
+		AttachStderr: true,
 	}
 	tcpEchoServerHostConfig := &container.HostConfig{
+		AutoRemove: true,
 		PortBindings: nat.PortMap{
 			"9000/tcp": []nat.PortBinding{
 				{
