@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -397,6 +398,20 @@ func TestTLS(t *testing.T) {
 	t.Log("starting test environment TLS client")
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
+
+	// make buffer to hold data read from client
+	buf := make([]byte, sendRecvBufferSize)
+
+	// give the unauthenticated client 10 seconds to perform TLS handshake
+	c.SetDeadline(time.Now().Add(time.Second * 10))
+
+	// read data from client
+	_, err = readFromClient(c, buf)
+	if err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			assert.NoError(t, err)
+		}
+	}
 
 	t.Run("test authenticateFeeder working", func(t *testing.T) {
 		clientDetails, err := authenticateFeeder(c)
