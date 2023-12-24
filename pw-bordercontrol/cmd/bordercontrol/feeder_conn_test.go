@@ -305,6 +305,10 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 
 func TestTLS(t *testing.T) {
 
+	// init stats
+	t.Log("init stats")
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+
 	t.Log("preparing test environment TLS cert/key")
 
 	// prep signal channels
