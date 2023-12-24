@@ -509,7 +509,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
-	go func() {
+	go func(t *testing.T) {
 		// dial remote
 		var e error
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
@@ -536,7 +536,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		// wait to close the connection
 		_ = <-closeConn
 
-	}()
+	}(t)
 
 	// accept the connection from the above goroutine
 	connIn, err := tlsListener.Accept()
@@ -552,7 +552,8 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	}
 
 	go func(t *testing.T) {
-		err := proxyClientConnection(pc)
+		var err error
+		err = proxyClientConnection(pc)
 		assert.Error(t, err)
 		assert.Equal(t, "EOF", err.Error())
 	}(t)
