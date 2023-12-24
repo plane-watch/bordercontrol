@@ -830,8 +830,6 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	}(t)
 
-	t.Log("preparing test environment TLS cert/key")
-
 	// prepare test data
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -843,59 +841,11 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		Mux:        "127.0.0.1", // connect to the tcp echo server
 	})
 
-	// prep signal channels
-	prepSignalChannels()
-
-	// prep cert file
-	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
-	assert.NoError(t, err, "could not create temporary certificate file for test")
-
-	// prep key file
-	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
-	assert.NoError(t, err, "could not create temporary private key file for test")
-
-	// generate cert/key for testing
-	err = generateTLSCertAndKey(keyFile, certFile)
-	assert.NoError(t, err, "could not generate cert/key for test")
-
-	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
-	assert.NoError(t, err, "could not load TLS cert/key for test")
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
-	// clean up after testing
-	certFile.Close()
-	os.Remove(certFile.Name())
-	keyFile.Close()
-	os.Remove(keyFile.Name())
-
-	// get testing host/port
-	n, err := nettest.NewLocalListener("tcp")
-	assert.NoError(t, err, "could not generate new local listener for test")
-	tlsListenAddr := n.Addr().String()
-	err = n.Close()
-	assert.NoError(t, err, "could not close temp local listener for test")
-
-	// configure testing TLS listener
-	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
-	assert.NoError(t, err)
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
 	defer tlsListener.Close()
-	t.Logf("Listening on: %s", tlsListenAddr)
-
-	// load root CAs
-	scp, err := x509.SystemCertPool()
-	assert.NoError(t, err, "could not use system cert pool for test")
-
-	// set up tls config
-	tlsClientConfig := tls.Config{
-		RootCAs:            scp,
-		ServerName:         testSNI.String(),
-		InsecureSkipVerify: true,
-	}
-
-	d := net.Dialer{
-		Timeout: 10 * time.Second,
-	}
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
 
 	// start test environment TLS client
 	t.Log("starting test environment TLS client")
@@ -906,12 +856,17 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	go func(t *testing.T) {
 		defer wg.Done()
 
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
 		// define test data
 		bytesToSend := []byte("test data from client to server")
 
 		// dial remote
 		var e error
-		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
