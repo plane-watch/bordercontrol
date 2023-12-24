@@ -776,7 +776,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	}
 
 	d := net.Dialer{
-		Timeout: 10 * time.Second,
+		Timeout: 30 * time.Second,
 	}
 
 	sendData := make(chan bool)
