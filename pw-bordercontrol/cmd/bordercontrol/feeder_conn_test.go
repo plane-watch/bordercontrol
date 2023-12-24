@@ -818,9 +818,6 @@ func TestAuthenticateFeeder_InvalidAPIKey(t *testing.T) {
 		// wait to send more data until instructed
 		_ = <-sendData
 
-		_, e = clientConn.Write([]byte("Hello World!"))
-		assert.NoError(t, e, "could not send test data")
-
 	}()
 
 	t.Log("starting test environment TLS client")
@@ -843,7 +840,8 @@ func TestAuthenticateFeeder_InvalidAPIKey(t *testing.T) {
 
 	// test authenticateFeeder
 	_, err = authenticateFeeder(c)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Equal(t, "client sent invalid api key", err.Error())
 
 	// now send some data
 	sendData <- true
@@ -940,7 +938,8 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 	// test authenticateFeeder
 	_, err = authenticateFeeder(c)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Equal(t, "tls handshake incomplete", err.Error())
 
 	// now send some data
 	sendData <- true
