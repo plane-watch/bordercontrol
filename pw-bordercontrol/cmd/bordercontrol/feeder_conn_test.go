@@ -353,7 +353,9 @@ func TestTLS(t *testing.T) {
 
 	// configure temp listener
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	assert.NoError(t, err)
 	defer tlsListener.Close()
+	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 
 	// load root CAs
 	scp, err := x509.SystemCertPool()
@@ -503,7 +505,9 @@ func TestTLS_NonTLSClient(t *testing.T) {
 
 	// configure temp listener
 	tlsListener, err := tls.Listen("tcp4", tlsListenAddr, &tlsConfig)
+	assert.NoError(t, err)
 	defer tlsListener.Close()
+	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 
 	t.Log("starting test environment TLS server")
 	var wg sync.WaitGroup
