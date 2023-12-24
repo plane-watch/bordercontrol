@@ -572,11 +572,14 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	tcpEchoServerLog, err := cli.ContainerLogs(*ctx, tcpEchoServer.ID, types.ContainerLogsOptions{
 		ShowStdout: true,
+		ShowStderr: true,
 	})
 	assert.NoError(t, err)
 	tcpEchoServerLogBytes, err := io.ReadAll(tcpEchoServerLog)
 	assert.NoError(t, err)
+	fmt.Println("BEGIN CONTAINER LOG:")
 	fmt.Println(string(tcpEchoServerLogBytes))
+	fmt.Println("END CONTAINER LOG:")
 
 	// clean up
 	t.Log("cleaning up")
