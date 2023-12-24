@@ -923,10 +923,10 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 		defer clientConn.Close()
 
 		// send some initial test data to allow handshake to take place
-		_, _ = clientConn.Write([]byte("Hello World!"))
+		// _, _ = clientConn.Write([]byte("Hello World!"))
 		// assert.NoError(t, e, "could not send test data")
 
-		_, _ = clientConn.Write([]byte("Hello World!"))
+		// _, _ = clientConn.Write([]byte("Hello World!"))
 		// assert.NoError(t, e, "could not send test data")
 
 		// wait to send more data until instructed
