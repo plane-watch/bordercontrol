@@ -54,6 +54,6 @@ func TestTLS_CertReload(t *testing.T) {
 	os.Remove(keyFile.Name())
 
 	// test reload via signal
-	t.Log("sending SIGHUP for cert/key reload")
+	t.Log("sending SIGHUP for cert/key reload (will not work, files missing)")
 	chanSIGHUP <- syscall.SIGHUP
 }
