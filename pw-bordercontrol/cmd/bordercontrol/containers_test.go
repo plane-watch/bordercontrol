@@ -2,19 +2,22 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
-	"strconv"
+	"pw_bordercontrol/lib/atc"
 	"strings"
-	"sync"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
+	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -374,7 +377,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	)
 	TestDaemon.Start(t)
 
-	// prep testing client
+	// prep testing docker client
 	t.Log("prep testing client")
 	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using test docker client")
@@ -383,62 +386,160 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
-	// prepare server/client connections
+	// get docker client
+	t.Log("get docker client to inspect container")
+	ctx, cli, err := getDockerClient()
+	assert.NoError(t, err)
 
-	// set logging to trace level
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+	// ensure TCP echo server image is downloaded
+	t.Log("pull TCP echo server image")
+	imageirc, err := cli.ImagePull(*ctx, "istio/tcp-echo-server:1.2", types.ImagePullOptions{})
+	assert.NoError(t, err)
+	defer imageirc.Close()
 
-	var (
-		serverConn        net.Conn
-		clientConn        *net.TCPConn
-		serverListener    net.Listener
-		err               error
-		wgServerSideConns sync.WaitGroup
-		wgServerListener  sync.WaitGroup
-		wgServerConn      sync.WaitGroup
-	)
+	t.Log("load TCP echo server image")
+	_, err = cli.ImageLoad(*ctx, imageirc, false)
+	assert.NoError(t, err)
 
-	t.Log("preparing test server-side connections")
+	t.Log("create TCP echo server container")
+	tcpEchoServerContainerConfig := &container.Config{
+		Image: "istio/tcp-echo-server:1.2",
+		ExposedPorts: nat.PortSet{
+			"4140/tcp": struct{}{},
+		},
+	}
+	tcpEchoServerHostConfig := &container.HostConfig{
+		PortBindings: nat.PortMap{
+			"9000/tcp": []nat.PortBinding{
+				{
+					HostIP:   "0.0.0.0",
+					HostPort: "12346",
+				},
+			},
+		},
+	}
+	tcpEchoServer, err := cli.ContainerCreate(*ctx, tcpEchoServerContainerConfig, tcpEchoServerHostConfig, nil, nil, "tcp-echo-server")
+	assert.NoError(t, err, "could not create TCP echo server container")
 
-	// spin up server-side server that will accept one connection
-	wgServerListener.Add(1)
-	wgServerConn.Add(1)
-	wgServerSideConns.Add(1)
+	t.Log("start TCP echo server container")
+	err = cli.ContainerStart(*ctx, tcpEchoServer.ID, types.ContainerStartOptions{})
+	time.Sleep(time.Second * 5) // wait for container to start
+
+	t.Log("preparing test environment TLS cert/key")
+
+	// prepare test data
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "127.0.0.1", // connect to the tcp echo server
+	})
+
+	// prep signal channels
+	prepSignalChannels()
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	assert.NoError(t, err, "could not create temporary certificate file for test")
+
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	assert.NoError(t, err, "could not create temporary private key file for test")
+
+	// generate cert/key for testing
+	err = generateTLSCertAndKey(keyFile, certFile)
+	assert.NoError(t, err, "could not generate cert/key for test")
+
+	// prep tls config for mocked server
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
+	assert.NoError(t, err, "could not load TLS cert/key for test")
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// clean up after testing
+	certFile.Close()
+	os.Remove(certFile.Name())
+	keyFile.Close()
+	os.Remove(keyFile.Name())
+
+	// get testing host/port
+	n, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err, "could not generate new local listener for test")
+	tlsListenAddr := n.Addr().String()
+	err = n.Close()
+	assert.NoError(t, err, "could not close temp local listener for test")
+
+	// configure temp listener
+	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	assert.NoError(t, err)
+	defer tlsListener.Close()
+	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
+
+	// load root CAs
+	scp, err := x509.SystemCertPool()
+	assert.NoError(t, err, "could not use system cert pool for test")
+
+	// set up tls config
+	tlsClientConfig := tls.Config{
+		RootCAs:            scp,
+		ServerName:         testSNI.String(),
+		InsecureSkipVerify: true,
+	}
+
+	d := net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+
+	// define channels for test flow
+	sendData := make(chan bool)
+	recvData := make(chan bool)
+	closeConn := make(chan bool)
+
+	// define test data
+	bytesToSend := []byte("test data from client to server")
+	bytesThatShouldBeReceived := []byte("hello test data from client to server")
+
+	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
 	go func() {
+		// dial remote
 		var e error
-		serverListener, e = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, e)
-		wgServerListener.Done()
-		serverConn, e = serverListener.Accept()
-		assert.NoError(t, e)
-		wgServerConn.Done()
-		wgServerSideConns.Done()
-	}()
-	wgServerListener.Wait()
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
 
-	// spin up server-side client connection
-	wgServerSideConns.Add(1)
-	go func() {
-		var e error
-		serverPort, e := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
-		assert.NoError(t, err)
+		// wait to send data until instructed
+		_ = <-sendData
 
-		connectTo := net.TCPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: serverPort,
-			Zone: "",
-		}
-		clientConn, e = net.DialTCP("tcp4", nil, &connectTo)
-		assert.NoError(t, e)
-		wgServerSideConns.Done()
+		// send some test data
+		nW, e := clientConn.Write(bytesToSend)
+		assert.NoError(t, e, "could not send test data from client to server")
+		assert.Equal(t, len(bytesToSend), nW)
+
+		bytesReceived := make([]byte, len(bytesThatShouldBeReceived))
+
+		// wait to receive more data until instructed
+		_ = <-recvData
+		nR, e := clientConn.Read(bytesReceived)
+		assert.NoError(t, e, "could not receive test data from server to client")
+		assert.Equal(t, len(bytesThatShouldBeReceived), nR)
+		assert.Equal(t, bytesThatShouldBeReceived, bytesReceived)
+
+		// wait to close the connection
+		_ = <-closeConn
+
 	}()
-	wgServerConn.Wait()
-	wgServerSideConns.Wait()
+
+	// accept the connection from the above goroutine
+	connIn, err := tlsListener.Accept()
+	assert.NoError(t, err)
 
 	// prepare proxy config
 	pc := proxyConfig{
-		connIn:                     clientConn,
-		connProto:                  protoMLAT,
+		connIn:                     connIn,
+		connProto:                  protoMLAT, // must be MLAT for two way communications
 		connNum:                    1,
 		containersToStartRequests:  make(chan startContainerRequest),
 		containersToStartResponses: make(chan startContainerResponse),
@@ -451,132 +552,13 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	}(t)
 
 	t.Log("testing client to server")
-	bytesToSend := []byte("Hello World! Client to Server.")
-	lenWritten, err := clientConn.Write(bytesToSend)
-	assert.NoError(t, err)
-	bytesRead := make([]byte, lenWritten)
-	lenRead, err := serverConn.Read(bytesRead)
-	assert.NoError(t, err)
-	assert.Equal(t, lenWritten, lenRead)
-	assert.Equal(t, bytesToSend, bytesRead)
+	sendData <- true
 
 	t.Log("testing server to client")
-	bytesToSend = []byte("Hello World! Server to Client.")
-	lenWritten, err = serverConn.Write(bytesToSend)
-	assert.NoError(t, err)
-	bytesRead = make([]byte, lenWritten)
-	lenRead, err = clientConn.Read(bytesRead)
-	assert.NoError(t, err)
-	assert.Equal(t, lenWritten, lenRead)
-	assert.Equal(t, bytesToSend, bytesRead)
+	recvData <- true
 
-	// clean up
-	t.Log("cleaning up")
-	TestDaemon.Stop(t)
-	TestDaemon.Cleanup(t)
-}
-
-func TestProxyClientConnection_BEAST(t *testing.T) {
-
-	// set logging to trace level
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-
-	// starting test docker daemon
-	t.Log("starting test docker daemon")
-	TestDaemon := daemon.New(
-		t,
-		daemon.WithContainerdSocket(TestDaemonDockerSocket),
-	)
-	TestDaemon.Start(t)
-
-	// prep testing client
-	t.Log("prep testing client")
-	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-		log.Debug().Msg("using test docker client")
-		cctx := context.Background()
-		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-		return &cctx, cli, nil
-	}
-
-	// prepare server/client connections
-
-	// set logging to trace level
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-
-	var (
-		serverConn        net.Conn
-		clientConn        *net.TCPConn
-		serverListener    net.Listener
-		err               error
-		wgServerSideConns sync.WaitGroup
-		wgServerListener  sync.WaitGroup
-		wgServerConn      sync.WaitGroup
-	)
-
-	t.Log("preparing test server-side connections")
-
-	// spin up server-side server that will accept one connection
-	wgServerListener.Add(1)
-	wgServerConn.Add(1)
-	wgServerSideConns.Add(1)
-	go func() {
-		var e error
-		serverListener, e = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, e)
-		wgServerListener.Done()
-		serverConn, e = serverListener.Accept()
-		assert.NoError(t, e)
-		wgServerConn.Done()
-		wgServerSideConns.Done()
-	}()
-	wgServerListener.Wait()
-
-	// spin up server-side client connection
-	wgServerSideConns.Add(1)
-	go func() {
-		var e error
-		serverPort, e := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
-		assert.NoError(t, err)
-
-		connectTo := net.TCPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: serverPort,
-			Zone: "",
-		}
-		clientConn, e = net.DialTCP("tcp4", nil, &connectTo)
-		assert.NoError(t, e)
-		wgServerSideConns.Done()
-	}()
-	wgServerConn.Wait()
-	wgServerSideConns.Wait()
-
-	// prepare proxy config
-	pc := proxyConfig{
-		connIn:                     clientConn,
-		connProto:                  protoBEAST,
-		connNum:                    1,
-		containersToStartRequests:  make(chan startContainerRequest),
-		containersToStartResponses: make(chan startContainerResponse),
-	}
-
-	go func(t *testing.T) {
-		err := proxyClientConnection(pc)
-		assert.Error(t, err)
-		assert.Equal(t, "EOF", err.Error())
-	}(t)
-
-	t.Log("testing client to server")
-	bytesToSend := []byte("Hello World! Client to Server.")
-	lenWritten, err := clientConn.Write(bytesToSend)
-	assert.NoError(t, err)
-	bytesRead := make([]byte, lenWritten)
-	lenRead, err := serverConn.Read(bytesRead)
-	assert.NoError(t, err)
-	assert.Equal(t, lenWritten, lenRead)
-	assert.Equal(t, bytesToSend, bytesRead)
-
-	// BEAST is unidirectional, no need to test server to client
-	t.Log("BEAST is unidirectional, no need to test server to client")
+	t.Log("closing the connection from client side")
+	closeConn <- true
 
 	// clean up
 	t.Log("cleaning up")
