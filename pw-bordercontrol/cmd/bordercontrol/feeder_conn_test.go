@@ -918,9 +918,11 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	var clientConn *tls.Conn
 	go func() {
 		// dial remote
-		clientConn, _ = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
-		// assert.NoError(t, e, "could not dial test server")
-		defer clientConn.Close()
+		clientConn, err = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		assert.Error(t, err, "could not dial test server")
+		if err == nil {
+			defer clientConn.Close()
+		}
 
 		// send some initial test data to allow handshake to take place
 		// _, _ = clientConn.Write([]byte("Hello World!"))
