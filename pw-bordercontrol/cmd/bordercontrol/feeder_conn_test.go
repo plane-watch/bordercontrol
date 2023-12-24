@@ -269,7 +269,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 		pStatus:                     &pStatus,
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log.Logger,
-		feederValidityCheckInterval: time.Second * 60,
+		feederValidityCheckInterval: time.Second * 1,
 	}
 
 	wg.Add(1)
@@ -290,6 +290,10 @@ func TestProxyClientToServer_Working(t *testing.T) {
 	// data should match!
 	assert.Equal(t, []byte("Hello World!"), buf)
 
+	// wait for auth check
+	time.Sleep(time.Second * 2)
+
+	// stop proxyClientToServer
 	pStatus.mu.Lock()
 	pStatus.run = false
 	pStatus.mu.Unlock()
@@ -368,6 +372,10 @@ func TestProxyServerToClient_Working(t *testing.T) {
 	// data should match!
 	assert.Equal(t, []byte("Hello World!"), buf)
 
+	// wait for auth check
+	time.Sleep(time.Second * 2)
+
+	// stop proxyClientToServer
 	pStatus.mu.Lock()
 	pStatus.run = false
 	pStatus.mu.Unlock()
