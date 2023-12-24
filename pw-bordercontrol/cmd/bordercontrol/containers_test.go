@@ -17,6 +17,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
 	"github.com/docker/go-connections/nat"
@@ -430,7 +431,14 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 			},
 		},
 	}
-	tcpEchoServer, err := cli.ContainerCreate(*ctx, tcpEchoServerContainerConfig, tcpEchoServerHostConfig, nil, nil, "tcp-echo-server")
+	// prepare container network config
+	endpointsConfig := make(map[string]*network.EndpointSettings)
+	endpointsConfig[feedInContainerNetwork] = &network.EndpointSettings{}
+	networkingConfig := network.NetworkingConfig{
+		EndpointsConfig: endpointsConfig,
+	}
+
+	tcpEchoServer, err := cli.ContainerCreate(*ctx, tcpEchoServerContainerConfig, tcpEchoServerHostConfig, &networkingConfig, nil, "tcp-echo-server")
 	assert.NoError(t, err, "could not create TCP echo server container")
 
 	t.Log("start TCP echo server container")
