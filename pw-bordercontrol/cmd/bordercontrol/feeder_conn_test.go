@@ -777,7 +777,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	cmd := exec.Command("netstat", "-nat")
 	out, err := cmd.Output()
 	assert.NoError(t, err)
-	fmt.Println(out)
+	fmt.Println(string(out))
 
 	// load root CAs
 	scp, err := x509.SystemCertPool()
