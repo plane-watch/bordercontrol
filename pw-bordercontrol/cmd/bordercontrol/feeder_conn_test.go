@@ -616,6 +616,9 @@ func TestAuthenticateFeeder_WrongAPIKey(t *testing.T) {
 	defer tlsListener.Close()
 	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
 
+	// set SNI to a UUID not in the database
+	tlsClientConfig.ServerName = uuid.NewString()
+
 	sendData := make(chan bool)
 
 	t.Log("starting test environment TLS server")
