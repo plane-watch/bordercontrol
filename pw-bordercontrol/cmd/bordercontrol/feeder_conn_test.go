@@ -771,7 +771,6 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
 	assert.NoError(t, err, "could not set up test listener")
 	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
-	defer tlsListener.Close()
 
 	// troubleshoot
 	cmd := exec.Command("netstat", "-nat")
@@ -845,5 +844,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 	// now send some data
 	sendData <- true
+
+	defer tlsListener.Close()
 
 }
