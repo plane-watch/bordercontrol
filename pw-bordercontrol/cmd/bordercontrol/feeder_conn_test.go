@@ -527,7 +527,6 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 		assert.NoError(t, e, "could not accept test connection")
 		defer svrConn.Close()
 		_ = <-closeSvrConn
-
 	}(t)
 
 	c, err := net.Dial("tcp4", tlsListener.Addr().String())
@@ -550,6 +549,7 @@ func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 		assert.Equal(t, "tls: first record does not look like a TLS handshake", err.Error())
 	})
 
+	closeSvrConn <- true
 	wg.Wait()
 
 }
