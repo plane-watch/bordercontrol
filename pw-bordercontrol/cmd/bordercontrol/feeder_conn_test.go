@@ -559,6 +559,8 @@ func TestProxyClientToServer(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
+	wg := sync.WaitGroup{}
+
 	// init stats
 	stats.mu.Lock()
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
@@ -588,7 +590,12 @@ func TestProxyClientToServer(t *testing.T) {
 		lastAuthCheck: &lastAuthCheck,
 		log:           log.Logger,
 	}
-	go proxyClientToServer(conf)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyClientToServer(conf)
+	}()
 
 	// send data to be proxied from client-side
 	_, err := clientOuter.Write([]byte("Hello World!"))
@@ -606,12 +613,16 @@ func TestProxyClientToServer(t *testing.T) {
 	pStatus.run = false
 	pStatus.mu.Unlock()
 
+	wg.Wait()
+
 }
 
 func TestProxyServerToClient(t *testing.T) {
 
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	wg := sync.WaitGroup{}
 
 	// init stats
 	stats.mu.Lock()
@@ -642,7 +653,12 @@ func TestProxyServerToClient(t *testing.T) {
 		lastAuthCheck: &lastAuthCheck,
 		log:           log.Logger,
 	}
-	go proxyClientToServer(conf)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyServerToClient(conf)
+	}()
 
 	// send data to be proxied from client-side
 	_, err := serverOuter.Write([]byte("Hello World!"))
@@ -659,6 +675,8 @@ func TestProxyServerToClient(t *testing.T) {
 	pStatus.mu.Lock()
 	pStatus.run = false
 	pStatus.mu.Unlock()
+
+	wg.Wait()
 
 }
 
@@ -726,7 +744,7 @@ func TestAuthenticateFeeder_WrongAPIKey(t *testing.T) {
 	assert.NoError(t, err, "could not use system cert pool for test")
 
 	// set up tls config
-	tlsConfig := tls.Config{
+	tlsClientConfig := tls.Config{
 		RootCAs:            scp,
 		ServerName:         uuid.NewString(),
 		InsecureSkipVerify: true,
@@ -743,7 +761,7 @@ func TestAuthenticateFeeder_WrongAPIKey(t *testing.T) {
 	go func() {
 		// dial remote
 		var e error
-		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
