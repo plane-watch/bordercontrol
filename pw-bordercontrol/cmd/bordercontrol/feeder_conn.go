@@ -285,7 +285,7 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 	// check TLS handshake
 	if !checkConnTLSHandshakeComplete(connIn) {
 		// if TLS handshake is not complete, then kill the connection
-		err := errors.New("data received before tls handshake")
+		err := errors.New("tls handshake incomplete")
 		return clientDetails, err
 	}
 	log = log.With().Bool("TLSHandshakeComplete", true).Logger()

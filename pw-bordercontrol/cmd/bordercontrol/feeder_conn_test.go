@@ -720,3 +720,109 @@ func TestProxyServerToClient(t *testing.T) {
 	pStatus.mu.Unlock()
 
 }
+
+func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
+
+	t.Log("preparing test environment TLS cert/key")
+
+	// prep signal channels
+	prepSignalChannels()
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	assert.NoError(t, err, "could not create temporary certificate file for test")
+
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	assert.NoError(t, err, "could not create temporary private key file for test")
+
+	// generate cert/key for testing
+	err = generateTLSCertAndKey(keyFile, certFile)
+	assert.NoError(t, err, "could not generate cert/key for test")
+
+	// prep tls config for mocked server
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
+	assert.NoError(t, err, "could not load TLS cert/key for test")
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// clean up after testing
+	certFile.Close()
+	os.Remove(certFile.Name())
+	keyFile.Close()
+	os.Remove(keyFile.Name())
+
+	// get testing host/port
+	n, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err, "could not generate new local listener for test")
+	tlsListenAddr := n.Addr().String()
+	err = n.Close()
+	assert.NoError(t, err, "could not close temp local listener for test")
+
+	// configure temp listener
+	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	defer tlsListener.Close()
+
+	// load root CAs
+	scp, err := x509.SystemCertPool()
+	assert.NoError(t, err, "could not use system cert pool for test")
+
+	// set up tls config
+	tlsConfig := tls.Config{
+		RootCAs:            scp,
+		ServerName:         testSNI.String(),
+		InsecureSkipVerify: true,
+	}
+
+	d := net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+
+	sendData := make(chan bool)
+
+	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
+	go func() {
+		// dial remote
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
+
+		// send some initial test data to allow handshake to take place
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
+
+		// wait to send more data until instructed
+		_ = <-sendData
+
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
+
+	}()
+
+	t.Log("starting test environment TLS client")
+	c, err := tlsListener.Accept()
+	assert.NoError(t, err, "could not accept test connection")
+
+	t.Run("test authenticateFeeder TLS handshake incomplete", func(t *testing.T) {
+
+		// prepare test data
+		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+			Altitude:   1,
+			ApiKey:     testSNI,
+			FeederCode: "ABCD-1234",
+			Label:      "test_feeder",
+			Latitude:   123.45678,
+			Longitude:  98.76543,
+			Mux:        "test_mux",
+		})
+
+		// test authenticateFeeder
+		_, err := authenticateFeeder(c)
+		assert.Error(t, err)
+	})
+
+	// now send some data
+	sendData <- true
+
+}
