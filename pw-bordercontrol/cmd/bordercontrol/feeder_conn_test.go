@@ -766,22 +766,11 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	assert.NoError(t, err, "could not load TLS cert/key for test")
 	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
-	// // test reload via signal
-	// t.Log("sending SIGHUP for cert/key reload (working)")
-	// chanSIGHUP <- syscall.SIGHUP
-
-	// // wait for the channel to be read
-	// time.Sleep(time.Second)
-
 	// clean up after testing
 	certFile.Close()
 	os.Remove(certFile.Name())
 	keyFile.Close()
 	os.Remove(keyFile.Name())
-
-	// // test reload via signal
-	// t.Log("sending SIGHUP for cert/key reload")
-	// chanSIGHUP <- syscall.SIGHUP
 
 	// get testing host/port
 	n, err := nettest.NewLocalListener("tcp")
@@ -852,54 +841,13 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 		}
 	}
 
-	t.Run("test authenticateFeeder working", func(t *testing.T) {
-
-		// prepare test data
-		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
-			Altitude:   1,
-			ApiKey:     testSNI,
-			FeederCode: "ABCD-1234",
-			Label:      "test_feeder",
-			Latitude:   123.45678,
-			Longitude:  98.76543,
-			Mux:        "test_mux",
-		})
-
-		// test authenticateFeeder
-		clientDetails, err := authenticateFeeder(c)
-		assert.NoError(t, err)
-		assert.Equal(t, testSNI, clientDetails.clientApiKey)
-		assert.Equal(t, 123.45678, clientDetails.refLat)
-		assert.Equal(t, 98.76543, clientDetails.refLon)
-		assert.Equal(t, "test_mux", clientDetails.mux)
-		assert.Equal(t, "test_feeder", clientDetails.label)
-		assert.Equal(t, "ABCD-1234", clientDetails.feederCode)
-	})
+	// test authenticateFeeder
+	_, err = authenticateFeeder(c)
+	assert.NoError(t, err)
 
 	// now send some data
 	sendData <- true
 
-	t.Run("test readFromClient working", func(t *testing.T) {
-		buf := make([]byte, 12)
-		_, err = readFromClient(c, buf)
-		assert.NoError(t, err)
-		assert.Equal(t, []byte("Hello World!"), buf)
-	})
-
-	t.Run("test checkConnTLSHandshakeComplete", func(t *testing.T) {
-		assert.True(t, checkConnTLSHandshakeComplete(c))
-	})
-
-	t.Run("test getUUIDfromSNI", func(t *testing.T) {
-		u, err := getUUIDfromSNI(c)
-		assert.NoError(t, err)
-		assert.Equal(t, testSNI, u)
-	})
-
 	c.Close()
-	t.Run("test readFromClient closed", func(t *testing.T) {
-		buf := make([]byte, 12)
-		_, err = readFromClient(clientConn, buf)
-		assert.Error(t, err)
-	})
+
 }
