@@ -372,7 +372,7 @@ func TestProxyServerToClient_Working(t *testing.T) {
 
 }
 
-func TestProxyServerToClient_FeederBanned(t *testing.T) {
+func TestProxyClientToServer_FeederBanned(t *testing.T) {
 
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
@@ -425,7 +425,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		proxyServerToClient(conf)
+		proxyClientToServer(conf)
 	}()
 
 	// make feeder invalid
@@ -437,12 +437,12 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	for i := 0; i < 5; i++ {
 
 		// send data to be proxied from client-side
-		_, err := serverOuter.Write([]byte("Hello World!"))
+		_, err := clientOuter.Write([]byte("Hello World!"))
 		assert.NoError(t, err)
 
 		// read proxied data from the server-side
 		buf := make([]byte, 12)
-		_, err = clientOuter.Read(buf)
+		_, err = serverOuter.Read(buf)
 		assert.NoError(t, err)
 
 		// data should match!
