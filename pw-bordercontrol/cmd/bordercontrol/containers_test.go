@@ -361,7 +361,7 @@ func TestContainersWithoutKill(t *testing.T) {
 
 }
 
-func TestProxyClientConnection(t *testing.T) {
+func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
@@ -449,12 +449,135 @@ func TestProxyClientConnection(t *testing.T) {
 		fmt.Println(err)
 	}(t)
 
-	lenWritten, err := clientConn.Write([]byte("Hello World!"))
+	t.Log("testing client to server")
+	bytesToSend := []byte("Hello World! Client to Server.")
+	lenWritten, err := clientConn.Write(bytesToSend)
 	assert.NoError(t, err)
-
 	bytesRead := make([]byte, lenWritten)
 	lenRead, err := serverConn.Read(bytesRead)
-
+	assert.NoError(t, err)
 	assert.Equal(t, lenWritten, lenRead)
+	assert.Equal(t, bytesToSend, bytesRead)
 
+	t.Log("testing server to client")
+	bytesToSend = []byte("Hello World! Server to Client.")
+	lenWritten, err = serverConn.Write(bytesToSend)
+	assert.NoError(t, err)
+	bytesRead = make([]byte, lenWritten)
+	lenRead, err = clientConn.Read(bytesRead)
+	assert.NoError(t, err)
+	assert.Equal(t, lenWritten, lenRead)
+	assert.Equal(t, bytesToSend, bytesRead)
+
+	// clean up
+	t.Log("cleaning up")
+	TestDaemon.Stop(t)
+	TestDaemon.Cleanup(t)
+}
+
+func TestProxyClientConnection_BEAST(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// starting test docker daemon
+	t.Log("starting test docker daemon")
+	TestDaemon := daemon.New(
+		t,
+		daemon.WithContainerdSocket(TestDaemonDockerSocket),
+	)
+	TestDaemon.Start(t)
+
+	// prep testing client
+	t.Log("prep testing client")
+	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+		log.Debug().Msg("using test docker client")
+		cctx := context.Background()
+		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
+		return &cctx, cli, nil
+	}
+
+	// prepare server/client connections
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	var (
+		serverConn        net.Conn
+		clientConn        *net.TCPConn
+		serverListener    net.Listener
+		err               error
+		wgServerSideConns sync.WaitGroup
+		wgServerListener  sync.WaitGroup
+		wgServerConn      sync.WaitGroup
+	)
+
+	t.Log("preparing test server-side connections")
+
+	// spin up server-side server that will accept one connection
+	wgServerListener.Add(1)
+	wgServerConn.Add(1)
+	wgServerSideConns.Add(1)
+	go func() {
+		var e error
+		serverListener, e = nettest.NewLocalListener("tcp4")
+		assert.NoError(t, e)
+		wgServerListener.Done()
+		serverConn, e = serverListener.Accept()
+		assert.NoError(t, e)
+		wgServerConn.Done()
+		wgServerSideConns.Done()
+	}()
+	wgServerListener.Wait()
+
+	// spin up server-side client connection
+	wgServerSideConns.Add(1)
+	go func() {
+		var e error
+		serverPort, e := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
+		assert.NoError(t, err)
+
+		connectTo := net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: serverPort,
+			Zone: "",
+		}
+		clientConn, e = net.DialTCP("tcp4", nil, &connectTo)
+		assert.NoError(t, e)
+		wgServerSideConns.Done()
+	}()
+	wgServerConn.Wait()
+	wgServerSideConns.Wait()
+
+	// prepare proxy config
+	pc := proxyConfig{
+		connIn:                     clientConn,
+		connProto:                  protoBEAST,
+		connNum:                    1,
+		containersToStartRequests:  make(chan startContainerRequest),
+		containersToStartResponses: make(chan startContainerResponse),
+	}
+
+	go func(t *testing.T) {
+		err := proxyClientConnection(pc)
+		fmt.Println(err)
+	}(t)
+
+	t.Log("testing client to server")
+	bytesToSend := []byte("Hello World! Client to Server.")
+	lenWritten, err := clientConn.Write(bytesToSend)
+	assert.NoError(t, err)
+	bytesRead := make([]byte, lenWritten)
+	lenRead, err := serverConn.Read(bytesRead)
+	assert.NoError(t, err)
+	assert.Equal(t, lenWritten, lenRead)
+	assert.Equal(t, bytesToSend, bytesRead)
+
+	// BEAST is unidirectional, no need to test server to client
+	t.Log("BEAST is unidirectional, no need to test server to client")
+
+	// clean up
+	t.Log("cleaning up")
+	TestDaemon.Stop(t)
+	TestDaemon.Cleanup(t)
 }
