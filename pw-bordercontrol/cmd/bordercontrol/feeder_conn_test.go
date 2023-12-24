@@ -780,73 +780,62 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	assert.NoError(t, err, "could not set up test listener")
 	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 
-	// // load root CAs
-	// scp, err := x509.SystemCertPool()
-	// assert.NoError(t, err, "could not use system cert pool for test")
+	// load root CAs
+	scp, err := x509.SystemCertPool()
+	assert.NoError(t, err, "could not use system cert pool for test")
 
-	// // set up tls config
-	// tlsConfig := tls.Config{
-	// 	RootCAs:            scp,
-	// 	ServerName:         testSNI.String(),
-	// 	InsecureSkipVerify: true,
-	// }
+	// set up tls config
+	tlsClientConfig := tls.Config{
+		RootCAs:            scp,
+		ServerName:         testSNI.String(),
+		InsecureSkipVerify: true,
+	}
 
-	// d := net.Dialer{
-	// 	Timeout:  time.Second * 30,
-	// 	Deadline: time.Now().Add(time.Minute),
-	// }
+	d := net.Dialer{
+		Timeout:  time.Second * 30,
+		Deadline: time.Now().Add(time.Minute),
+	}
 
-	// sendData := make(chan bool)
-	// dialConn := make(chan bool)
+	sendData := make(chan bool)
+	dialConn := make(chan bool)
 
-	// t.Log("starting test environment TLS server")
-	// var clientConn *tls.Conn
-	// go func() {
+	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
+	go func() {
 
-	// 	_ = <-dialConn
+		_ = <-dialConn
 
-	// 	// dial remote
-	// 	var e error
-	// 	troubleshootRunNetstat(t)
-	// 	clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
-	// 	assert.NoError(t, e, "could not dial test server")
-	// 	defer clientConn.Close()
+		// dial remote
+		var e error
+		troubleshootRunNetstat(t)
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
 
-	// 	// send some initial test data to allow handshake to take place
-	// 	_, e = clientConn.Write([]byte("Hello World!"))
-	// 	assert.NoError(t, e, "could not send test data")
+		// send some initial test data to allow handshake to take place
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
 
-	// 	// wait to send more data until instructed
-	// 	_ = <-sendData
+		// wait to send more data until instructed
+		_ = <-sendData
 
-	// 	_, e = clientConn.Write([]byte("Hello World!"))
-	// 	assert.NoError(t, e, "could not send test data")
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
 
-	// }()
+	}()
 
 	t.Log("starting test environment TLS client")
-	// dialConn <- true
+	dialConn <- true
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
 	defer c.Close()
-
-	// prepare test data
-	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
-		Altitude:   1,
-		ApiKey:     testSNI,
-		FeederCode: "ABCD-1234",
-		Label:      "test_feeder",
-		Latitude:   123.45678,
-		Longitude:  98.76543,
-		Mux:        "test_mux",
-	})
 
 	// test authenticateFeeder
 	_, err = authenticateFeeder(c)
 	assert.Error(t, err)
 
 	// now send some data
-	// sendData <- true
+	sendData <- true
 
 	defer tlsListener.Close()
 
