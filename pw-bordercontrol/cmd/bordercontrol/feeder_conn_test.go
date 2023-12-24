@@ -760,9 +760,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 	// configure temp listener
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
-	if err != nil {
-		assert.Error(t, err, "could not set up test listener")
-	}
+	assert.NoError(t, err, "could not set up test listener")
 	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 	defer tlsListener.Close()
 
@@ -790,6 +788,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 		var e error
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
 		assert.NoError(t, e, "could not dial test server")
+		fmt.Println(e)
 		defer clientConn.Close()
 
 		// send some initial test data to allow handshake to take place
