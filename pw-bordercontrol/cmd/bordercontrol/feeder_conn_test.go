@@ -795,7 +795,7 @@ func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
 	// test authenticateFeeder
 	_, err = authenticateFeeder(c)
 	assert.Error(t, err)
-	assert.Equal(t, "client sent invalid api key", err.Error())
+	assert.Equal(t, "invalid UUID length: 10", err.Error())
 
 	// now send some data
 	sendData <- true
