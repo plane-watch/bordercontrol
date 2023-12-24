@@ -795,10 +795,14 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	}
 
 	sendData := make(chan bool)
+	dialConn := make(chan bool)
 
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
 	go func() {
+
+		_ = <-dialConn
+
 		// dial remote
 		var e error
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
@@ -819,6 +823,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	}()
 
 	t.Log("starting test environment TLS client")
+	dialConn <- true
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
 	defer c.Close()
