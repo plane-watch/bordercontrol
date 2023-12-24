@@ -521,8 +521,13 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
-		// send data
+		// send data #1
 		nW, e := clientConn.Write(bytesToSend)
+		assert.NoError(t, e, "could not send test data from client to server")
+		assert.Equal(t, len(bytesToSend), nW)
+
+		// send data #2
+		nW, e = clientConn.Write(bytesToSend)
 		assert.NoError(t, e, "could not send test data from client to server")
 		assert.Equal(t, len(bytesToSend), nW)
 
