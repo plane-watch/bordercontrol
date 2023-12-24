@@ -803,24 +803,22 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	t.Log("starting test environment TLS client")
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
+	defer c.Close()
 
-	t.Run("test authenticateFeeder TLS handshake incomplete", func(t *testing.T) {
-
-		// prepare test data
-		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
-			Altitude:   1,
-			ApiKey:     testSNI,
-			FeederCode: "ABCD-1234",
-			Label:      "test_feeder",
-			Latitude:   123.45678,
-			Longitude:  98.76543,
-			Mux:        "test_mux",
-		})
-
-		// test authenticateFeeder
-		_, err := authenticateFeeder(c)
-		assert.Error(t, err)
+	// prepare test data
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "test_mux",
 	})
+
+	// test authenticateFeeder
+	_, err = authenticateFeeder(c)
+	assert.Error(t, err)
 
 	// now send some data
 	sendData <- true
