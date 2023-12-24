@@ -434,27 +434,105 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 	// wait for feeder to expire
 	time.Sleep(time.Second * 10)
 
-	for i := 0; i < 5; i++ {
+	// send data to be proxied from client-side
+	err := clientOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = clientOuter.Write([]byte("Hello World!"))
+	assert.Error(t, err)
+	assert.Equal(t, "write pipe: i/o timeout", err.Error())
 
-		fmt.Println(i)
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	err = serverOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = serverOuter.Read(buf)
+	assert.Error(t, err)
+	assert.Equal(t, "read pipe: i/o timeout", err.Error())
 
-		// send data to be proxied from client-side
-		err := clientOuter.SetDeadline(time.Now().Add(time.Second * 2))
-		assert.NoError(t, err)
-		_, err = clientOuter.Write([]byte("Hello World!"))
-		assert.NoError(t, err)
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
 
-		// read proxied data from the server-side
-		buf := make([]byte, 12)
-		err = serverOuter.SetDeadline(time.Now().Add(time.Second * 2))
-		assert.NoError(t, err)
-		_, err = serverOuter.Read(buf)
-		assert.NoError(t, err)
+	wg.Wait()
 
-		// data should match!
-		assert.Equal(t, []byte("Hello World!"), buf)
+}
 
+func TestProxyServerToClient_FeederBanned(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// prepare test data
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "test_mux",
+	})
+
+	wg := sync.WaitGroup{}
+
+	// init stats
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
 	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	conf := protocolProxyConfig{
+		clientConn:                  clientInner,
+		serverConn:                  serverInner,
+		connNum:                     uint(1),
+		clientApiKey:                testSNI,
+		pStatus:                     &pStatus,
+		lastAuthCheck:               &lastAuthCheck,
+		log:                         log.Logger,
+		feederValidityCheckInterval: time.Second * 1,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyServerToClient(conf)
+	}()
+
+	// make feeder invalid
+	validFeeders.Feeders = []atc.Feeder{}
+
+	// wait for feeder to expire
+	time.Sleep(time.Second * 10)
+
+	// send data to be proxied from client-side
+	err := serverOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = serverOuter.Write([]byte("Hello World!"))
+	assert.Error(t, err)
+	assert.Equal(t, "write pipe: i/o timeout", err.Error())
+
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	err = clientOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = clientOuter.Read(buf)
+	assert.Error(t, err)
+	assert.Equal(t, "read pipe: i/o timeout", err.Error())
 
 	pStatus.mu.Lock()
 	pStatus.run = false
