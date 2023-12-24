@@ -436,6 +436,8 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 
+		fmt.Println(i)
+
 		// send data to be proxied from client-side
 		_, err := clientOuter.Write([]byte("Hello World!"))
 		assert.NoError(t, err)
