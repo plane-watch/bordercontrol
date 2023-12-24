@@ -308,7 +308,9 @@ func TestTLS(t *testing.T) {
 
 	// init stats
 	t.Log("init stats")
+	stats.mu.Lock()
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
 
 	t.Log("preparing test environment TLS cert/key")
 
@@ -742,7 +744,9 @@ func TestAuthenticateFeeder_InvalidAPIKey(t *testing.T) {
 
 	// init stats
 	t.Log("init stats")
+	stats.mu.Lock()
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
 
 	t.Log("preparing test environment TLS cert/key")
 
@@ -854,7 +858,9 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 	// init stats
 	t.Log("init stats")
+	stats.mu.Lock()
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
 
 	t.Log("preparing test environment TLS cert/key")
 
