@@ -1050,3 +1050,182 @@ func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
 	c.Close()
 
 }
+
+func TestProxyClientConnection_MLAT(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// define waitgroup
+	wg := sync.WaitGroup{}
+
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// define channels for controlling test goroutines
+	closeConn := make(chan bool)
+	serverQuit := make(chan bool)
+
+	// start test MLAT server - simple TCP echo server)
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+
+		buf := make([]byte, 1000)
+
+		listenAddr := net.TCPAddr{
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 12346,
+		}
+		listener, err := net.ListenTCP("tcp", &listenAddr)
+		assert.NoError(t, err, "could not start test MLAT server")
+		defer listener.Close()
+
+		serverConn, err := listener.Accept()
+		assert.NoError(t, err, "could not accept MLAT server connection")
+		defer serverConn.Close()
+
+		n, err := serverConn.Read(buf)
+		assert.NoError(t, err, "could not read from client connection")
+		t.Logf("test MLAT server received: '%s'", string(buf[:n]))
+
+		n, err = serverConn.Write(buf[:n])
+		assert.NoError(t, err, "could not write to client connection")
+		t.Logf("test MLAT server sent: '%s'", string(buf[:n]))
+
+		// keep server running until requested to quit
+		_ = <-serverQuit
+
+	}(t)
+
+	t.Log("preparing test environment TLS cert/key")
+
+	// prepare test data
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "127.0.0.1", // connect to the tcp echo server
+	})
+
+	// prep signal channels
+	prepSignalChannels()
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	assert.NoError(t, err, "could not create temporary certificate file for test")
+
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	assert.NoError(t, err, "could not create temporary private key file for test")
+
+	// generate cert/key for testing
+	err = generateTLSCertAndKey(keyFile, certFile)
+	assert.NoError(t, err, "could not generate cert/key for test")
+
+	// prep tls config for mocked server
+	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
+	assert.NoError(t, err, "could not load TLS cert/key for test")
+	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+
+	// clean up after testing
+	certFile.Close()
+	os.Remove(certFile.Name())
+	keyFile.Close()
+	os.Remove(keyFile.Name())
+
+	// get testing host/port
+	n, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err, "could not generate new local listener for test")
+	tlsListenAddr := n.Addr().String()
+	err = n.Close()
+	assert.NoError(t, err, "could not close temp local listener for test")
+
+	// configure temp listener
+	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	assert.NoError(t, err)
+	defer tlsListener.Close()
+	t.Logf("Listening on: %s", tlsListenAddr)
+
+	// load root CAs
+	scp, err := x509.SystemCertPool()
+	assert.NoError(t, err, "could not use system cert pool for test")
+
+	// set up tls config
+	tlsClientConfig := tls.Config{
+		RootCAs:            scp,
+		ServerName:         testSNI.String(),
+		InsecureSkipVerify: true,
+	}
+
+	d := net.Dialer{
+		Timeout: 10 * time.Second,
+	}
+
+	// start test environment TLS client
+	t.Log("starting test environment TLS client")
+	var clientConn *tls.Conn
+	wg.Add(1)
+
+	go func(t *testing.T) {
+		defer wg.Done()
+
+		// define test data
+		bytesToSend := []byte("test data from client to server")
+
+		// dial remote
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
+
+		// send data
+		nW, e := clientConn.Write(bytesToSend)
+		assert.NoError(t, e, "could not send test data from client to server")
+		assert.Equal(t, len(bytesToSend), nW)
+
+		// receive data
+		bytesReceived := make([]byte, len(bytesToSend))
+		nR, e := clientConn.Read(bytesReceived)
+		assert.NoError(t, e, "could not receive test data from server to client")
+		assert.Equal(t, len(bytesToSend), nR)
+		assert.Equal(t, bytesToSend, bytesReceived)
+
+		// wait to close the connection
+		_ = <-closeConn
+
+	}(t)
+
+	// accept the connection from the above goroutine
+	connIn, err := tlsListener.Accept()
+	assert.NoError(t, err)
+
+	// prepare proxy config
+	pc := proxyConfig{
+		connIn:                     connIn,
+		connProto:                  protoMLAT, // must be MLAT for two way communications
+		connNum:                    1,
+		containersToStartRequests:  make(chan startContainerRequest),
+		containersToStartResponses: make(chan startContainerResponse),
+	}
+
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+		var err error
+		err = proxyClientConnection(pc)
+		assert.NoError(t, err)
+	}(t)
+
+	t.Log("closing the connection from client side")
+	closeConn <- true
+	serverQuit <- true
+
+	wg.Wait()
+}
