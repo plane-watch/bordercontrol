@@ -7,14 +7,15 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
 	"os"
+	"pw_bordercontrol/lib/atc"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -219,6 +220,332 @@ func TestDialContainerTCP(t *testing.T) {
 	})
 }
 
+func TestProxyClientToServer_Working(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// prepare test data
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "test_mux",
+	})
+
+	wg := sync.WaitGroup{}
+
+	// init stats
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	conf := protocolProxyConfig{
+		clientConn:                  clientInner,
+		serverConn:                  serverInner,
+		connNum:                     uint(1),
+		clientApiKey:                testSNI,
+		pStatus:                     &pStatus,
+		lastAuthCheck:               &lastAuthCheck,
+		log:                         log.Logger,
+		feederValidityCheckInterval: time.Second * 60,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyClientToServer(conf)
+	}()
+
+	// send data to be proxied from client-side
+	_, err := clientOuter.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	_, err = serverOuter.Read(buf)
+	assert.NoError(t, err)
+
+	// data should match!
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+	wg.Wait()
+
+}
+
+func TestProxyServerToClient_Working(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// prepare test data
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "test_mux",
+	})
+
+	wg := sync.WaitGroup{}
+
+	// init stats
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	conf := protocolProxyConfig{
+		clientConn:                  clientInner,
+		serverConn:                  serverInner,
+		connNum:                     uint(1),
+		clientApiKey:                testSNI,
+		pStatus:                     &pStatus,
+		lastAuthCheck:               &lastAuthCheck,
+		log:                         log.Logger,
+		feederValidityCheckInterval: time.Second * 60,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyServerToClient(conf)
+	}()
+
+	// send data to be proxied from client-side
+	_, err := serverOuter.Write([]byte("Hello World!"))
+	assert.NoError(t, err)
+
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	_, err = clientOuter.Read(buf)
+	assert.NoError(t, err)
+
+	// data should match!
+	assert.Equal(t, []byte("Hello World!"), buf)
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+	wg.Wait()
+
+}
+
+func TestProxyClientToServer_FeederBanned(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// prepare test data
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "test_mux",
+	})
+
+	wg := sync.WaitGroup{}
+
+	// init stats
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	conf := protocolProxyConfig{
+		clientConn:                  clientInner,
+		serverConn:                  serverInner,
+		connNum:                     uint(1),
+		clientApiKey:                testSNI,
+		pStatus:                     &pStatus,
+		lastAuthCheck:               &lastAuthCheck,
+		log:                         log.Logger,
+		feederValidityCheckInterval: time.Second * 1,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyClientToServer(conf)
+	}()
+
+	// make feeder invalid
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.mu.Unlock()
+
+	// wait for feeder to expire
+	time.Sleep(time.Second * 10)
+
+	// send data to be proxied from client-side
+	err := clientOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = clientOuter.Write([]byte("Hello World!"))
+	assert.Error(t, err)
+	assert.Equal(t, "write pipe: i/o timeout", err.Error())
+
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	err = serverOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = serverOuter.Read(buf)
+	assert.Error(t, err)
+	assert.Equal(t, "read pipe: i/o timeout", err.Error())
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+	wg.Wait()
+
+}
+
+func TestProxyServerToClient_FeederBanned(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// prepare test data
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "test_mux",
+	})
+
+	wg := sync.WaitGroup{}
+
+	// init stats
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
+
+	// method to signal goroutines to exit
+	pStatus := proxyStatus{
+		run: true,
+	}
+
+	// test proxyClientToServer
+	lastAuthCheck := time.Now()
+	conf := protocolProxyConfig{
+		clientConn:                  clientInner,
+		serverConn:                  serverInner,
+		connNum:                     uint(1),
+		clientApiKey:                testSNI,
+		pStatus:                     &pStatus,
+		lastAuthCheck:               &lastAuthCheck,
+		log:                         log.Logger,
+		feederValidityCheckInterval: time.Second * 1,
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		proxyServerToClient(conf)
+	}()
+
+	// make feeder invalid
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.mu.Unlock()
+
+	// wait for feeder to expire
+	time.Sleep(time.Second * 10)
+
+	// send data to be proxied from client-side
+	err := serverOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = serverOuter.Write([]byte("Hello World!"))
+	assert.Error(t, err)
+	assert.Equal(t, "write pipe: i/o timeout", err.Error())
+
+	// read proxied data from the server-side
+	buf := make([]byte, 12)
+	err = clientOuter.SetDeadline(time.Now().Add(time.Second * 2))
+	assert.NoError(t, err)
+	_, err = clientOuter.Read(buf)
+	assert.Error(t, err)
+	assert.Equal(t, "read pipe: i/o timeout", err.Error())
+
+	pStatus.mu.Lock()
+	pStatus.run = false
+	pStatus.mu.Unlock()
+
+	wg.Wait()
+
+}
+
 func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 
 	// Thanks to: https://go.dev/src/crypto/tls/generate_cert.go
@@ -302,104 +629,101 @@ func generateTLSCertAndKey(keyFile, certFile *os.File) error {
 	return nil
 }
 
-func TestTLS(t *testing.T) {
+func TestAuthenticateFeeder_Working(t *testing.T) {
 
-	t.Log("preparing test environment TLS cert/key")
+	// prep waitgoup
+	wg := sync.WaitGroup{}
 
-	// prep signal channels
-	prepSignalChannels()
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
 
-	// prep cert file
-	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
-	assert.NoError(t, err, "could not create temporary certificate file for test")
-
-	// prep key file
-	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
-	assert.NoError(t, err, "could not create temporary private key file for test")
-
-	// generate cert/key for testing
-	err = generateTLSCertAndKey(keyFile, certFile)
-	assert.NoError(t, err, "could not generate cert/key for test")
-
-	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
-	assert.NoError(t, err, "could not load TLS cert/key for test")
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
-	// test reload via signal
-	t.Log("sending SIGHUP for cert/key reload (working)")
-	chanSIGHUP <- syscall.SIGHUP
-
-	// wait for the channel to be read
-	time.Sleep(time.Second)
-
-	// defer func() {
-	// 	// clean up after testing
-	certFile.Close()
-	os.Remove(certFile.Name())
-	// }()
-
-	// defer func() {
-	// clean up after testing
-	keyFile.Close()
-	os.Remove(keyFile.Name())
-	// }()
-
-	// test reload via signal
-	t.Log("sending SIGHUP for cert/key reload (should log error)")
-	chanSIGHUP <- syscall.SIGHUP
-
-	// get testing host/port
-	n, err := nettest.NewLocalListener("tcp")
-	assert.NoError(t, err, "could not generate new local listener for test")
-	tlsListenAddr := n.Addr().String()
-	err = n.Close()
-	assert.NoError(t, err, "could not close temp local listener for test")
-
-	// configure temp listener
-	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
 	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
 
-	// load root CAs
-	scp, err := x509.SystemCertPool()
-	assert.NoError(t, err, "could not use system cert pool for test")
+	// prep channel for controlling flow of goroutines
+	sendData := make(chan bool)
 
-	// set up tls config
-	tlsConfig := tls.Config{
-		RootCAs:            scp,
-		ServerName:         testSNI.String(),
-		InsecureSkipVerify: true,
-	}
-
-	d := net.Dialer{
-		Timeout: 10 * time.Second,
-	}
-
+	// start test client
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
-	go func() {
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
 		// dial remote
 		var e error
-		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsConfig)
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
-		// perform handshake
-		e = clientConn.Handshake()
-		assert.NoError(t, e, "could not handshake with test server")
+		// send some initial test data to allow handshake to take place
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
+
+		// wait to send more data until instructed
+		_ = <-sendData
 
 		_, e = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, e, "could not send test data")
 
-		_, e = clientConn.Write([]byte("Hello World!"))
-		assert.NoError(t, e, "could not send test data")
-
-		defer clientConn.Close()
-	}()
+	}(t)
 
 	t.Log("starting test environment TLS client")
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
+
+	// make buffer to hold data read from client
+	buf := make([]byte, sendRecvBufferSize)
+
+	// give the unauthenticated client 10 seconds to perform TLS handshake
+	c.SetDeadline(time.Now().Add(time.Second * 10))
+
+	// read data from client
+	_, err = readFromClient(c, buf)
+	if err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			assert.NoError(t, err)
+		}
+	}
+
+	t.Run("test authenticateFeeder working", func(t *testing.T) {
+
+		// prepare test data
+		validFeeders.Feeders = []atc.Feeder{}
+		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+			Altitude:   1,
+			ApiKey:     testSNI,
+			FeederCode: "ABCD-1234",
+			Label:      "test_feeder",
+			Latitude:   123.45678,
+			Longitude:  98.76543,
+			Mux:        "test_mux",
+		})
+
+		// test authenticateFeeder
+		clientDetails, err := authenticateFeeder(c)
+		assert.NoError(t, err)
+		assert.Equal(t, testSNI, clientDetails.clientApiKey)
+		assert.Equal(t, 123.45678, clientDetails.refLat)
+		assert.Equal(t, 98.76543, clientDetails.refLon)
+		assert.Equal(t, "test_mux", clientDetails.mux)
+		assert.Equal(t, "test_feeder", clientDetails.label)
+		assert.Equal(t, "ABCD-1234", clientDetails.feederCode)
+	})
+
+	// now send some data
+	sendData <- true
 
 	t.Run("test readFromClient working", func(t *testing.T) {
 		buf := make([]byte, 12)
@@ -424,258 +748,410 @@ func TestTLS(t *testing.T) {
 		_, err = readFromClient(clientConn, buf)
 		assert.Error(t, err)
 	})
+
+	wg.Wait()
 }
 
-func TestTLS_NonTLSClient(t *testing.T) {
+func TestAuthenticateFeeder_NonTLSClient(t *testing.T) {
 
-	t.Log("preparing test environment TLS cert/key")
-
-	// prep cert file
-	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
-	assert.NoError(t, err, "could not create temporary certificate file for test")
-	defer func() {
-		// clean up after testing
-		certFile.Close()
-		os.Remove(certFile.Name())
-	}()
-
-	// prep key file
-	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
-	assert.NoError(t, err, "could not create temporary private key file for test")
-	defer func() {
-		// clean up after testing
-		keyFile.Close()
-		os.Remove(keyFile.Name())
-	}()
-
-	// generate cert/key for testing
-	err = generateTLSCertAndKey(keyFile, certFile)
-	assert.NoError(t, err, "could not generate cert/key for test")
-
-	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name(), chanSIGHUP)
-	assert.NoError(t, err, "could not load TLS cert/key for test")
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-
-	// get testing host/port
-	n, err := nettest.NewLocalListener("tcp")
-	assert.NoError(t, err, "could not generate new local listener for test")
-	tlsListenAddr := n.Addr().String()
-	err = n.Close()
-	assert.NoError(t, err, "could not close temp local listener for test")
-
-	// configure temp listener
-	tlsListener, err := tls.Listen("tcp4", tlsListenAddr, &tlsConfig)
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
 	defer tlsListener.Close()
+
+	// channels to control test flow
+	closeSvrConn := make(chan bool)
+	readFromSvrConn := make(chan bool)
 
 	t.Log("starting test environment TLS server")
 	var wg sync.WaitGroup
 	var svrConn net.Conn
 	wg.Add(1)
-	go func() {
+	go func(t *testing.T) {
+		defer wg.Done()
 		var e error
 		svrConn, e = tlsListener.Accept()
 		assert.NoError(t, e, "could not accept test connection")
-		wg.Done()
-	}()
+		defer svrConn.Close()
+		readFromSvrConn <- true
+		_ = <-closeSvrConn
+	}(t)
 
-	c, err := net.Dial("tcp4", tlsListener.Addr().String())
+	c, err := net.Dial("tcp", tlsListener.Addr().String())
 	assert.NoError(t, err)
+	defer c.Close()
 
-	wg.Wait()
-
-	go func() {
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
 		_, err := c.Write([]byte("Hello World!"))
 		assert.NoError(t, err)
-	}()
+		readFromSvrConn <- true
+	}(t)
 
 	t.Run("test readFromClient non TLS client", func(t *testing.T) {
 		buf := make([]byte, 12)
+		_ = <-readFromSvrConn
+		_ = <-readFromSvrConn
 		_, err = readFromClient(svrConn, buf)
 		assert.Error(t, err)
 		assert.Equal(t, "tls: first record does not look like a TLS handshake", err.Error())
 	})
 
-	svrConn.Close()
+	closeSvrConn <- true
+	wg.Wait()
+
+}
+
+func TestAuthenticateFeeder_WrongAPIKey(t *testing.T) {
+	// Test where client sends a correctly-formatted UUID,
+	// but that UUID is not in the database as an allowed feeder.
+
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
+	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
+
+	// set SNI to a UUID not in the database
+	tlsClientConfig.ServerName = uuid.NewString()
+
+	sendData := make(chan bool)
+
+	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
+	go func(t *testing.T) {
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
+		// dial remote
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
+
+		// send some initial test data to allow handshake to take place
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
+
+		// wait to send more data until instructed
+		_ = <-sendData
+
+	}(t)
+
+	t.Log("starting test environment TLS client")
+	c, err := tlsListener.Accept()
+	assert.NoError(t, err, "could not accept test connection")
+
+	// make buffer to hold data read from client
+	buf := make([]byte, sendRecvBufferSize)
+
+	// give the unauthenticated client 10 seconds to perform TLS handshake
+	c.SetDeadline(time.Now().Add(time.Second * 10))
+
+	// read data from client
+	_, err = readFromClient(c, buf)
+	if err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			assert.NoError(t, err)
+		}
+	}
+
+	// test authenticateFeeder
+	_, err = authenticateFeeder(c)
+	assert.Error(t, err)
+	assert.Equal(t, "client sent invalid api key", err.Error())
+
+	// now send some data
+	sendData <- true
+
 	c.Close()
+
 }
 
-func TestProxyClientToServer(t *testing.T) {
+func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
+
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
+	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
+
+	sendData := make(chan bool)
+
+	t.Log("starting test environment TLS server")
+	go func(t *testing.T) {
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
+		// dial remote
+		clientConn, e := tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+		assert.Error(t, e, "could not dial test server")
+		if e == nil {
+			defer clientConn.Close()
+		}
+
+		// wait to send more data until instructed
+		_ = <-sendData
+
+	}(t)
+
+	t.Log("starting test environment TLS client")
+	c, err := tlsListener.Accept()
+	assert.NoError(t, err, "could not accept test connection")
+	defer c.Close()
+
+	// test authenticateFeeder
+	_, err = authenticateFeeder(c)
+	assert.Error(t, err)
+	assert.Equal(t, "tls handshake incomplete", err.Error())
+
+	// now send some data
+	sendData <- true
+
+}
+
+func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
+	// Test where client sends a correctly-formatted UUID,
+	// but that UUID is not in the database as an allowed feeder.
+
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
+	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
+
+	// set SNI to a UUID not in the database
+	tlsClientConfig.ServerName = "l33t h4x0r"
+
+	sendData := make(chan bool)
+
+	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
+	go func(t *testing.T) {
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
+		// dial remote
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
+
+		// send some initial test data to allow handshake to take place
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
+
+		// wait to send more data until instructed
+		_ = <-sendData
+
+	}(t)
+
+	t.Log("starting test environment TLS client")
+	c, err := tlsListener.Accept()
+	assert.NoError(t, err, "could not accept test connection")
+
+	// make buffer to hold data read from client
+	buf := make([]byte, sendRecvBufferSize)
+
+	// give the unauthenticated client 10 seconds to perform TLS handshake
+	c.SetDeadline(time.Now().Add(time.Second * 10))
+
+	// read data from client
+	_, err = readFromClient(c, buf)
+	if err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			assert.NoError(t, err)
+		}
+	}
+
+	// test authenticateFeeder
+	_, err = authenticateFeeder(c)
+	assert.Error(t, err)
+	assert.Equal(t, "invalid UUID length: 10", err.Error())
+
+	// now send some data
+	sendData <- true
+
+	c.Close()
+
+}
+
+func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
-	var (
-		ssServerConn      net.Conn
-		ssClientConn      *net.TCPConn
-		serverListener    net.Listener
-		err               error
-		wgServerSideConns sync.WaitGroup
-		wgServerListener  sync.WaitGroup
-		wgServerConn      sync.WaitGroup
-	)
+	// define waitgroup
+	wg := sync.WaitGroup{}
 
-	t.Log("preparing test server-side connections")
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
 
-	// spin up server-side server that will accept one connection
-	wgServerListener.Add(1)
-	wgServerConn.Add(1)
-	wgServerSideConns.Add(1)
-	go func() {
-		var e error
-		serverListener, e = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, e)
-		wgServerListener.Done()
-		ssServerConn, e = serverListener.Accept()
-		assert.NoError(t, e)
-		wgServerConn.Done()
-		wgServerSideConns.Done()
-	}()
-	wgServerListener.Wait()
+	// define channels for controlling test goroutines
+	closeConn := make(chan bool)
+	serverQuit := make(chan bool)
+	testsComplete := make(chan bool)
 
-	// spin up server-side client connection
-	wgServerSideConns.Add(1)
-	go func() {
-		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
-		assert.NoError(t, err)
+	// start test MLAT server - simple TCP echo server)
+	t.Log("starting test MLAT server (TCP echo server) on 127.0.0.1:12346")
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
 
-		connectTo := net.TCPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: serverPort,
-			Zone: "",
+		buf := make([]byte, 1000)
+
+		listenAddr := net.TCPAddr{
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 12346,
 		}
-		ssClientConn, err = net.DialTCP("tcp4", nil, &connectTo)
-		assert.NoError(t, err)
-		wgServerSideConns.Done()
-	}()
-	wgServerConn.Wait()
-	wgServerSideConns.Wait()
+		listener, err := net.ListenTCP("tcp", &listenAddr)
+		assert.NoError(t, err, "could not start test MLAT server")
+		defer listener.Close()
 
-	// spin up client-side server & client connections
-	t.Log("preparing test client-side connections")
-	csClientConn, csServerConn := net.Pipe()
+		serverConn, err := listener.Accept()
+		assert.NoError(t, err, "could not accept MLAT server connection")
+		defer serverConn.Close()
 
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
+		n, err := serverConn.Read(buf)
+		assert.NoError(t, err, "could not read from client connection")
+		t.Logf("test MLAT server received: '%s'", string(buf[:n]))
+
+		n, err = serverConn.Write(buf[:n])
+		assert.NoError(t, err, "could not write to client connection")
+		t.Logf("test MLAT server sent: '%s'", string(buf[:n]))
+
+		// signify tests are now complete
+		testsComplete <- true
+
+		// keep server running until requested to quit
+		_ = <-serverQuit
+
+	}(t)
+
+	// prepare test data
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "127.0.0.1", // connect to the tcp echo server
+	})
+
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
+	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
+
+	// start test environment TLS client
+	t.Log("starting test environment TLS client")
+
+	var clientConn *tls.Conn
+
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
+		// define test data
+		bytesToSend := []byte("test data from client to server")
+
+		// dial remote
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
+
+		// send data
+		nW, e := clientConn.Write(bytesToSend)
+		assert.NoError(t, e, "could not send test data from client to server")
+		assert.Equal(t, len(bytesToSend), nW)
+
+		// receive data
+		bytesReceived := make([]byte, len(bytesToSend))
+		nR, e := clientConn.Read(bytesReceived)
+		assert.NoError(t, e, "could not receive test data from server to client")
+		assert.Equal(t, len(bytesToSend), nR)
+		assert.Equal(t, bytesToSend, bytesReceived)
+
+		// wait to close the connection
+		_ = <-closeConn
+
+	}(t)
+
+	// accept the TLS connection from the above goroutine
+	connIn, err := tlsListener.Accept()
+	assert.NoError(t, err)
+
+	// prepare proxy config
+	pc := proxyConfig{
+		connIn:                     connIn,
+		connProto:                  protoMLAT, // must be MLAT for two way communications
+		connNum:                    1,
+		containersToStartRequests:  make(chan startContainerRequest),
+		containersToStartResponses: make(chan startContainerResponse),
 	}
 
-	// test proxyClientToServer
-	lastAuthCheck := time.Now()
-	go proxyClientToServer(
-		csClientConn,
-		ssClientConn,
-		uint(1),
-		testSNI,
-		&pStatus,
-		&lastAuthCheck,
-		log.Logger,
-	)
+	// hand off the incoming test connection to the proxy
 
-	// send data to be proxied from client-side
-	_, err = csServerConn.Write([]byte("Hello World!"))
-	assert.NoError(t, err)
-
-	// read proxied data from the server-side
-	buf := make([]byte, 12)
-	_, err = ssServerConn.Read(buf)
-	assert.NoError(t, err)
-
-	// data should match!
-	assert.Equal(t, []byte("Hello World!"), buf)
-
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
-
-}
-
-func TestProxyServerToClient(t *testing.T) {
-
-	// set logging to trace level
-	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-
-	var (
-		ssServerConn      net.Conn
-		ssClientConn      *net.TCPConn
-		serverListener    net.Listener
-		err               error
-		wgServerSideConns sync.WaitGroup
-		wgServerListener  sync.WaitGroup
-		wgServerConn      sync.WaitGroup
-	)
-
-	t.Log("preparing test server-side connections")
-
-	// spin up server-side server that will accept one connection
-	wgServerListener.Add(1)
-	wgServerConn.Add(1)
-	wgServerSideConns.Add(1)
-	go func() {
-		var e error
-		serverListener, e = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, e)
-		wgServerListener.Done()
-		ssServerConn, e = serverListener.Accept()
-		assert.NoError(t, e)
-		wgServerConn.Done()
-		wgServerSideConns.Done()
-	}()
-	wgServerListener.Wait()
-
-	// spin up server-side client connection
-	wgServerSideConns.Add(1)
-	go func() {
-		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+		var err error
+		err = proxyClientConnection(pc)
 		assert.NoError(t, err)
+	}(t)
 
-		connectTo := net.TCPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: serverPort,
-			Zone: "",
-		}
-		ssClientConn, err = net.DialTCP("tcp4", nil, &connectTo)
-		assert.NoError(t, err)
-		wgServerSideConns.Done()
-	}()
-	wgServerConn.Wait()
-	wgServerSideConns.Wait()
+	// wait for tests to complete
+	_ = <-testsComplete
 
-	// spin up client-side server & client connections
-	t.Log("preparing test client-side connections")
-	csClientConn, csServerConn := net.Pipe()
+	t.Log("closing client connection")
+	closeConn <- true
 
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
+	t.Log("terminating test MLAT server")
+	serverQuit <- true
 
-	// test proxyServerToClient
-	lastAuthCheck := time.Now()
-	go proxyServerToClient(
-		csClientConn,
-		ssClientConn,
-		uint(1),
-		testSNI,
-		&pStatus,
-		&lastAuthCheck,
-		log.Logger,
-	)
+	// wait for goroutines to finish
+	t.Log("waiting for goroutines to finish")
+	wg.Wait()
 
-	// send data to be proxied from client-side
-	_, err = ssServerConn.Write([]byte("Hello World!"))
-	assert.NoError(t, err)
-
-	// read proxied data from the server-side
-	buf := make([]byte, 12)
-	_, err = csServerConn.Read(buf)
-	assert.NoError(t, err)
-
-	// data should match!
-	assert.Equal(t, []byte("Hello World!"), buf)
-
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
-
+	t.Log("test complete")
 }

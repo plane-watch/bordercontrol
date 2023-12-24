@@ -23,8 +23,8 @@ import (
 const (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-	TestFeedInImageName   = "wardsco/sleep:latest"
-	TestfeedInImagePrefix = "test-feed-in-"
+	TestFeedInImageName       = "wardsco/sleep:latest"
+	TestfeedInContainerPrefix = "test-feed-in-"
 
 	// mock feeder details
 	TestFeederAPIKey    = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25" // not a real feeder api key, generated with uuidgen
@@ -104,17 +104,21 @@ func TestContainersWithKill(t *testing.T) {
 	containersToStartResponses := make(chan startContainerResponse)
 	defer close(containersToStartResponses)
 
-	// prepare stop channel for startFeederContainers
-	stopChan := make(chan bool)
-
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
+	confA := startFeederContainersConfig{
+		feedInImageName:            TestFeedInImageName,
+		feedInContainerPrefix:      TestfeedInContainerPrefix,
+		pwIngestPublish:            TestPWIngestSink,
+		containersToStartRequests:  containersToStartRequests,
+		containersToStartResponses: containersToStartResponses,
+	}
+	go startFeederContainers(confA)
 
 	// start container
 	t.Log("requesting container start")
 	containersToStartRequests <- startContainerRequest{
-		clientDetails: &feederClient{
+		clientDetails: feederClient{
 			clientApiKey: uuid.MustParse(TestFeederAPIKey),
 			refLat:       TestFeederLatitude,
 			refLon:       TestFeederLongitude,
@@ -187,7 +191,7 @@ func TestContainersWithKill(t *testing.T) {
 
 	// check prom metrics
 	t.Log("check prom container metrics with current image")
-	feedInContainerPrefix = TestfeedInImagePrefix
+	feedInContainerPrefix = TestfeedInContainerPrefix
 	feedInImage = TestFeedInImageName
 	statsManagerMu.RLock()
 	promMetrics := getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
@@ -201,7 +205,7 @@ func TestContainersWithKill(t *testing.T) {
 	//
 	// check prom metrics
 	t.Log("check prom container metrics with not current image")
-	feedInContainerPrefix = TestfeedInImagePrefix
+	feedInContainerPrefix = TestfeedInContainerPrefix
 	feedInImage = "foo"
 	statsManagerMu.RLock()
 	promMetrics = getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
@@ -215,7 +219,12 @@ func TestContainersWithKill(t *testing.T) {
 	// test checkFeederContainers
 	// by passing "foo" as the feedInImageName, it should kill the previously created container
 	t.Log("running checkFeederContainers")
-	err = checkFeederContainers("foo", TestfeedInImagePrefix, testChan)
+	conf := &checkFeederContainersConfig{
+		feedInImageName:          "foo",
+		feedInContainerPrefix:    TestfeedInContainerPrefix,
+		checkFeederContainerSigs: testChan,
+	}
+	err = checkFeederContainers(*conf)
 	assert.NoError(t, err)
 
 	// wait for container to be removed
@@ -229,7 +238,6 @@ func TestContainersWithKill(t *testing.T) {
 
 	// clean up
 	t.Log("cleaning up")
-	stopChan <- true
 	TestDaemon.Stop(t)
 	TestDaemon.Cleanup(t)
 }
@@ -297,17 +305,21 @@ func TestContainersWithoutKill(t *testing.T) {
 	containersToStartResponses := make(chan startContainerResponse)
 	defer close(containersToStartResponses)
 
-	stopChan := make(chan bool)
-	defer close(stopChan)
-
 	// start process to test
 	t.Log("starting startFeederContainers")
-	go startFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, TestPWIngestSink, containersToStartRequests, containersToStartResponses, stopChan)
+	confA := &startFeederContainersConfig{
+		feedInImageName:            TestFeedInImageName,
+		feedInContainerPrefix:      TestfeedInContainerPrefix,
+		pwIngestPublish:            TestPWIngestSink,
+		containersToStartRequests:  containersToStartRequests,
+		containersToStartResponses: containersToStartResponses,
+	}
+	go startFeederContainers(*confA)
 
 	// start container
 	t.Log("requesting container start")
 	containersToStartRequests <- startContainerRequest{
-		clientDetails: &feederClient{
+		clientDetails: feederClient{
 			clientApiKey: uuid.MustParse(TestFeederAPIKey),
 			refLat:       TestFeederLatitude,
 			refLon:       TestFeederLongitude,
@@ -327,7 +339,12 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// test checkFeederContainers
 	t.Log("running checkFeederContainers")
-	err = checkFeederContainers(TestFeedInImageName, TestfeedInImagePrefix, testChan)
+	confB := &checkFeederContainersConfig{
+		feedInImageName:          TestFeedInImageName,
+		feedInContainerPrefix:    TestfeedInContainerPrefix,
+		checkFeederContainerSigs: testChan,
+	}
+	err = checkFeederContainers(*confB)
 	assert.NoError(t, err)
 
 	// ensure container has been killed
@@ -337,7 +354,6 @@ func TestContainersWithoutKill(t *testing.T) {
 
 	// clean up
 	t.Log("cleaning up")
-	stopChan <- true
 	TestDaemon.Stop(t)
 	TestDaemon.Cleanup(t)
 

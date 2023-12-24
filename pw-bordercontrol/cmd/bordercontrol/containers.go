@@ -16,13 +16,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// struct for requesting that the startFeederContainers goroutine start a container
+// struct for requests to the startFeederContainers goroutine start a container
 type startContainerRequest struct {
-	clientDetails *feederClient // lat, long, mux, label, api key
-	srcIP         net.IP        // client IP address
+	clientDetails feederClient // lat, long, mux, label, api key
+	srcIP         net.IP       // client IP address
 
 }
 
+// struct for responses from the startFeederContainers goroutine start a container
 type startContainerResponse struct {
 	err                 error  // holds error from starting container
 	containerStartDelay bool   // do we need to wait for container services to start? (pointer to allow calling function to read data)
@@ -42,7 +43,13 @@ var getDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	return &cctx, cli, err
 }
 
-func checkFeederContainers(feedInImageName string, feedInImagePrefix string, checkFeederContainerSigs chan os.Signal) error {
+type checkFeederContainersConfig struct {
+	feedInImageName          string         // Name of docker image for feed-in containers.
+	feedInContainerPrefix    string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	checkFeederContainerSigs chan os.Signal // Channel to receive signals. Received signal will skip sleeps and cause containers to be checked/recreated immediately.
+}
+
+func checkFeederContainers(conf checkFeederContainersConfig) error {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
@@ -71,7 +78,7 @@ func checkFeederContainers(feedInImageName string, feedInImagePrefix string, che
 	// prepare filters to find feed-in containers
 	log.Trace().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
-	filterFeedIn.Add("name", fmt.Sprintf("%s*", feedInImagePrefix))
+	filterFeedIn.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 	// find containers
 	log.Trace().Msg("find containers")
@@ -89,12 +96,13 @@ ContainerLoop:
 			Str("container_id", container.ID).
 			Str("container_image", container.Image).
 			Str("container_name", container.Names[0]).
-			Str("feedInImageName", feedInImageName).
+			Str("feedInImageName", conf.feedInImageName).
 			Msg("checking container")
 
 		// check containers are running latest feed-in image
-		if container.Image != feedInImageName {
+		if container.Image != conf.feedInImageName {
 
+			// update log context with container name
 			log := log.With().Str("container", container.Names[0][1:]).Logger()
 
 			// If a container is found running an out-of-date image, then remove it.
@@ -123,7 +131,7 @@ ContainerLoop:
 
 	// sleep unless/until siguser1 is caught
 	select {
-	case s := <-checkFeederContainerSigs:
+	case s := <-conf.checkFeederContainerSigs:
 		log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
 		break
 	case <-time.After(sleepTime * time.Second):
@@ -132,21 +140,22 @@ ContainerLoop:
 	return nil
 }
 
-func startFeederContainers(
-	feedInImageName string,
-	feedInImagePrefix string,
-	pwIngestPublish string,
-	containersToStartRequests chan startContainerRequest,
-	containersToStartResponses chan startContainerResponse,
-	stopChan chan bool,
-) error {
-	// reads startContainerRequests from channel containersToStart and starts container
+type startFeederContainersConfig struct {
+	feedInImageName            string                      // Name of docker image for feed-in containers.
+	feedInContainerPrefix      string                      // Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	pwIngestPublish            string                      // URL to pass to the --sink flag of pw-ingest in feed-in container.
+	containersToStartRequests  chan startContainerRequest  // Channel to receive container start requests from.
+	containersToStartResponses chan startContainerResponse // Channel to send container start responses to.
+}
 
+func startFeederContainers(conf startFeederContainersConfig) error {
+	// reads startContainerRequests from channel containersToStartRequests and starts container
+	// responds via channel containersToStartResponses
+
+	// update log context with function name
 	log := log.With().
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
-
-	originalLog := log
 
 	// log.Trace().Msg("started")
 
@@ -159,138 +168,125 @@ func startFeederContainers(
 	}
 	defer cli.Close()
 
-	for {
+	// read from channel (this blocks until a request comes in)
+	containerToStart := <-conf.containersToStartRequests
 
-		var containerToStart startContainerRequest
+	// prep response object
+	response := startContainerResponse{}
 
-		select {
+	// prepare logger
+	log = log.With().
+		// Float64("lat", containerToStart.clientDetails.refLat).
+		// Float64("lon", containerToStart.clientDetails.refLon).
+		Str("mux", containerToStart.clientDetails.mux).
+		Str("label", containerToStart.clientDetails.label).
+		Str("uuid", containerToStart.clientDetails.clientApiKey.String()).
+		Str("src", containerToStart.srcIP.String()).
+		Str("code", containerToStart.clientDetails.feederCode).
+		Logger()
 
-		// quit this goroutine if asked to
-		case _ = <-stopChan:
-			return nil
+	// determine if container is already running
 
-		// read from channel (this blocks until a request comes in)
-		case containerToStart = <-containersToStartRequests:
+	response.containerName = fmt.Sprintf("%s%s", conf.feedInContainerPrefix, containerToStart.clientDetails.clientApiKey.String())
+
+	// prepare filter to find feed-in container
+	filterFeedIn := filters.NewArgs()
+	filterFeedIn.Add("name", response.containerName)
+	filterFeedIn.Add("status", "running")
+
+	// find container
+	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+	if err != nil {
+		log.Err(err).Msg("error finding feed-in container")
+	}
+
+	// check if container found
+	if len(containers) > 0 {
+		// if container found
+		log.Debug().
+			Str("state", containers[0].State).
+			Str("status", containers[0].Status).
+			Msg("feed-in container exists")
+
+		// no need to check if started as container created with AutoRemove set to true
+
+	} else {
+		// if container is not running, create it
+
+		// tell calling function that it should wait for services to start before proxying connections to the container
+		response.containerStartDelay = true
+
+		// prepare environment variables for container
+		envVars := [...]string{
+			fmt.Sprintf("FEEDER_LAT=%f", containerToStart.clientDetails.refLat),
+			fmt.Sprintf("FEEDER_LON=%f", containerToStart.clientDetails.refLon),
+			fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
+			fmt.Sprintf("FEEDER_TAG=%s", containerToStart.clientDetails.feederCode),
+			"PW_INGEST_PUBLISH=location-updates",
+			"PW_INGEST_INPUT_MODE=listen",
+			"PW_INGEST_INPUT_PROTO=beast",
+			"PW_INGEST_INPUT_ADDR=0.0.0.0",
+			"PW_INGEST_INPUT_PORT=12345",
+			fmt.Sprintf("PW_INGEST_SINK=%s", conf.pwIngestPublish),
 		}
 
-		// prep response object
-		response := startContainerResponse{}
+		// prepare labels for container
+		containerLabels := make(map[string]string)
+		containerLabels["plane.watch.label"] = containerToStart.clientDetails.label
+		containerLabels["plane.watch.mux"] = containerToStart.clientDetails.mux
+		containerLabels["plane.watch.lat"] = fmt.Sprintf("%f", containerToStart.clientDetails.refLat)
+		containerLabels["plane.watch.lon"] = fmt.Sprintf("%f", containerToStart.clientDetails.refLon)
+		containerLabels["plane.watch.uuid"] = containerToStart.clientDetails.clientApiKey.String()
 
-		// prepare logger
-		log := log.With().
-			// Float64("lat", containerToStart.clientDetails.refLat).
-			// Float64("lon", containerToStart.clientDetails.refLon).
-			Str("mux", string(containerToStart.clientDetails.mux)).
-			Str("label", string(containerToStart.clientDetails.label)).
-			Str("uuid", string(containerToStart.clientDetails.clientApiKey.String())).
-			Str("src", string(containerToStart.srcIP.String())).
-			Str("code", string(containerToStart.clientDetails.feederCode)).
-			Logger()
+		// prepare container config
+		containerConfig := container.Config{
+			Image:  conf.feedInImageName,
+			Env:    envVars[:],
+			Labels: containerLabels,
+		}
 
-		// determine if container is already running
+		// prepare tmpfs config
+		tmpFSConfig := make(map[string]string)
+		tmpFSConfig["/run"] = "exec,size=64M"
+		tmpFSConfig["/var/log"] = ""
 
-		response.containerName = fmt.Sprintf("%s%s", feedInImagePrefix, containerToStart.clientDetails.clientApiKey.String())
+		// prepare container host config
+		containerHostConfig := container.HostConfig{
+			AutoRemove: true,
+			Tmpfs:      tmpFSConfig,
+		}
 
-		// prepare filter to find feed-in container
-		filterFeedIn := filters.NewArgs()
-		filterFeedIn.Add("name", response.containerName)
-		filterFeedIn.Add("status", "running")
+		// prepare container network config
+		endpointsConfig := make(map[string]*network.EndpointSettings)
+		endpointsConfig[feedInContainerNetwork] = &network.EndpointSettings{}
+		networkingConfig := network.NetworkingConfig{
+			EndpointsConfig: endpointsConfig,
+		}
 
-		// find container
-		containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+		// create feed-in container
+		resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, response.containerName)
 		if err != nil {
-			log.Err(err).Msg("error finding feed-in container")
-		}
-
-		// check if container found
-		if len(containers) > 0 {
-			// if container found
-			log.Debug().
-				Str("state", containers[0].State).
-				Str("status", containers[0].Status).
-				Msg("feed-in container exists")
-
-			// no need to check if started as container created with AutoRemove set to true
-
+			log.Err(err).Msg("could not create feed-in container")
+			response.err = err
 		} else {
-			// if container is not running, create it
-
-			// tell calling function that it should wait for services to start before proxying connections to the container
-			response.containerStartDelay = true
-
-			// prepare environment variables for container
-			envVars := [...]string{
-				fmt.Sprintf("FEEDER_LAT=%f", containerToStart.clientDetails.refLat),
-				fmt.Sprintf("FEEDER_LON=%f", containerToStart.clientDetails.refLon),
-				fmt.Sprintf("FEEDER_UUID=%s", containerToStart.clientDetails.clientApiKey.String()),
-				fmt.Sprintf("FEEDER_TAG=%s", containerToStart.clientDetails.feederCode),
-				"PW_INGEST_PUBLISH=location-updates",
-				"PW_INGEST_INPUT_MODE=listen",
-				"PW_INGEST_INPUT_PROTO=beast",
-				"PW_INGEST_INPUT_ADDR=0.0.0.0",
-				"PW_INGEST_INPUT_PORT=12345",
-				fmt.Sprintf("PW_INGEST_SINK=%s", pwIngestPublish),
-			}
-
-			// prepare labels
-			containerLabels := make(map[string]string)
-			containerLabels["plane.watch.label"] = containerToStart.clientDetails.label
-			containerLabels["plane.watch.mux"] = containerToStart.clientDetails.mux
-			containerLabels["plane.watch.lat"] = fmt.Sprintf("%f", containerToStart.clientDetails.refLat)
-			containerLabels["plane.watch.lon"] = fmt.Sprintf("%f", containerToStart.clientDetails.refLon)
-			containerLabels["plane.watch.uuid"] = containerToStart.clientDetails.clientApiKey.String()
-
-			// prepare container config
-			containerConfig := container.Config{
-				Image:  feedInImageName,
-				Env:    envVars[:],
-				Labels: containerLabels,
-			}
-
-			// prepare tmpfs config
-			tmpFSConfig := make(map[string]string)
-			tmpFSConfig["/run"] = "exec,size=64M"
-			tmpFSConfig["/var/log"] = ""
-
-			// prepare container host config
-			containerHostConfig := container.HostConfig{
-				AutoRemove: true,
-				Tmpfs:      tmpFSConfig,
-			}
-
-			// prepare container network config
-			endpointsConfig := make(map[string]*network.EndpointSettings)
-			endpointsConfig[feedInContainerNetwork] = &network.EndpointSettings{}
-			networkingConfig := network.NetworkingConfig{
-				EndpointsConfig: endpointsConfig,
-			}
-
-			// create feed-in container
-			resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, response.containerName)
-			if err != nil {
-				log.Err(err).Msg("could not create feed-in container")
-				response.err = err
-			} else {
-				log.Debug().Str("container_id", resp.ID).Msg("created feed-in container")
-			}
-
-			response.containerID = resp.ID
-
-			// start container
-			if err := cli.ContainerStart(*dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
-				log.Err(err).Msg("could not start feed-in container")
-				response.err = err
-			} else {
-				log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
-			}
+			log.Debug().Str("container_id", resp.ID).Msg("created feed-in container")
 		}
 
-		// send response
-		containersToStartResponses <- response
+		response.containerID = resp.ID
 
-		// reset logger
-		log = originalLog
+		// start container
+		if err := cli.ContainerStart(*dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
+			log.Err(err).Msg("could not start feed-in container")
+			response.err = err
+		} else {
+			log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
+		}
 
 	}
+
+	// send response
+	conf.containersToStartResponses <- response
+
 	// log.Trace().Msg("finished")
+	return nil
 }
