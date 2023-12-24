@@ -500,6 +500,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 	t.Run("test authenticateFeeder working", func(t *testing.T) {
 
 		// prepare test data
+		validFeeders.Feeders = []atc.Feeder{}
 		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 			Altitude:   1,
 			ApiKey:     testSNI,
@@ -836,6 +837,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	}(t)
 
 	// prepare test data
+	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
 		ApiKey:     testSNI,
