@@ -792,8 +792,9 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	}
 
 	d := net.Dialer{
-		Timeout:  time.Second * 30,
-		Deadline: time.Now().Add(time.Minute),
+		Timeout:   time.Second * 30,
+		Deadline:  time.Now().Add(time.Minute),
+		DualStack: false,
 	}
 
 	sendData := make(chan bool)
@@ -808,6 +809,7 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 		// dial remote
 		var e error
 		troubleshootRunNetstat(t)
+		t.Log(fmt.Sprintf("Connecting to: %s", tlsListenAddr))
 		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
