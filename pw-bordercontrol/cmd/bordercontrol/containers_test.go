@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"pw_bordercontrol/lib/atc"
@@ -16,11 +15,8 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
-	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -378,81 +374,35 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 	stats.mu.Unlock()
 
-	// starting test docker daemon
-	t.Log("starting test docker daemon")
-	TestDaemon := daemon.New(
-		t,
-		daemon.WithContainerdSocket(TestDaemonDockerSocket),
-	)
-	TestDaemon.Start(t)
+	// start server listener
+	serverQuit := make(chan bool)
+	go func(t *testing.T) {
 
-	// prep testing docker client
-	t.Log("prep testing client")
-	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-		log.Debug().Msg("using test docker client")
-		cctx := context.Background()
-		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-		return &cctx, cli, nil
-	}
+		buf := make([]byte, 1000)
 
-	// get docker client
-	t.Log("get docker client to inspect container")
-	ctx, cli, err := getDockerClient()
-	assert.NoError(t, err)
+		listenAddr := net.TCPAddr{
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 12346,
+		}
+		listener, err := net.ListenTCP("tcp", &listenAddr)
+		assert.NoError(t, err, "could not start test MLAT server")
+		defer listener.Close()
 
-	// ensure TCP echo server image is downloaded
-	t.Log("pull TCP echo server image")
-	imageirc, err := cli.ImagePull(*ctx, "venilnoronha/tcp-echo-server:latest", types.ImagePullOptions{})
-	assert.NoError(t, err)
-	defer imageirc.Close()
+		serverConn, err := listener.Accept()
+		assert.NoError(t, err, "could not accept MLAT server connection")
+		defer serverConn.Close()
 
-	t.Log("load TCP echo server image")
-	imagelr, err := cli.ImageLoad(*ctx, imageirc, false)
-	assert.NoError(t, err)
+		n, err := serverConn.Read(buf)
+		assert.NoError(t, err, "could not read from client connection")
 
-	fmt.Println("BEGIN IMAGE LOAD RESPONSE:")
-	resp, err := io.ReadAll(imagelr.Body)
-	assert.NoError(t, err)
-	fmt.Println(string(resp))
-	fmt.Println("END IMAGE LOAD RESPONSE:")
+		t.Logf("test MLAT server received: ", string(buf[:n]))
 
-	t.Log("create TCP echo server container")
-	tcpEchoServerContainerConfig := &container.Config{
-		Image: "venilnoronha/tcp-echo-server:latest",
-		ExposedPorts: nat.PortSet{
-			"9000/tcp": struct{}{},
-		},
-		Tty:          true,
-		AttachStdout: true,
-		AttachStderr: true,
-	}
-	tcpEchoServerHostConfig := &container.HostConfig{
-		AutoRemove: true,
-		PortBindings: nat.PortMap{
-			"9000/tcp": []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: "12346",
-				},
-			},
-		},
-	}
-	// prepare container network config
-	endpointsConfig := make(map[string]*network.EndpointSettings)
-	endpointsConfig["bridge"] = &network.EndpointSettings{}
-	networkingConfig := network.NetworkingConfig{
-		EndpointsConfig: endpointsConfig,
-	}
+		n, err = serverConn.Write(buf[:n])
+		t.Logf("test MLAT server sent: ", string(buf[:n]))
 
-	tcpEchoServer, err := cli.ContainerCreate(*ctx, tcpEchoServerContainerConfig, tcpEchoServerHostConfig, &networkingConfig, nil, "tcp-echo-server")
-	assert.NoError(t, err, "could not create TCP echo server container")
+		_ = <-serverQuit
 
-	t.Log("start TCP echo server container")
-	err = cli.ContainerStart(*ctx, tcpEchoServer.ID, types.ContainerStartOptions{})
-	time.Sleep(time.Second * 5) // wait for container to start
-
-	x, err := cli.ContainerList(*ctx, types.ContainerListOptions{})
-	fmt.Println(x)
+	}(t)
 
 	t.Log("preparing test environment TLS cert/key")
 
@@ -529,7 +479,6 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	// define test data
 	bytesToSend := []byte("test data from client to server")
-	bytesThatShouldBeReceived := []byte("hello test data from client to server")
 
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
@@ -547,18 +496,13 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		assert.NoError(t, e, "could not send test data from client to server")
 		assert.Equal(t, len(bytesToSend), nW)
 
-		// send data #2
-		nW, e = clientConn.Write(bytesToSend)
-		assert.NoError(t, e, "could not send test data from client to server")
-		assert.Equal(t, len(bytesToSend), nW)
-
-		bytesReceived := make([]byte, len(bytesThatShouldBeReceived))
+		bytesReceived := make([]byte, len(bytesToSend))
 
 		// receive data
 		nR, e := clientConn.Read(bytesReceived)
 		assert.NoError(t, e, "could not receive test data from server to client")
-		assert.Equal(t, len(bytesThatShouldBeReceived), nR)
-		assert.Equal(t, bytesThatShouldBeReceived, bytesReceived)
+		assert.Equal(t, len(bytesToSend), nR)
+		assert.Equal(t, bytesToSend, bytesReceived)
 
 		// wait to close the connection
 		_ = <-closeConn
@@ -596,19 +540,4 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	wg.Wait()
 
-	tcpEchoServerLog, err := cli.ContainerLogs(*ctx, tcpEchoServer.ID, types.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-	})
-	assert.NoError(t, err)
-	tcpEchoServerLogBytes, err := io.ReadAll(tcpEchoServerLog)
-	assert.NoError(t, err)
-	fmt.Println("BEGIN CONTAINER LOG:")
-	fmt.Println(string(tcpEchoServerLogBytes))
-	fmt.Println("END CONTAINER LOG:")
-
-	// clean up
-	t.Log("cleaning up")
-	TestDaemon.Stop(t)
-	TestDaemon.Cleanup(t)
 }
