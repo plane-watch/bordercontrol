@@ -369,6 +369,12 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
 	// starting test docker daemon
 	t.Log("starting test docker daemon")
 	TestDaemon := daemon.New(
