@@ -790,7 +790,8 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 	}
 
 	d := net.Dialer{
-		Timeout: 30 * time.Second,
+		Timeout:  30 * time.Second,
+		Deadline: time.Now().Add(time.Hour),
 	}
 
 	sendData := make(chan bool)
