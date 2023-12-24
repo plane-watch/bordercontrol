@@ -93,7 +93,7 @@ func TestUpdateFeederDB(t *testing.T) {
 	// check feeders
 	validFeeders.mu.Lock()
 	defer validFeeders.mu.Unlock()
-	assert.Equal(t, atc.TestFeederAPIKeyWorking, validFeeders.Feeders[0].ApiKey)
+	assert.Equal(t, uuid.MustParse(atc.TestFeederAPIKeyWorking), validFeeders.Feeders[0].ApiKey)
 	assert.Equal(t, atc.TestFeederLabel, validFeeders.Feeders[0].Label)
 	assert.Equal(t, atc.TestFeederLatitude, validFeeders.Feeders[0].Latitude)
 	assert.Equal(t, atc.TestFeederLongitude, validFeeders.Feeders[0].Longitude)
