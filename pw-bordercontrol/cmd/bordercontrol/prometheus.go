@@ -33,7 +33,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				n += float64(stats.Feeders[u].Connections[protoBeast].ConnectionCount)
+				n += float64(stats.Feeders[u].Connections[protoBEAST].ConnectionCount)
 			}
 			return n
 		})
@@ -79,7 +79,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections[protoBeast].Status == true {
+				if stats.Feeders[u].Connections[protoBEAST].Status == true {
 					n++
 				}
 			}

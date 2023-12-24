@@ -38,6 +38,7 @@ func isValidApiKey(clientApiKey uuid.UUID) bool {
 
 func getFeederInfo(f *feederClient) error {
 	// return feeder info from atc, specifically: lat, lon, mux and label
+	// updates *feederClient in-place
 	found := false
 	validFeeders.mu.RLock()
 	defer validFeeders.mu.RUnlock()
