@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"net"
 	"os"
 	"syscall"
 	"testing"
@@ -8,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/nettest"
 )
 
 func prepTestEnvironmentTLS(t *testing.T) {
@@ -46,6 +50,49 @@ func prepTestEnvironmentTLS(t *testing.T) {
 		assert.NoError(t, err, "could not load TLS cert/key for test")
 		tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 	})
+}
+
+func prepTestEnvironmentTLSListener(t *testing.T) net.Listener {
+
+	var tlsListener net.Listener
+
+	t.Run("preparing test environment TLS listener", func(t *testing.T) {
+
+		// get testing host/port
+		n, err := nettest.NewLocalListener("tcp")
+		assert.NoError(t, err, "could not generate new local listener for test")
+		tlsListenAddr := n.Addr().String()
+		err = n.Close()
+		assert.NoError(t, err, "could not close temp local listener for test")
+
+		// configure temp listener
+		tlsListener, err = tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+		assert.NoError(t, err)
+		t.Logf("Listening on: %s", tlsListenAddr)
+	})
+
+	return tlsListener
+}
+
+func prepTestEnvironmentTLSClientConfig(t *testing.T) *tls.Config {
+
+	var tlsClientConfig tls.Config
+
+	t.Run("preparing test environment TLS Client Config", func(t *testing.T) {
+
+		// load root CAs
+		scp, err := x509.SystemCertPool()
+		assert.NoError(t, err, "could not use system cert pool for test")
+
+		// set up tls config
+		tlsClientConfig = tls.Config{
+			RootCAs:            scp,
+			ServerName:         testSNI.String(),
+			InsecureSkipVerify: true,
+		}
+	})
+
+	return &tlsClientConfig
 }
 
 func TestTLS_CertReload(t *testing.T) {

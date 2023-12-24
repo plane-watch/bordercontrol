@@ -440,47 +440,30 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 	stats.mu.Unlock()
 
+	// set up TLS environment, listener & client config
 	prepTestEnvironmentTLS(t)
-
-	// get testing host/port
-	n, err := nettest.NewLocalListener("tcp")
-	assert.NoError(t, err, "could not generate new local listener for test")
-	tlsListenAddr := n.Addr().String()
-	err = n.Close()
-	assert.NoError(t, err, "could not close temp local listener for test")
-
-	// configure temp listener
-	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
-	assert.NoError(t, err)
+	tlsListener := prepTestEnvironmentTLSListener(t)
 	defer tlsListener.Close()
-	t.Logf("Listening on: %s", tlsListenAddr)
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
 
-	// load root CAs
-	scp, err := x509.SystemCertPool()
-	assert.NoError(t, err, "could not use system cert pool for test")
-
-	// set up tls config
-	tlsClientConfig := tls.Config{
-		RootCAs:            scp,
-		ServerName:         testSNI.String(),
-		InsecureSkipVerify: true,
-	}
-
-	d := net.Dialer{
-		Timeout: 10 * time.Second,
-	}
-
+	// prep channel for controlling flow of goroutines
 	sendData := make(chan bool)
 
+	// start test client
 	t.Log("starting test environment TLS server")
 	var clientConn *tls.Conn
 	wg.Add(1)
-	go func() {
+	go func(t *testing.T) {
 		defer wg.Done()
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
 
 		// dial remote
 		var e error
-		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListenAddr, &tlsClientConfig)
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
@@ -494,7 +477,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 		_, e = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, e, "could not send test data")
 
-	}()
+	}(t)
 
 	t.Log("starting test environment TLS client")
 	c, err := tlsListener.Accept()
