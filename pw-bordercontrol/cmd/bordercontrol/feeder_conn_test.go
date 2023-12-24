@@ -760,6 +760,10 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
 	// configure temp listener
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	if err != nil {
+		assert.Error(t, err, "could not set up test listener")
+	}
+	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
 	defer tlsListener.Close()
 
 	// load root CAs
