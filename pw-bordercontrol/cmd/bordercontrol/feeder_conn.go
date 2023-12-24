@@ -445,6 +445,15 @@ func proxyServerToClient(conf protocolProxyConfig) {
 			// update stats
 			stats.incrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
 		}
+
+		// check feeder is still valid (every 60 secs)
+		if time.Now().After(conf.lastAuthCheck.Add(time.Second * 60)) {
+			if !isValidApiKey(conf.clientApiKey) {
+				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+				break
+			}
+			*conf.lastAuthCheck = time.Now()
+		}
 	}
 }
 
