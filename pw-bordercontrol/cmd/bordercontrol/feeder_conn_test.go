@@ -434,17 +434,21 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	// wait for feeder to expire
 	time.Sleep(time.Second * 10)
 
-	// send data to be proxied from client-side
-	_, err := serverOuter.Write([]byte("Hello World!"))
-	assert.NoError(t, err)
+	for i := 0; i < 5; i++ {
 
-	// read proxied data from the server-side
-	buf := make([]byte, 12)
-	_, err = clientOuter.Read(buf)
-	assert.NoError(t, err)
+		// send data to be proxied from client-side
+		_, err := serverOuter.Write([]byte("Hello World!"))
+		assert.NoError(t, err)
 
-	// data should match!
-	assert.Equal(t, []byte("Hello World!"), buf)
+		// read proxied data from the server-side
+		buf := make([]byte, 12)
+		_, err = clientOuter.Read(buf)
+		assert.NoError(t, err)
+
+		// data should match!
+		assert.Equal(t, []byte("Hello World!"), buf)
+
+	}
 
 	pStatus.mu.Lock()
 	pStatus.run = false
