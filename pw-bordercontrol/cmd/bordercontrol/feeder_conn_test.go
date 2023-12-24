@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"pw_bordercontrol/lib/atc"
 	"strconv"
 	"strings"
 	"sync"
@@ -380,14 +381,11 @@ func TestTLS(t *testing.T) {
 		assert.NoError(t, e, "could not dial test server")
 		defer clientConn.Close()
 
-		// // perform handshake
-		// e = clientConn.Handshake()
-		// assert.NoError(t, e, "could not handshake with test server")
-
+		// send some initial test data to allow handshake to take place
 		_, e = clientConn.Write([]byte("Hello World!"))
 		assert.NoError(t, e, "could not send test data")
 
-		// wait tp send more data until instructed
+		// wait to send more data until instructed
 		_ = <-sendData
 
 		_, e = clientConn.Write([]byte("Hello World!"))
@@ -414,9 +412,27 @@ func TestTLS(t *testing.T) {
 	}
 
 	t.Run("test authenticateFeeder working", func(t *testing.T) {
+
+		// prepare test data
+		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+			Altitude:   1,
+			ApiKey:     testSNI,
+			FeederCode: "ABCD-1234",
+			Label:      "test_feeder",
+			Latitude:   123.45678,
+			Longitude:  98.76543,
+			Mux:        "test_mux",
+		})
+
+		// test authenticateFeeder
 		clientDetails, err := authenticateFeeder(c)
 		assert.NoError(t, err)
-		fmt.Println(clientDetails)
+		assert.Equal(t, testSNI, clientDetails.clientApiKey)
+		assert.Equal(t, 123.45678, clientDetails.refLat)
+		assert.Equal(t, 98.76543, clientDetails.refLon)
+		assert.Equal(t, "test_mux", clientDetails.mux)
+		assert.Equal(t, "test_feeder", clientDetails.label)
+		assert.Equal(t, "ABCD-1234", clientDetails.feederCode)
 	})
 
 	// now send some data
