@@ -730,7 +730,8 @@ func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 }
 
 func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
-	// Test where client sends junk as API Key.
+	// Test where client sends a correctly-formatted UUID,
+	// but that UUID is not in the database as an allowed feeder.
 
 	// init stats
 	t.Log("init stats")
@@ -744,9 +745,13 @@ func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
 	defer tlsListener.Close()
 	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
 
+	// set SNI to a UUID not in the database
+	tlsClientConfig.ServerName = "l33t h4x0r"
+
 	sendData := make(chan bool)
 
 	t.Log("starting test environment TLS server")
+	var clientConn *tls.Conn
 	go func(t *testing.T) {
 
 		// prep dialler
@@ -755,11 +760,14 @@ func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
 		}
 
 		// dial remote
-		clientConn, e := tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
-		assert.Error(t, e, "could not dial test server")
-		if e == nil {
-			defer clientConn.Close()
-		}
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+		assert.NoError(t, e, "could not dial test server")
+		defer clientConn.Close()
+
+		// send some initial test data to allow handshake to take place
+		_, e = clientConn.Write([]byte("Hello World!"))
+		assert.NoError(t, e, "could not send test data")
 
 		// wait to send more data until instructed
 		_ = <-sendData
@@ -769,15 +777,30 @@ func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
 	t.Log("starting test environment TLS client")
 	c, err := tlsListener.Accept()
 	assert.NoError(t, err, "could not accept test connection")
-	defer c.Close()
+
+	// make buffer to hold data read from client
+	buf := make([]byte, sendRecvBufferSize)
+
+	// give the unauthenticated client 10 seconds to perform TLS handshake
+	c.SetDeadline(time.Now().Add(time.Second * 10))
+
+	// read data from client
+	_, err = readFromClient(c, buf)
+	if err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			assert.NoError(t, err)
+		}
+	}
 
 	// test authenticateFeeder
 	_, err = authenticateFeeder(c)
 	assert.Error(t, err)
-	assert.Equal(t, "tls handshake incomplete", err.Error())
+	assert.Equal(t, "client sent invalid api key", err.Error())
 
 	// now send some data
 	sendData <- true
+
+	c.Close()
 
 }
 
