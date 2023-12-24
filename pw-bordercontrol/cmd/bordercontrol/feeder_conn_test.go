@@ -560,7 +560,6 @@ func TestProxyClientToServer(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// init stats
-	t.Log("init stats")
 	stats.mu.Lock()
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 	stats.mu.Unlock()
@@ -615,88 +614,43 @@ func TestProxyServerToClient(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// init stats
-	t.Log("init stats")
 	stats.mu.Lock()
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 	stats.mu.Unlock()
 
-	var (
-		ssServerConn      net.Conn
-		ssClientConn      *net.TCPConn
-		serverListener    net.Listener
-		err               error
-		wgServerSideConns sync.WaitGroup
-		wgServerListener  sync.WaitGroup
-		wgServerConn      sync.WaitGroup
-	)
-
-	t.Log("preparing test server-side connections")
-
-	// spin up server-side server that will accept one connection
-	wgServerListener.Add(1)
-	wgServerConn.Add(1)
-	wgServerSideConns.Add(1)
-	go func(t *testing.T) {
-		var e error
-		serverListener, e = nettest.NewLocalListener("tcp4")
-		assert.NoError(t, e)
-		wgServerListener.Done()
-		ssServerConn, e = serverListener.Accept()
-		assert.NoError(t, e)
-		wgServerConn.Done()
-		wgServerSideConns.Done()
-	}(t)
-	wgServerListener.Wait()
-
-	// spin up server-side client connection
-	wgServerSideConns.Add(1)
-	go func(t *testing.T) {
-		serverPort, err := strconv.Atoi(strings.Split(serverListener.Addr().String(), ":")[1])
-		assert.NoError(t, err)
-
-		connectTo := net.TCPAddr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: serverPort,
-			Zone: "",
-		}
-		ssClientConn, err = net.DialTCP("tcp4", nil, &connectTo)
-		assert.NoError(t, err)
-		wgServerSideConns.Done()
-	}(t)
-	wgServerConn.Wait()
-	wgServerSideConns.Wait()
-
-	// spin up client-side server & client connections
-	t.Log("preparing test client-side connections")
-	csClientConn, csServerConn := net.Pipe()
+	// test connections
+	clientOuter, clientInner := net.Pipe()
+	serverOuter, serverInner := net.Pipe()
+	defer clientOuter.Close()
+	defer clientInner.Close()
+	defer serverOuter.Close()
+	defer serverInner.Close()
 
 	// method to signal goroutines to exit
 	pStatus := proxyStatus{
 		run: true,
 	}
 
-	// test proxyServerToClient
+	// test proxyClientToServer
 	lastAuthCheck := time.Now()
-
 	conf := protocolProxyConfig{
-		clientConn:    csClientConn,
-		serverConn:    ssClientConn,
+		clientConn:    clientInner,
+		serverConn:    serverInner,
 		connNum:       uint(1),
 		clientApiKey:  testSNI,
 		pStatus:       &pStatus,
 		lastAuthCheck: &lastAuthCheck,
 		log:           log.Logger,
 	}
-
-	go proxyServerToClient(conf)
+	go proxyClientToServer(conf)
 
 	// send data to be proxied from client-side
-	_, err = ssServerConn.Write([]byte("Hello World!"))
+	_, err := serverOuter.Write([]byte("Hello World!"))
 	assert.NoError(t, err)
 
 	// read proxied data from the server-side
 	buf := make([]byte, 12)
-	_, err = csServerConn.Read(buf)
+	_, err = serverInner.Read(buf)
 	assert.NoError(t, err)
 
 	// data should match!
