@@ -368,15 +368,19 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
+	// define waitgroup
+	wg := sync.WaitGroup{}
+
 	// init stats
 	t.Log("init stats")
 	stats.mu.Lock()
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 	stats.mu.Unlock()
 
-	// start server listener
+	// start test MLAT server - simple TCP echo server
 	serverQuit := make(chan bool)
 	go func(t *testing.T) {
+		wg.Add(1)
 
 		buf := make([]byte, 1000)
 
@@ -394,13 +398,14 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 		n, err := serverConn.Read(buf)
 		assert.NoError(t, err, "could not read from client connection")
-
 		t.Logf("test MLAT server received: '%s'", string(buf[:n]))
 
 		n, err = serverConn.Write(buf[:n])
+		assert.NoError(t, err, "could not write to client connection")
 		t.Logf("test MLAT server sent: '%s'", string(buf[:n]))
 
 		_ = <-serverQuit
+		wg.Done()
 
 	}(t)
 
@@ -454,7 +459,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	tlsListener, err := tls.Listen("tcp", tlsListenAddr, &tlsConfig)
 	assert.NoError(t, err)
 	defer tlsListener.Close()
-	t.Log(fmt.Sprintf("Listening on: %s", tlsListenAddr))
+	t.Logf("Listening on: %s", tlsListenAddr)
 
 	// load root CAs
 	scp, err := x509.SystemCertPool()
@@ -470,9 +475,6 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	d := net.Dialer{
 		Timeout: 10 * time.Second,
 	}
-
-	// define waitgroup
-	wg := sync.WaitGroup{}
 
 	// define channels for test flow
 	closeConn := make(chan bool)
@@ -537,6 +539,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	t.Log("closing the connection from client side")
 	closeConn <- true
+	serverQuit <- true
 
 	wg.Wait()
 
