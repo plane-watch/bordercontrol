@@ -340,7 +340,7 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 
 type protocolProxyConfig struct {
 	clientConn    net.Conn       // Client-side connection (feeder out on the internet).
-	serverConn    *net.TCPConn   // Server-side connection (feed-in container or mlat server).
+	serverConn    net.Conn       // Server-side connection (feed-in container or mlat server).
 	connNum       uint           // Connection number (used for statistics and stuff).
 	clientApiKey  uuid.UUID      // Client's API Key (from stunnel SNI).
 	pStatus       *proxyStatus   // Proxy status. Provides the ability to tell the proxy to self-terminate.
