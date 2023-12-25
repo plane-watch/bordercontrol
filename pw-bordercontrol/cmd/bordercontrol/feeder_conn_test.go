@@ -1176,7 +1176,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	t.Log("test complete")
 }
 
-func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
+func TestProxyClientConnection_MLAT_ConnectingTooFast(t *testing.T) {
 
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
