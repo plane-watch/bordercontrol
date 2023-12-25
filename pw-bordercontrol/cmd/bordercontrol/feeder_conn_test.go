@@ -1264,17 +1264,16 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 			// dial remote
 			var e error
 			clientConn, e := tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
-			if e != nil {
-				return e
+			if e == nil {
+				defer clientConn.Close()
 			}
-			defer clientConn.Close()
 
 			// wait to close
 			_ = <-clientConnClose
 
 			t.Logf("closing test environment TLS client #%d", i)
 
-			return nil
+			return e
 		}(i)
 	}
 
