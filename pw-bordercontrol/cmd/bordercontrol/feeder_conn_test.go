@@ -1282,33 +1282,23 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 
 	// hand off the incoming test connection to the proxy
 
+	// start max num of allowed conns
+	for i := 0; i <= 2; i++ {
+		wg.Add(1)
+		go func(t *testing.T) {
+			defer wg.Done()
+			_ = proxyClientConnection(pc)
+		}(t)
+	}
+
+	// start one more conn - should be disallowed
 	wg.Add(1)
 	go func(t *testing.T) {
 		defer wg.Done()
 		var err error
 		err = proxyClientConnection(pc)
-		assert.NoError(t, err)
-	}(t)
-	wg.Add(1)
-	go func(t *testing.T) {
-		defer wg.Done()
-		var err error
-		err = proxyClientConnection(pc)
-		assert.NoError(t, err)
-	}(t)
-	wg.Add(1)
-	go func(t *testing.T) {
-		defer wg.Done()
-		var err error
-		err = proxyClientConnection(pc)
-		assert.NoError(t, err)
-	}(t)
-	wg.Add(1)
-	go func(t *testing.T) {
-		defer wg.Done()
-		var err error
-		err = proxyClientConnection(pc)
-		assert.NoError(t, err)
+		assert.Error(t, err)
+		assert.Equal(t, "more than 3 connections from src within a 10 second period", err.Error())
 	}(t)
 
 	t.Log("terminating test MLAT server")
