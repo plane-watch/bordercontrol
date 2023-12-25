@@ -1289,12 +1289,21 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 		err = proxyClientConnection(pc)
 		assert.NoError(t, err)
 	}(t)
+	wg.Add(1)
 	go func(t *testing.T) {
 		defer wg.Done()
 		var err error
 		err = proxyClientConnection(pc)
 		assert.NoError(t, err)
 	}(t)
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+		var err error
+		err = proxyClientConnection(pc)
+		assert.NoError(t, err)
+	}(t)
+	wg.Add(1)
 	go func(t *testing.T) {
 		defer wg.Done()
 		var err error
