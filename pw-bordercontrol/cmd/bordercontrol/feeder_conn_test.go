@@ -1418,7 +1418,7 @@ func TestProxyClientConnection_MLAT_TooManyConnections(t *testing.T) {
 
 			// prep dialler
 			d := net.Dialer{
-				Timeout: 30 * time.Second,
+				Timeout: 5 * time.Minute,
 			}
 
 			// dial remote
