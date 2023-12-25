@@ -1192,6 +1192,7 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 
 	// define channels for controlling test goroutines
 	serverQuit := make(chan bool)
+	clientConnClose := make(chan bool)
 
 	// start test MLAT server - simple TCP echo server)
 	t.Log("starting test MLAT server (TCP echo server) on 127.0.0.1:12346")
@@ -1246,65 +1247,76 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
 
 	// start test environment TLS client
-	t.Log("starting test environment TLS client")
-
-	var clientConn *tls.Conn
-
-	go func() error {
-		defer wg.Done()
-
-		// prep dialler
-		d := net.Dialer{
-			Timeout: 10 * time.Second,
-		}
-
-		// dial remote
-		var e error
-		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
-		if e != nil {
-			return e
-		}
-		defer clientConn.Close()
-
-		// sleep for a bit
-		time.Sleep(time.Second * 2)
-
-		return nil
-	}()
-
-	// accept the TLS connection from the above goroutine
-	connIn, err := tlsListener.Accept()
-	assert.NoError(t, err)
-
-	// prepare proxy config
-	pc := proxyConfig{
-		connIn:                     connIn,
-		connProto:                  protoMLAT, // must be MLAT for two way communications
-		connNum:                    1,
-		containersToStartRequests:  make(chan startContainerRequest),
-		containersToStartResponses: make(chan startContainerResponse),
-	}
-
-	// hand off the incoming test connection to the proxy
-
-	// start max num of allowed conns
-	for i := 0; i <= 2; i++ {
+	// start four client connections
+	for i := 0; i <= 3; i++ {
 		wg.Add(1)
-		go func(t *testing.T) {
+		go func(i int) error {
 			defer wg.Done()
-			_ = proxyClientConnection(pc)
-		}(t)
+
+			t.Logf("starting test environment TLS client #%d", i)
+
+			// prep dialler
+			d := net.Dialer{
+				Timeout: 10 * time.Second,
+			}
+
+			// dial remote
+			var e error
+			clientConn, e := tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+			if e != nil {
+				return e
+			}
+			defer clientConn.Close()
+
+			// wait to close
+			_ = <-clientConnClose
+
+			t.Logf("closing test environment TLS client #%d", i)
+
+			return nil
+		}(i)
 	}
 
-	// start one more conn - should be disallowed
-	wg.Add(1)
-	go func(t *testing.T) {
-		defer wg.Done()
-		var err error
-		err = proxyClientConnection(pc)
-		assert.Error(t, err)
-		assert.Equal(t, "more than 3 connections from src within a 10 second period", err.Error())
-	}(t)
+	// proxy the client connections
+	for i := 0; i <= 3; i++ {
+
+		t.Logf("accepting client connection #%d", i)
+
+		// accept the TLS connection from the above goroutine
+		connIn, err := tlsListener.Accept()
+		assert.NoError(t, err)
+
+		// prepare proxy config
+		pc := proxyConfig{
+			connIn:                     connIn,
+			connProto:                  protoMLAT, // must be MLAT for two way communications
+			connNum:                    1,
+			containersToStartRequests:  make(chan startContainerRequest),
+			containersToStartResponses: make(chan startContainerResponse),
+		}
+
+		// hand off the incoming test connection to the proxy
+
+		if i <= 2 {
+			// start max num of allowed conns
+			wg.Add(1)
+			go func(t *testing.T) {
+				defer wg.Done()
+				_ = proxyClientConnection(pc)
+			}(t)
+		} else {
+
+			// start one more conn - should be disallowed
+			wg.Add(1)
+			go func(t *testing.T) {
+				defer wg.Done()
+				var err error
+				err = proxyClientConnection(pc)
+				assert.Error(t, err)
+				assert.Equal(t, "more than 3 connections from src within a 10 second period", err.Error())
+			}(t)
+		}
+	}
 
 	t.Log("terminating test MLAT server")
 	serverQuit <- true
