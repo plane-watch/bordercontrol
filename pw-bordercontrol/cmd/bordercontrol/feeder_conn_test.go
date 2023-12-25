@@ -1210,12 +1210,17 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 
 			var serverConn net.Conn
 
+			listener.SetDeadline(time.Now().Add(time.Second))
+
 			select {
 			case _ = <-serverQuit:
 				return
 			default:
-				serverConn, _ = listener.Accept()
-				serverConn.Close()
+				serverConn, err = listener.Accept()
+				if err == nil {
+					time.Sleep(time.Second)
+					serverConn.Close()
+				}
 			}
 		}
 	}(t)
