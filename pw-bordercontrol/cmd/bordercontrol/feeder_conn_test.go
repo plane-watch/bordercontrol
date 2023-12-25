@@ -1175,3 +1175,139 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	t.Log("test complete")
 }
+
+func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// define waitgroup
+	wg := sync.WaitGroup{}
+
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// define channels for controlling test goroutines
+	serverQuit := make(chan bool)
+
+	// start test MLAT server - simple TCP echo server)
+	t.Log("starting test MLAT server (TCP echo server) on 127.0.0.1:12346")
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+		listenAddr := net.TCPAddr{
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 12346,
+		}
+		listener, err := net.ListenTCP("tcp", &listenAddr)
+		assert.NoError(t, err, "could not start test MLAT server")
+		defer listener.Close()
+
+		for {
+
+			var serverConn net.Conn
+
+			select {
+			case _ = <-serverQuit:
+				return
+			default:
+				serverConn, _ = listener.Accept()
+				serverConn.Close()
+			}
+		}
+	}(t)
+
+	// prepare test data
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "127.0.0.1", // connect to the tcp echo server
+	})
+	validFeeders.mu.Unlock()
+
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
+	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
+
+	// start test environment TLS client
+	t.Log("starting test environment TLS client")
+
+	var clientConn *tls.Conn
+
+	go func() error {
+		defer wg.Done()
+
+		// prep dialler
+		d := net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+
+		// dial remote
+		var e error
+		clientConn, e = tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+		if e != nil {
+			return e
+		}
+		defer clientConn.Close()
+
+		// sleep for a bit
+		time.Sleep(time.Second * 2)
+
+		return nil
+	}()
+
+	// accept the TLS connection from the above goroutine
+	connIn, err := tlsListener.Accept()
+	assert.NoError(t, err)
+
+	// prepare proxy config
+	pc := proxyConfig{
+		connIn:                     connIn,
+		connProto:                  protoMLAT, // must be MLAT for two way communications
+		connNum:                    1,
+		containersToStartRequests:  make(chan startContainerRequest),
+		containersToStartResponses: make(chan startContainerResponse),
+	}
+
+	// hand off the incoming test connection to the proxy
+
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+		var err error
+		err = proxyClientConnection(pc)
+		assert.NoError(t, err)
+	}(t)
+	go func(t *testing.T) {
+		defer wg.Done()
+		var err error
+		err = proxyClientConnection(pc)
+		assert.NoError(t, err)
+	}(t)
+	go func(t *testing.T) {
+		defer wg.Done()
+		var err error
+		err = proxyClientConnection(pc)
+		assert.NoError(t, err)
+	}(t)
+
+	t.Log("terminating test MLAT server")
+	serverQuit <- true
+
+	// wait for goroutines to finish
+	t.Log("waiting for goroutines to finish")
+	wg.Wait()
+
+	t.Log("test complete")
+}
