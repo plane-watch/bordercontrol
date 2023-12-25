@@ -1193,6 +1193,7 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 	// define channels for controlling test goroutines
 	serverQuit := make(chan bool)
 	clientConnClose := make(chan bool)
+	testsFinished := make(chan bool)
 
 	// start test MLAT server - simple TCP echo server)
 	t.Log("starting test MLAT server (TCP echo server) on 127.0.0.1:12346")
@@ -1314,10 +1315,20 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 				err = proxyClientConnection(pc)
 				assert.Error(t, err)
 				assert.Equal(t, "more than 3 connections from src within a 10 second period", err.Error())
+				testsFinished <- true
 			}(t)
 		}
 	}
 
+	// wait for tests to finish
+	_ = <-testsFinished
+
+	// close client conns
+	for i := 0; i <= 3; i++ {
+		clientConnClose <- true
+	}
+
+	// stop test mlat server
 	t.Log("terminating test MLAT server")
 	serverQuit <- true
 
