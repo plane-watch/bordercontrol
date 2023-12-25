@@ -1376,19 +1376,13 @@ func TestProxyClientConnection_MLAT_TooManyConnections(t *testing.T) {
 
 		for {
 
-			var serverConn net.Conn
-
 			listener.SetDeadline(time.Now().Add(time.Second))
 
 			select {
 			case _ = <-serverQuit:
 				return
 			default:
-				serverConn, err = listener.Accept()
-				if err == nil {
-					time.Sleep(time.Second)
-					serverConn.Close()
-				}
+				_, _ = listener.Accept()
 			}
 		}
 	}(t)
@@ -1424,7 +1418,7 @@ func TestProxyClientConnection_MLAT_TooManyConnections(t *testing.T) {
 
 			// prep dialler
 			d := net.Dialer{
-				Timeout: 10 * time.Second,
+				Timeout: 30 * time.Second,
 			}
 
 			// dial remote
