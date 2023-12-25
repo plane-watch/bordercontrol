@@ -1267,7 +1267,7 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 			if e == nil {
 				defer clientConn.Close()
 			} else {
-				t.Logf("connection error: %s", e.Error())
+				t.Logf("connection #%d error: %s", i, e.Error())
 			}
 
 			// wait to close
@@ -1277,6 +1277,7 @@ func TestProxyClientConnection_MLAT_TooManyConns(t *testing.T) {
 
 			return e
 		}(i)
+		time.Sleep(time.Second)
 	}
 
 	// proxy the client connections
