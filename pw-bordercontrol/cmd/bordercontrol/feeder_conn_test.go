@@ -1439,7 +1439,7 @@ func TestProxyClientConnection_MLAT_TooManyConnections(t *testing.T) {
 		}(i)
 
 		t.Log("Waiting 10 seconds")
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 1)
 	}
 
 	// proxy the client connections
@@ -1482,7 +1482,7 @@ func TestProxyClientConnection_MLAT_TooManyConnections(t *testing.T) {
 				testsFinished <- true
 			}(t)
 		}
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Second * 11)
 	}
 
 	// wait for tests to finish
