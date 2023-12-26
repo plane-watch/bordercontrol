@@ -2,7 +2,9 @@ package main
 
 import (
 	"crypto/sha256"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,4 +22,34 @@ func TestGetRepoInfo(t *testing.T) {
 	// return unknown during testing
 	assert.Equal(t, "unknown", ch)
 	assert.Equal(t, "unknown", ct)
+}
+
+func TestCreateSignalChannels(t *testing.T) {
+
+	// create signal channels
+	createSignalChannels()
+
+	// send SIGHUP
+	err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+	assert.NoError(t, err)
+
+	// check SIGHUP was received
+	select {
+	case <-time.After(time.Second * 5):
+		assert.Fail(t, "timeout reading chanSIGHUP")
+	case s := <-chanSIGHUP:
+		assert.Equal(t, syscall.SIGHUP, s)
+	}
+
+	// send SIGUSR1
+	err = syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
+	assert.NoError(t, err)
+
+	// check SIGUSR1 was received
+	select {
+	case <-time.After(time.Second * 5):
+		assert.Fail(t, "timeout reading chanSIGUSR1")
+	case s := <-chanSIGUSR1:
+		assert.Equal(t, syscall.SIGUSR1, s)
+	}
 }

@@ -190,7 +190,7 @@ func getRepoInfo() (commitHash, commitTime string) {
 	return commitHash, commitTime
 }
 
-func prepSignalChannels() {
+func createSignalChannels() {
 	// prepares global channels to catch specific signals
 
 	// SIGHUP = reload TLS/SSL cert/key
@@ -214,7 +214,7 @@ func runServer(ctx *cli.Context) error {
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
 
 	// prep signal channels
-	prepSignalChannels()
+	createSignalChannels()
 
 	// set up TLS
 	// load SSL cert/key
