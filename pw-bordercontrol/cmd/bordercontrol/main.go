@@ -22,7 +22,9 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type feedProtocol string
+type (
+	feedProtocol string
+)
 
 var (
 	feedInImage            string
@@ -190,7 +192,7 @@ func getRepoInfo() (commitHash, commitTime string) {
 	return commitHash, commitTime
 }
 
-func prepSignalChannels() {
+func createSignalChannels() {
 	// prepares global channels to catch specific signals
 
 	// SIGHUP = reload TLS/SSL cert/key
@@ -214,7 +216,7 @@ func runServer(ctx *cli.Context) error {
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
 
 	// prep signal channels
-	prepSignalChannels()
+	createSignalChannels()
 
 	// set up TLS
 	// load SSL cert/key
@@ -321,6 +323,7 @@ func runServer(ctx *cli.Context) error {
 			},
 			containersToStartRequests:  containersToStartRequests,
 			containersToStartResponses: containersToStartResponses,
+			mgmt:                       &goRoutineManager{},
 		}
 
 		// listen forever
@@ -348,11 +351,13 @@ func runServer(ctx *cli.Context) error {
 			},
 			containersToStartRequests:  containersToStartRequests,
 			containersToStartResponses: containersToStartResponses,
+			mgmt:                       &goRoutineManager{},
 		}
 
 		// listen forever
 		for {
-			listener(conf)
+			err := listener(conf)
+			log.Err(err).Msg("error with listener")
 			time.Sleep(time.Second * 1) // if there's a problem, slow down restarting
 		}
 	}()
@@ -370,9 +375,10 @@ type listenConfig struct {
 	listenAddr                 net.TCPAddr                 // TCP address to listen on for incoming stunnel'd BEAST connections
 	containersToStartRequests  chan startContainerRequest  // Channel to send container start requests to.
 	containersToStartResponses chan startContainerResponse // Channel to receive container start responses from.
+	mgmt                       *goRoutineManager           // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
 }
 
-func listener(conf listenConfig) {
+func listener(conf listenConfig) error {
 	// incoming connection listener
 
 	log := log.With().
@@ -396,10 +402,17 @@ func listener(conf listenConfig) {
 
 	// handle incoming connections
 	for {
+
+		// quit if directed
+		if conf.mgmt.CheckForStop() {
+			break
+		}
+
+		// accept incoming connection
 		conn, err := tlsListener.Accept()
 		if err != nil {
 			log.Err(err).Msg("error with tlsListener.Accept")
-			continue
+			return err
 		}
 
 		// prep proxy config
@@ -414,4 +427,6 @@ func listener(conf listenConfig) {
 		// initiate proxying of the connection
 		go proxyClientConnection(proxyConf)
 	}
+
+	return nil
 }

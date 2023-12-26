@@ -36,12 +36,6 @@ type (
 		refLat, refLon         float64
 		mux, label, feederCode string
 	}
-
-	// struct for proxy goroutines
-	proxyStatus struct {
-		mu  sync.RWMutex
-		run bool
-	}
 )
 
 const (
@@ -331,14 +325,14 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 }
 
 type protocolProxyConfig struct {
-	clientConn                  net.Conn       // Client-side connection (feeder out on the internet).
-	serverConn                  net.Conn       // Server-side connection (feed-in container or mlat server).
-	connNum                     uint           // Connection number (used for statistics and stuff).
-	clientApiKey                uuid.UUID      // Client's API Key (from stunnel SNI).
-	pStatus                     *proxyStatus   // Proxy status. Provides the ability to tell the proxy to self-terminate.
-	lastAuthCheck               *time.Time     // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
-	log                         zerolog.Logger // Log. This allows the proxy to inherit a logging context.
-	feederValidityCheckInterval time.Duration  // How often to check the feeder is still valid.
+	clientConn                  net.Conn          // Client-side connection (feeder out on the internet).
+	serverConn                  net.Conn          // Server-side connection (feed-in container or mlat server).
+	connNum                     uint              // Connection number (used for statistics and stuff).
+	clientApiKey                uuid.UUID         // Client's API Key (from stunnel SNI).
+	mgmt                        *goRoutineManager // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
+	lastAuthCheck               *time.Time        // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
+	log                         zerolog.Logger    // Log. This allows the proxy to inherit a logging context.
+	feederValidityCheckInterval time.Duration     // How often to check the feeder is still valid.
 }
 
 func proxyClientToServer(conf protocolProxyConfig) {
@@ -346,13 +340,10 @@ func proxyClientToServer(conf protocolProxyConfig) {
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
-		// quit if directed by other goroutine
-		conf.pStatus.mu.RLock()
-		if !conf.pStatus.run {
-			conf.pStatus.mu.RUnlock()
+		// quit if directed
+		if conf.mgmt.CheckForStop() {
 			break
 		}
-		conf.pStatus.mu.RUnlock()
 
 		// read from feeder client
 		err := conf.clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
@@ -400,13 +391,10 @@ func proxyServerToClient(conf protocolProxyConfig) {
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
-		// quit if directed by other goroutine
-		conf.pStatus.mu.RLock()
-		if !conf.pStatus.run {
-			conf.pStatus.mu.RUnlock()
+		// quit if directed
+		if conf.mgmt.CheckForStop() {
 			break
 		}
-		conf.pStatus.mu.RUnlock()
 
 		// read from server
 		err := conf.serverConn.SetReadDeadline(time.Now().Add(time.Second * 2))
@@ -638,18 +626,13 @@ func proxyClientConnection(conf proxyConfig) error {
 	stats.addConnection(clientDetails.clientApiKey, conf.connIn.RemoteAddr(), connOut.RemoteAddr(), conf.connProto, clientDetails.feederCode, conf.connNum)
 	defer stats.delConnection(clientDetails.clientApiKey, conf.connProto, conf.connNum)
 
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
-
 	// prepare proxy config
 	protoProxyConf := protocolProxyConfig{
 		clientConn:                  conf.connIn,
 		serverConn:                  connOut,
 		connNum:                     conf.connNum,
 		clientApiKey:                clientDetails.clientApiKey,
-		pStatus:                     &pStatus,
+		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log,
 		feederValidityCheckInterval: time.Second * 60,
@@ -662,9 +645,7 @@ func proxyClientConnection(conf proxyConfig) error {
 		proxyClientToServer(protoProxyConf)
 
 		// tell other goroutine to exit
-		pStatus.mu.Lock()
-		defer pStatus.mu.Unlock()
-		pStatus.run = false
+		protoProxyConf.mgmt.Stop()
 	}()
 
 	// handle data from server container to feeder client (if required, no point doing this for BEAST)
@@ -676,9 +657,7 @@ func proxyClientConnection(conf proxyConfig) error {
 			proxyServerToClient(protoProxyConf)
 
 			// tell other goroutine to exit
-			pStatus.mu.Lock()
-			defer pStatus.mu.Unlock()
-			pStatus.run = false
+			protoProxyConf.mgmt.Stop()
 		}()
 	}
 
