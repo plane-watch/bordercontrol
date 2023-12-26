@@ -18,7 +18,7 @@ func prepTestEnvironmentTLS(t *testing.T) {
 	t.Run("preparing test environment TLS certificate and private key", func(t *testing.T) {
 
 		// prep signal channels
-		prepSignalChannels()
+		createSignalChannels()
 
 		// prep cert file
 		certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
