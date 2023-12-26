@@ -11,14 +11,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/nettest"
 )
 
 func prepTestEnvironmentTLS(t *testing.T) {
 	t.Run("preparing test environment TLS certificate and private key", func(t *testing.T) {
 
-		// prep signal channels
-		prepSignalChannels()
+		// create signal channels
+		createSignalChannels()
 
 		// prep cert file
 		certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
@@ -58,14 +57,10 @@ func prepTestEnvironmentTLSListener(t *testing.T) net.Listener {
 
 	t.Run("preparing test environment TLS Listener", func(t *testing.T) {
 
-		// get testing host/port
-		n, err := nettest.NewLocalListener("tcp")
-		assert.NoError(t, err, "could not generate new local listener for test")
-		tlsListenAddr := n.Addr().String()
-		err = n.Close()
-		assert.NoError(t, err, "could not close temp local listener for test")
+		tlsListenAddr := getListenableAddress(t)
 
 		// configure temp listener
+		var err error
 		tlsListener, err = tls.Listen("tcp", tlsListenAddr, &tlsConfig)
 		assert.NoError(t, err)
 		t.Logf("Listening on: %s", tlsListenAddr)
