@@ -239,7 +239,15 @@ func runServer(ctx *cli.Context) error {
 	go statsManager(":8080")
 
 	// start goroutine to regularly pull feeders from atc
-	go updateFeederDB(ctx, 60*time.Second)
+	go func() {
+		conf := updateFeederDBConfig{
+			updateFreq: time.Second * 60,
+			atcUrl:     ctx.String("atcurl"),
+			atcUser:    ctx.String("atcuser"),
+			atcPass:    ctx.String("atcpass"),
+		}
+		updateFeederDB(&conf)
+	}()
 
 	// prepare channel for container start requests
 	containersToStartRequests := make(chan startContainerRequest)

@@ -10,8 +10,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/rs/zerolog/log"
-
-	"github.com/urfave/cli/v2"
 )
 
 // struct for a list of valid feeder uuids (+ mutex for sync)
@@ -59,7 +57,17 @@ func getFeederInfo(f *feederClient) error {
 	return nil
 }
 
-func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
+type updateFeederDBConfig struct {
+	updateFreq time.Duration // how often to refresh feeder DB from ATC
+	atcUrl     string        // ATC API URL
+	atcUser    string        // ATC API Username
+	atcPass    string        // ATC API Password
+
+	stop   bool // set to true to stop goroutine, use mutex below for sync
+	stopMu sync.Mutex
+}
+
+func updateFeederDB(conf *updateFeederDBConfig) {
 	// updates validFeeders with data from atc
 
 	log := log.With().
@@ -72,21 +80,28 @@ func updateFeederDB(ctx *cli.Context, updateFreq time.Duration) {
 
 		// sleep for updateFreq
 		if !firstRun {
-			time.Sleep(updateFreq)
+			time.Sleep(conf.updateFreq)
 		} else {
 			firstRun = false
 		}
 
+		conf.stopMu.Lock()
+		if conf.stop {
+			conf.stopMu.Unlock()
+			return
+		}
+		conf.stopMu.Unlock()
+
 		// get data from atc
-		atcUrl, err := url.Parse(ctx.String("atcurl"))
+		atcUrl, err := url.Parse(conf.atcUrl)
 		if err != nil {
 			log.Error().Msg("--atcurl is invalid")
 			continue
 		}
 		s := atc.Server{
 			Url:      *atcUrl,
-			Username: ctx.String("atcuser"),
-			Password: ctx.String("atcpass"),
+			Username: conf.atcUser,
+			Password: conf.atcPass,
 		}
 		f, err := atc.GetFeeders(&s)
 		if err != nil {
