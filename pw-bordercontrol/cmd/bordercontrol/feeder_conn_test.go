@@ -254,11 +254,6 @@ func TestProxyClientToServer_Working(t *testing.T) {
 	defer serverOuter.Close()
 	defer serverInner.Close()
 
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
-
 	// test proxyClientToServer
 	lastAuthCheck := time.Now()
 	conf := protocolProxyConfig{
@@ -266,7 +261,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 		serverConn:                  serverInner,
 		connNum:                     uint(1),
 		clientApiKey:                testSNI,
-		pStatus:                     &pStatus,
+		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log.Logger,
 		feederValidityCheckInterval: time.Second * 1,
@@ -294,9 +289,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	// stop proxyClientToServer
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
+	conf.mgmt.Stop()
 
 	wg.Wait()
 
@@ -336,11 +329,6 @@ func TestProxyServerToClient_Working(t *testing.T) {
 	defer serverOuter.Close()
 	defer serverInner.Close()
 
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
-
 	// test proxyClientToServer
 	lastAuthCheck := time.Now()
 	conf := protocolProxyConfig{
@@ -348,7 +336,7 @@ func TestProxyServerToClient_Working(t *testing.T) {
 		serverConn:                  serverInner,
 		connNum:                     uint(1),
 		clientApiKey:                testSNI,
-		pStatus:                     &pStatus,
+		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log.Logger,
 		feederValidityCheckInterval: time.Second * 60,
@@ -376,9 +364,7 @@ func TestProxyServerToClient_Working(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	// stop proxyClientToServer
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
+	conf.mgmt.Stop()
 
 	wg.Wait()
 
@@ -418,11 +404,6 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 	defer serverOuter.Close()
 	defer serverInner.Close()
 
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
-
 	// test proxyClientToServer
 	lastAuthCheck := time.Now()
 	conf := protocolProxyConfig{
@@ -430,7 +411,7 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 		serverConn:                  serverInner,
 		connNum:                     uint(1),
 		clientApiKey:                testSNI,
-		pStatus:                     &pStatus,
+		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log.Logger,
 		feederValidityCheckInterval: time.Second * 1,
@@ -465,9 +446,7 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "read pipe: i/o timeout", err.Error())
 
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
+	conf.mgmt.Stop()
 
 	wg.Wait()
 
@@ -507,11 +486,6 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	defer serverOuter.Close()
 	defer serverInner.Close()
 
-	// method to signal goroutines to exit
-	pStatus := proxyStatus{
-		run: true,
-	}
-
 	// test proxyClientToServer
 	lastAuthCheck := time.Now()
 	conf := protocolProxyConfig{
@@ -519,7 +493,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 		serverConn:                  serverInner,
 		connNum:                     uint(1),
 		clientApiKey:                testSNI,
-		pStatus:                     &pStatus,
+		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log.Logger,
 		feederValidityCheckInterval: time.Second * 1,
@@ -554,9 +528,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "read pipe: i/o timeout", err.Error())
 
-	pStatus.mu.Lock()
-	pStatus.run = false
-	pStatus.mu.Unlock()
+	conf.mgmt.Stop()
 
 	wg.Wait()
 
