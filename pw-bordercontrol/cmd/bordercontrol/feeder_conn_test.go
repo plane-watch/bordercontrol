@@ -226,6 +226,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -236,6 +237,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -267,7 +269,7 @@ func TestProxyClientToServer_Working(t *testing.T) {
 		pStatus:                     &pStatus,
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log.Logger,
-		feederValidityCheckInterval: time.Second * 60,
+		feederValidityCheckInterval: time.Second * 1,
 	}
 
 	wg.Add(1)
@@ -288,6 +290,10 @@ func TestProxyClientToServer_Working(t *testing.T) {
 	// data should match!
 	assert.Equal(t, []byte("Hello World!"), buf)
 
+	// wait for auth check
+	time.Sleep(time.Second * 2)
+
+	// stop proxyClientToServer
 	pStatus.mu.Lock()
 	pStatus.run = false
 	pStatus.mu.Unlock()
@@ -302,6 +308,7 @@ func TestProxyServerToClient_Working(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -312,6 +319,7 @@ func TestProxyServerToClient_Working(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -364,6 +372,10 @@ func TestProxyServerToClient_Working(t *testing.T) {
 	// data should match!
 	assert.Equal(t, []byte("Hello World!"), buf)
 
+	// wait for auth check
+	time.Sleep(time.Second * 2)
+
+	// stop proxyClientToServer
 	pStatus.mu.Lock()
 	pStatus.run = false
 	pStatus.mu.Unlock()
@@ -378,6 +390,7 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -388,6 +401,7 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -465,6 +479,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -475,6 +490,7 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "test_mux",
 	})
+	validFeeders.mu.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -700,6 +716,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 	t.Run("test authenticateFeeder working", func(t *testing.T) {
 
 		// prepare test data
+		validFeeders.mu.Lock()
 		validFeeders.Feeders = []atc.Feeder{}
 		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 			Altitude:   1,
@@ -710,6 +727,7 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 			Longitude:  98.76543,
 			Mux:        "test_mux",
 		})
+		validFeeders.mu.Unlock()
 
 		// test authenticateFeeder
 		clientDetails, err := authenticateFeeder(c)
@@ -1060,6 +1078,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	}(t)
 
 	// prepare test data
+	validFeeders.mu.Lock()
 	validFeeders.Feeders = []atc.Feeder{}
 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
 		Altitude:   1,
@@ -1070,6 +1089,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 		Longitude:  98.76543,
 		Mux:        "127.0.0.1", // connect to the tcp echo server
 	})
+	validFeeders.mu.Unlock()
 
 	// set up TLS environment, listener & client config
 	prepTestEnvironmentTLS(t)
@@ -1146,6 +1166,172 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	t.Log("closing client connection")
 	closeConn <- true
 
+	t.Log("terminating test MLAT server")
+	serverQuit <- true
+
+	// wait for goroutines to finish
+	t.Log("waiting for goroutines to finish")
+	wg.Wait()
+
+	t.Log("test complete")
+}
+
+func TestProxyClientConnection_MLAT_ConnectingTooFast(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+	// define waitgroup
+	wg := sync.WaitGroup{}
+
+	// init stats
+	t.Log("init stats")
+	stats.mu.Lock()
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+	stats.mu.Unlock()
+
+	// define channels for controlling test goroutines
+	serverQuit := make(chan bool)
+	clientConnClose := make(chan bool)
+	testsFinished := make(chan bool)
+
+	// start test MLAT server - simple TCP echo server)
+	t.Log("starting test MLAT server (TCP echo server) on 127.0.0.1:12346")
+	wg.Add(1)
+	go func(t *testing.T) {
+		defer wg.Done()
+		listenAddr := net.TCPAddr{
+			IP:   net.ParseIP("127.0.0.1"),
+			Port: 12346,
+		}
+		listener, err := net.ListenTCP("tcp", &listenAddr)
+		assert.NoError(t, err, "could not start test MLAT server")
+		defer listener.Close()
+
+		for {
+
+			var serverConn net.Conn
+
+			listener.SetDeadline(time.Now().Add(time.Second))
+
+			select {
+			case _ = <-serverQuit:
+				return
+			default:
+				serverConn, err = listener.Accept()
+				if err == nil {
+					time.Sleep(time.Second)
+					serverConn.Close()
+				}
+			}
+		}
+	}(t)
+
+	// prepare test data
+	validFeeders.mu.Lock()
+	validFeeders.Feeders = []atc.Feeder{}
+	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+		Altitude:   1,
+		ApiKey:     testSNI,
+		FeederCode: "ABCD-1234",
+		Label:      "test_feeder",
+		Latitude:   123.45678,
+		Longitude:  98.76543,
+		Mux:        "127.0.0.1", // connect to the tcp echo server
+	})
+	validFeeders.mu.Unlock()
+
+	// set up TLS environment, listener & client config
+	prepTestEnvironmentTLS(t)
+	tlsListener := prepTestEnvironmentTLSListener(t)
+	defer tlsListener.Close()
+	tlsClientConfig := prepTestEnvironmentTLSClientConfig(t)
+
+	// start test environment TLS client
+	// start four client connections
+	for i := 0; i <= 3; i++ {
+		wg.Add(1)
+		go func(i int) error {
+			defer wg.Done()
+
+			t.Logf("starting test environment TLS client #%d", i)
+
+			// prep dialler
+			d := net.Dialer{
+				Timeout: 10 * time.Second,
+			}
+
+			// dial remote
+			var e error
+			clientConn, e := tls.DialWithDialer(&d, "tcp", tlsListener.Addr().String(), tlsClientConfig)
+			if e == nil {
+				defer clientConn.Close()
+			} else {
+				t.Logf("connection #%d error: %s", i, e.Error())
+			}
+
+			// wait to close
+			_ = <-clientConnClose
+
+			t.Logf("closing test environment TLS client #%d", i)
+
+			return e
+		}(i)
+		time.Sleep(time.Millisecond * 200)
+	}
+
+	// proxy the client connections
+	for i := 0; i <= 3; i++ {
+
+		t.Logf("accepting client connection #%d", i)
+
+		// accept the TLS connection from the above goroutine
+		connIn, err := tlsListener.Accept()
+		assert.NoError(t, err)
+
+		// prepare proxy config
+		pc := proxyConfig{
+			connIn:                     connIn,
+			connProto:                  protoMLAT, // must be MLAT for two way communications
+			connNum:                    1,
+			containersToStartRequests:  make(chan startContainerRequest),
+			containersToStartResponses: make(chan startContainerResponse),
+		}
+
+		// hand off the incoming test connection to the proxy
+
+		if i <= 2 {
+			// start max num of allowed conns
+			wg.Add(1)
+			go func(t *testing.T) {
+				defer wg.Done()
+				_ = proxyClientConnection(pc)
+			}(t)
+		} else {
+
+			// start one more conn - should be disallowed
+			wg.Add(1)
+			go func(t *testing.T) {
+				defer wg.Done()
+				var err error
+				err = proxyClientConnection(pc)
+				assert.Error(t, err)
+				assert.Equal(t, "more than 3 connections from src within a 10 second period", err.Error())
+				testsFinished <- true
+			}(t)
+		}
+		time.Sleep(time.Millisecond * 200)
+	}
+
+	// wait for tests to finish
+	_ = <-testsFinished
+
+	// close client conns
+	for i := 0; i <= 3; i++ {
+		clientConnClose <- true
+	}
+
+	// stop test mlat server
 	t.Log("terminating test MLAT server")
 	serverQuit <- true
 

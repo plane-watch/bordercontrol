@@ -324,16 +324,8 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 
 	n, err = c.Read(buf)
 	if err != nil {
-		if err.Error() == "tls: first record does not look like a TLS handshake" {
-			defer c.Close()
-			return n, err
-		} else if err.Error() == "EOF" {
-			defer c.Close()
-			return n, err
-		} else {
-			defer c.Close()
-			return n, err
-		}
+		defer c.Close()
+		return n, err
 	}
 	return n, err
 }
