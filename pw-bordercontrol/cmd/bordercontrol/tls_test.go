@@ -17,7 +17,7 @@ import (
 func prepTestEnvironmentTLS(t *testing.T) {
 	t.Run("preparing test environment TLS certificate and private key", func(t *testing.T) {
 
-		// prep signal channels
+		// create signal channels
 		createSignalChannels()
 
 		// prep cert file

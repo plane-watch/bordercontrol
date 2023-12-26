@@ -27,29 +27,38 @@ func TestGetRepoInfo(t *testing.T) {
 func TestCreateSignalChannels(t *testing.T) {
 
 	// create signal channels
+	t.Log("create signal channels")
 	createSignalChannels()
 
 	// send SIGHUP
+	t.Log("send SIGHUP")
 	err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 	assert.NoError(t, err)
 
 	// check SIGHUP was received
+	t.Log("check SIGHUP was received")
 	select {
 	case <-time.After(time.Second * 5):
 		assert.Fail(t, "timeout reading chanSIGHUP")
 	case s := <-chanSIGHUP:
 		assert.Equal(t, syscall.SIGHUP, s)
+		t.Log("it was")
 	}
 
 	// send SIGUSR1
+	t.Log("send SIGUSR1")
 	err = syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
 	assert.NoError(t, err)
 
 	// check SIGUSR1 was received
+	t.Log("check SIGUSR1 was received")
 	select {
 	case <-time.After(time.Second * 5):
 		assert.Fail(t, "timeout reading chanSIGUSR1")
 	case s := <-chanSIGUSR1:
 		assert.Equal(t, syscall.SIGUSR1, s)
+		t.Log("it was")
 	}
+
+	t.Log("test complete")
 }
