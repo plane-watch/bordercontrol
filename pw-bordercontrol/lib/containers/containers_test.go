@@ -109,21 +109,30 @@ func TestContainers(t *testing.T) {
 
 	// test startFeederContainers with invalid docker client
 	t.Run("test startFeederContainers with invalid docker client", func(t *testing.T) {
+
+		// prep channels
 		containersToStartRequests = make(chan FeedInContainer)
 		containersToStartResponses = make(chan startContainerResponse)
 
+		// prep config for startFeederContainers
 		startFeederContainersConf := startFeederContainersConfig{
 			containersToStartRequests:  containersToStartRequests,
 			containersToStartResponses: containersToStartResponses,
 			logger:                     log.Logger,
 		}
+
+		// prep waitgroup to wait for goroutine
 		wg := sync.WaitGroup{}
+
+		// start startFeederContainers in background
 		wg.Add(1)
 		go func(t *testing.T) {
 			err := startFeederContainers(startFeederContainersConf)
 			assert.NoError(t, err)
 			wg.Done()
 		}(t)
+
+		// send request to start container
 		fic := FeedInContainer{
 			Lat:        TestFeederLatitude,
 			Lon:        TestFeederLongitude,
@@ -138,13 +147,18 @@ func TestContainers(t *testing.T) {
 		case <-time.After(time.Second * 31):
 			assert.Fail(t, "timeout sending to chan containersToStartRequests")
 		}
+
+		// receive response for start container
 		select {
 		case r := <-containersToStartResponses:
 			assert.Error(t, r.Err)
+			assert.Contains(t, r.Err, "Cannot connect to the Docker daemon at")
 			t.Log(r.Err)
 		case <-time.After(time.Second * 31):
 			assert.Fail(t, "timeout receiving from chan containersToStartResponses")
 		}
+
+		// wait for goroutine to finish
 		wg.Wait()
 	})
 
