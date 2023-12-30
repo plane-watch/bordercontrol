@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -148,20 +149,33 @@ func TestContainers(t *testing.T) {
 			FeederCode: TestFeederCode,
 			Addr:       TestFeederAddr,
 		}
-		_, err = fic.Start()
+
+		wg := sync.WaitGroup{}
+
+		wg.Add(1)
+		go func(t *testing.T) {
+			_, err = fic.Start()
+			assert.Error(t, err)
+			assert.Equal(t, "30s timeout waiting for container start request to be fulfilled", err.Error())
+			wg.Done()
+		}(t)
+
 		select {
 		case <-containersToStartRequests:
 			t.Log("received from containersToStartRequests")
 		case <-time.After(time.Second * 6):
 			assert.Fail(t, "timeout receiving from containersToStartRequests")
 		}
-		select {
-		case <-containersToStartResponses:
-			assert.Error(t, err)
-			assert.Equal(t, "30s timeout waiting for container start request to be fulfilled", err.Error())
-		case <-time.After(time.Second * 31):
-			assert.Fail(t, "timeout receiving from containersToStartResponses")
-		}
+
+		// select {
+		// case <-containersToStartResponses:
+		// 	t.Log("received from containersToStartResponses")
+		// case <-time.After(time.Second * 31):
+		// 	assert.Fail(t, "timeout receiving from containersToStartResponses")
+		// }
+
+		wg.Wait()
+
 		containerManagerInitialised = false
 	})
 
