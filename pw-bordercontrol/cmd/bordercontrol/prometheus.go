@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"pw_bordercontrol/lib/containers"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -115,9 +116,7 @@ var (
 			n := float64(0)
 
 			// set up docker client
-			// dockerCtx := context.Background()
-			// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-			dockerCtx, cli, err := getDockerClient()
+			dockerCtx, cli, err := containers.GetDockerClient()
 			if err != nil {
 				panic(err)
 			}
@@ -155,9 +154,7 @@ var (
 			n := float64(0)
 
 			// set up docker client
-			// dockerCtx := context.Background()
-			// cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-			dockerCtx, cli, err := getDockerClient()
+			dockerCtx, cli, err := containers.GetDockerClient()
 			if err != nil {
 				panic(err)
 			}

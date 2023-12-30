@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"pw_bordercontrol/lib/containers"
 	"strings"
 	"sync"
 	"time"
@@ -438,11 +439,9 @@ func proxyServerToClient(conf protocolProxyConfig) {
 }
 
 type proxyConfig struct {
-	connIn                     net.Conn                    // Incoming connection from feeder out on the internet.
-	connProto                  feedProtocol                // Incoming connection protocol.
-	connNum                    uint                        // Connection number.
-	containersToStartRequests  chan startContainerRequest  // Channel to send container start requests.
-	containersToStartResponses chan startContainerResponse // Channel to receive container start responses.
+	connIn    net.Conn     // Incoming connection from feeder out on the internet.
+	connProto feedProtocol // Incoming connection protocol.
+	connNum   uint         // Connection number.
 }
 
 func proxyClientConnection(conf proxyConfig) error {
@@ -535,37 +534,18 @@ func proxyClientConnection(conf proxyConfig) error {
 			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
 			Logger()
 
-		// request start of the feed-in container with submission timeout
-		select {
-		case conf.containersToStartRequests <- startContainerRequest{
-			clientDetails: clientDetails,
-			srcIP:         remoteIP,
-		}:
-		case <-time.After(5 * time.Second):
-			err := errors.New("5s timeout waiting to submit container start request")
+		// start feed-in container
+		feedInContainer := containers.FeedInContainer{
+			Lat:        clientDetails.refLat,
+			Lon:        clientDetails.refLon,
+			Label:      clientDetails.label,
+			ApiKey:     clientDetails.clientApiKey,
+			FeederCode: clientDetails.feederCode,
+			Addr:       remoteIP,
+		}
+		err := feedInContainer.Start()
+		if err != nil {
 			log.Err(err).Msg(fmt.Sprintf("could not start %s", dstContainerName))
-			return err
-		}
-
-		// wait for request to be actioned
-		var startedContainer startContainerResponse
-		select {
-		case startedContainer = <-conf.containersToStartResponses:
-		case <-time.After(30 * time.Second):
-			err := errors.New("30s timeout waiting for container start request to be fulfilled")
-			log.Err(err).Msg(fmt.Sprintf("timeout waiting for %s", dstContainerName))
-			return err
-		}
-
-		// check for start errors
-		if startedContainer.err != nil {
-			log.Err(startedContainer.err).Msg(fmt.Sprintf("error starting %s", dstContainerName))
-		}
-
-		// wait for container start if needed
-		if startedContainer.containerStartDelay {
-			log.Debug().Msg(fmt.Sprintf("waiting for %s to start", dstContainerName))
-			time.Sleep(5 * time.Second)
 		}
 
 		// connect to feed-in container
