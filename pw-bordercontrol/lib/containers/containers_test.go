@@ -73,7 +73,7 @@ func TestContainers(t *testing.T) {
 		return &cctx, cli, errors.New("error injected for testing")
 	}
 
-	// test broken docker client
+	// test checkFeederContainers with broken docker client
 	t.Run("test checkFeederContainers with broken docker client", func(t *testing.T) {
 		checkFeederContainersConf := checkFeederContainersConfig{}
 		err := checkFeederContainers(checkFeederContainersConf)
@@ -81,7 +81,8 @@ func TestContainers(t *testing.T) {
 		assert.Equal(t, "error injected for testing", err.Error())
 	})
 
-	t.Run("test checkFeederContainers with broken docker client", func(t *testing.T) {
+	// test startFeederContainers with broken docker client
+	t.Run("test startFeederContainers with broken docker client", func(t *testing.T) {
 		startFeederContainersConf := startFeederContainersConfig{}
 		err := startFeederContainers(startFeederContainersConf)
 		assert.Error(t, err)
@@ -97,7 +98,8 @@ func TestContainers(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
-	t.Run("test checkFeederContainers with broken docker client", func(t *testing.T) {
+	// test checkFeederContainers with invalid feed-in image
+	t.Run("test checkFeederContainers with invalid feed-in image", func(t *testing.T) {
 		checkFeederContainersConf := checkFeederContainersConfig{
 			feedInImageName: "Myimage", //invalid as it contains uppercase
 		}
