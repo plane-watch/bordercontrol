@@ -2,6 +2,7 @@ package containers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -167,12 +168,50 @@ func TestContainers(t *testing.T) {
 			assert.Fail(t, "timeout receiving from containersToStartRequests")
 		}
 
-		// select {
-		// case <-containersToStartResponses:
-		// 	t.Log("received from containersToStartResponses")
-		// case <-time.After(time.Second * 31):
-		// 	assert.Fail(t, "timeout receiving from containersToStartResponses")
-		// }
+		wg.Wait()
+
+		containerManagerInitialised = false
+	})
+
+	// start feed-in container - will fail, error starting
+	t.Run("start feed-in container err starting", func(t *testing.T) {
+		// prep test env
+		containerManagerInitialised = true
+		containersToStartRequests = make(chan FeedInContainer)
+		containersToStartResponses = make(chan startContainerResponse)
+
+		fic := FeedInContainer{
+			Lat:        TestFeederLatitude,
+			Lon:        TestFeederLongitude,
+			Label:      TestFeederLabel,
+			ApiKey:     TestFeederAPIKey,
+			FeederCode: TestFeederCode,
+			Addr:       TestFeederAddr,
+		}
+
+		wg := sync.WaitGroup{}
+
+		wg.Add(1)
+		go func(t *testing.T) {
+			_, err = fic.Start()
+			assert.Error(t, err)
+			assert.Equal(t, "error injected for testing", err.Error())
+			wg.Done()
+		}(t)
+
+		select {
+		case <-containersToStartRequests:
+			t.Log("received from containersToStartRequests")
+		case <-time.After(time.Second * 6):
+			assert.Fail(t, "timeout receiving from containersToStartRequests")
+		}
+
+		select {
+		case containersToStartResponses <- startContainerResponse{Err: errors.New("error injected for testing")}:
+			t.Log("received from containersToStartResponses")
+		case <-time.After(time.Second * 31):
+			assert.Fail(t, "timeout receiving from containersToStartResponses")
+		}
 
 		wg.Wait()
 
