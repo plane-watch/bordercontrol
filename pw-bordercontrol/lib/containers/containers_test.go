@@ -95,8 +95,8 @@ func TestContainers(t *testing.T) {
 		log.Debug().Msg("using closed docker client")
 		cctx := context.Background()
 		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-		cli.Close()
-		return &cctx, cli, nil
+		err = cli.Close()
+		return &cctx, cli, err
 	}
 
 	// test checkFeederContainers with invalid feed-in image
