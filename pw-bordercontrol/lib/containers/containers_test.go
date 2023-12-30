@@ -97,6 +97,15 @@ func TestContainers(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
+	t.Run("test checkFeederContainers with broken docker client", func(t *testing.T) {
+		checkFeederContainersConf := checkFeederContainersConfig{
+			feedInImageName: "Myimage", //invalid as it contains uppercase
+		}
+		err := checkFeederContainers(checkFeederContainersConf)
+		assert.Error(t, err)
+		t.Log(err)
+	})
+
 	// get docker client
 	t.Log("get docker client to inspect container")
 	ctx, cli, err := GetDockerClient()
