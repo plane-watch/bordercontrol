@@ -65,7 +65,7 @@ func TestContainers(t *testing.T) {
 	}(t)
 
 	// prep broken docker client
-	t.Log("prep broken testing client")
+	t.Log("prep broken testing docker client")
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using broken docker client")
 		cctx := context.Background()
@@ -90,7 +90,7 @@ func TestContainers(t *testing.T) {
 	})
 
 	// prep invalid testing docker client
-	t.Log("prep invalid testing client")
+	t.Log("prep invalid testing docker client")
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using closed docker client")
 		cctx := context.Background()
@@ -100,11 +100,17 @@ func TestContainers(t *testing.T) {
 	}
 
 	// test checkFeederContainers with invalid client
-	t.Run("test checkFeederContainers with invalid client", func(t *testing.T) {
+	t.Run("test checkFeederContainers with invalid docker client", func(t *testing.T) {
 		checkFeederContainersConf := checkFeederContainersConfig{}
 		err := checkFeederContainers(checkFeederContainersConf)
 		assert.Error(t, err)
-		t.Log(err)
+	})
+
+	// test startFeederContainers with invalid docker client
+	t.Run("test startFeederContainers with invalid docker client", func(t *testing.T) {
+		startFeederContainersConf := startFeederContainersConfig{}
+		err := startFeederContainers(startFeederContainersConf)
+		assert.Error(t, err)
 	})
 
 	// prep test env docker client
