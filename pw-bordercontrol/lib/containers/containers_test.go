@@ -188,16 +188,6 @@ func TestContainers(t *testing.T) {
 	_, err = cli.ImageLoad(*ctx, imageirc, false)
 	assert.NoError(t, err)
 
-	// continually send SIGUSR1 to prevent checkFeederContainers from sleeping
-	t.Log("continually send SIGUSR1 to prevent checkFeederContainers from sleeping")
-	testChan := make(chan os.Signal)
-	go func() {
-		for {
-			testChan <- syscall.SIGUSR1
-			time.Sleep(time.Second)
-		}
-	}()
-
 	// start feed-in container - will fail, no init
 	t.Run("start feed-in container no init", func(t *testing.T) {
 		fic := FeedInContainer{
@@ -236,6 +226,7 @@ func TestContainers(t *testing.T) {
 
 	// start feed-in container - will fail, start timeout
 	t.Run("start feed-in container start timeout", func(t *testing.T) {
+
 		// prep test env
 		containerManagerInitialised = true
 		containersToStartRequests = make(chan FeedInContainer)
@@ -329,6 +320,16 @@ func TestContainers(t *testing.T) {
 		cm.Init()
 	})
 
+	// continually send SIGUSR1 to prevent checkFeederContainers from sleeping
+	t.Log("continually send SIGUSR1 to prevent checkFeederContainers from sleeping")
+	chanSkipDelay = make(chan os.Signal)
+	go func() {
+		for {
+			chanSkipDelay <- syscall.SIGUSR1
+			time.Sleep(time.Millisecond * 250)
+		}
+	}()
+
 	var cid string
 
 	// start feed-in container
@@ -389,6 +390,9 @@ func TestContainers(t *testing.T) {
 		assert.Len(t, ct.NetworkSettings.Networks, 1)
 		assert.True(t, ContainerNetworkOK)
 	})
+
+	// wait a few seconds for checkFeederContainers to run
+	time.Sleep(time.Second * 3)
 
 }
 
