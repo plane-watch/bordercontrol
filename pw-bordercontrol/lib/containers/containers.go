@@ -121,11 +121,12 @@ type FeedInContainer struct {
 	Addr       net.IP    // client IP address
 }
 
-func (feedInContainer *FeedInContainer) Start() error {
+func (feedInContainer *FeedInContainer) Start() (containerID string, err error) {
 
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
-		return errors.New("container manager has not been initialised")
+		err := errors.New("container manager has not been initialised")
+		return containerID, err
 	}
 
 	// request start of the feed-in container with submission timeout
@@ -133,7 +134,7 @@ func (feedInContainer *FeedInContainer) Start() error {
 	case containersToStartRequests <- *feedInContainer:
 	case <-time.After(5 * time.Second):
 		err := errors.New("5s timeout waiting to submit container start request")
-		return err
+		return containerID, err
 	}
 
 	// wait for request to be actioned
@@ -142,13 +143,13 @@ func (feedInContainer *FeedInContainer) Start() error {
 	case startedContainer = <-containersToStartResponses:
 	case <-time.After(30 * time.Second):
 		err := errors.New("30s timeout waiting for container start request to be fulfilled")
-		return err
+		return containerID, err
 	}
 
 	// check for start errors
 	if startedContainer.Err != nil {
 		err := errors.New("error starting container")
-		return err
+		return containerID, err
 	}
 
 	// wait for container start if needed
@@ -157,7 +158,9 @@ func (feedInContainer *FeedInContainer) Start() error {
 		time.Sleep(5 * time.Second)
 	}
 
-	return nil
+	containerID = startedContainer.ContainerID
+
+	return containerID, nil
 }
 
 type checkFeederContainersConfig struct {
