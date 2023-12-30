@@ -55,7 +55,10 @@ type ContainerManager struct {
 
 func (conf *ContainerManager) Init() {
 
-	log.Info().Msg("Starting container manager")
+	log.Info().Msg("starting container manager")
+
+	// TODO: check feed-in image exists
+	// TODO: check feed-in network exists
 
 	// prep channel for signal to skip delay for out-of-date feed-in container recreation
 	chanSkipDelay = make(chan os.Signal, 1)

@@ -115,6 +115,7 @@ var (
 		func() float64 {
 			n := float64(0)
 
+			// TODO: move container count to containers.go
 			// set up docker client
 			dockerCtx, cli, err := containers.GetDockerClient()
 			if err != nil {
@@ -153,6 +154,7 @@ var (
 		func() float64 {
 			n := float64(0)
 
+			// TODO: move container count to containers.go
 			// set up docker client
 			dockerCtx, cli, err := containers.GetDockerClient()
 			if err != nil {
