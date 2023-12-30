@@ -110,6 +110,8 @@ func TestContainers(t *testing.T) {
 	// test startFeederContainers with invalid docker client
 	t.Run("test startFeederContainers with invalid docker client", func(t *testing.T) {
 		containersToStartRequests = make(chan FeedInContainer)
+		containersToStartResponses = make(chan startContainerResponse)
+
 		startFeederContainersConf := startFeederContainersConfig{
 			containersToStartRequests: containersToStartRequests,
 			logger:                    log.Logger,
@@ -136,6 +138,9 @@ func TestContainers(t *testing.T) {
 		case <-time.After(time.Second * 31):
 			assert.Fail(t, "timeout sending to chan containersToStartRequests")
 		}
+		r := <-containersToStartResponses
+		assert.Error(t, r.Err)
+		t.Log(r.Err)
 		wg.Wait()
 	})
 
