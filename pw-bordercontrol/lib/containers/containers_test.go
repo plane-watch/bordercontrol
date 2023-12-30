@@ -97,6 +97,38 @@ func TestContainers(t *testing.T) {
 		}
 	}()
 
+	// start feed-in container - will fail, no init
+	t.Run("start feed-in container no init", func(t *testing.T) {
+		fic := FeedInContainer{
+			Lat:        TestFeederLatitude,
+			Lon:        TestFeederLongitude,
+			Label:      TestFeederLabel,
+			ApiKey:     TestFeederAPIKey,
+			FeederCode: TestFeederCode,
+			Addr:       TestFeederAddr,
+		}
+		_, err = fic.Start()
+		assert.Error(t, err)
+		assert.Equal(t, "container manager has not been initialised", err.Error())
+	})
+
+	// start feed-in container - will fail, start timeout
+	t.Run("start feed-in container start timeout", func(t *testing.T) {
+		containerManagerInitialised = true
+		fic := FeedInContainer{
+			Lat:        TestFeederLatitude,
+			Lon:        TestFeederLongitude,
+			Label:      TestFeederLabel,
+			ApiKey:     TestFeederAPIKey,
+			FeederCode: TestFeederCode,
+			Addr:       TestFeederAddr,
+		}
+		_, err = fic.Start()
+		assert.Error(t, err)
+		assert.Equal(t, "container manager has not been initialised", err.Error())
+		containerManagerInitialised = false
+	})
+
 	// init container manager
 	cm := ContainerManager{
 		FeedInImageName:                    TestFeedInImageName,
