@@ -149,7 +149,12 @@ func TestContainers(t *testing.T) {
 			Addr:       TestFeederAddr,
 		}
 		_, err = fic.Start()
-		_ = <-containersToStartRequests
+		select {
+		case <-containersToStartRequests:
+			t.Log("received from containersToStartRequests")
+		case <-time.After(time.Second * 6):
+			assert.Fail(t, "timeout receiving from containersToStartRequests")
+		}
 		select {
 		case <-containersToStartResponses:
 			assert.Error(t, err)
