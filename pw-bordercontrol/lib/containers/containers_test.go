@@ -104,15 +104,32 @@ func TestContainers(t *testing.T) {
 		checkFeederContainersConf := checkFeederContainersConfig{}
 		err := checkFeederContainers(checkFeederContainersConf)
 		assert.Error(t, err)
-		t.Log(err)
+		assert.Contains(t, err.Error(), "Cannot connect to the Docker daemon at")
 	})
 
 	// test startFeederContainers with invalid docker client
 	t.Run("test startFeederContainers with invalid docker client", func(t *testing.T) {
 		startFeederContainersConf := startFeederContainersConfig{}
-		err := startFeederContainers(startFeederContainersConf)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		go func(t *testing.T) {
+			err := startFeederContainers(startFeederContainersConf)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "Cannot connect to the Docker daemon at")
+			wg.Done()
+		}(t)
+		fic := FeedInContainer{
+			Lat:        TestFeederLatitude,
+			Lon:        TestFeederLongitude,
+			Label:      TestFeederLabel,
+			ApiKey:     TestFeederAPIKey,
+			FeederCode: TestFeederCode,
+			Addr:       TestFeederAddr,
+		}
+		_, err := fic.Start()
 		assert.Error(t, err)
 		t.Log(err)
+		wg.Wait()
 	})
 
 	// prep test env docker client
