@@ -91,13 +91,7 @@ func TestContainers(t *testing.T) {
 
 	// prep invalid testing docker client
 	t.Log("prep invalid testing docker client")
-	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-		log.Debug().Msg("using closed docker client")
-		cctx := context.Background()
-		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-		TestDaemon.Stop(t)
-		return &cctx, cli, nil
-	}
+	TestDaemon.Stop(t)
 
 	// test checkFeederContainers with invalid client
 	t.Run("test checkFeederContainers with invalid docker client", func(t *testing.T) {
