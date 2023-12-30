@@ -86,14 +86,6 @@ func TestListener(t *testing.T) {
 	port, err := strconv.Atoi(strings.Split(tempAddr, ":")[1])
 	assert.NoError(t, err, "could not split address string")
 
-	// prepare channel for container start requests
-	containersToStartRequests := make(chan startContainerRequest)
-	defer close(containersToStartRequests)
-
-	// prepare channel for container start responses
-	containersToStartResponses := make(chan startContainerResponse)
-	defer close(containersToStartResponses)
-
 	// prep listener config
 	conf := listenConfig{
 		listenProto: protoBEAST,
@@ -101,9 +93,7 @@ func TestListener(t *testing.T) {
 			IP:   net.ParseIP(ip),
 			Port: port,
 		},
-		containersToStartRequests:  containersToStartRequests,
-		containersToStartResponses: containersToStartResponses,
-		mgmt:                       &goRoutineManager{},
+		mgmt: &goRoutineManager{},
 	}
 
 	// stop listener without accepting connection

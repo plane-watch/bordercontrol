@@ -31,7 +31,9 @@ const MinUint = 0
 const MaxInt = int(MaxUint >> 1)
 const MinInt = -MaxInt - 1
 
-var testSNI = uuid.New()
+var (
+	testSNI = uuid.New()
+)
 
 func TestGetNum(t *testing.T) {
 
@@ -1115,11 +1117,9 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 
 	// prepare proxy config
 	pc := proxyConfig{
-		connIn:                     connIn,
-		connProto:                  protoMLAT, // must be MLAT for two way communications
-		connNum:                    1,
-		containersToStartRequests:  make(chan startContainerRequest),
-		containersToStartResponses: make(chan startContainerResponse),
+		connIn:    connIn,
+		connProto: protoMLAT, // must be MLAT for two way communications
+		connNum:   1,
 	}
 
 	// hand off the incoming test connection to the proxy
@@ -1263,11 +1263,9 @@ func TestProxyClientConnection_MLAT_ConnectingTooFast(t *testing.T) {
 
 		// prepare proxy config
 		pc := proxyConfig{
-			connIn:                     connIn,
-			connProto:                  protoMLAT, // must be MLAT for two way communications
-			connNum:                    1,
-			containersToStartRequests:  make(chan startContainerRequest),
-			containersToStartResponses: make(chan startContainerResponse),
+			connIn:    connIn,
+			connProto: protoMLAT, // must be MLAT for two way communications
+			connNum:   1,
 		}
 
 		// hand off the incoming test connection to the proxy

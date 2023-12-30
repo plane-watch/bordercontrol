@@ -543,7 +543,7 @@ func proxyClientConnection(conf proxyConfig) error {
 			FeederCode: clientDetails.feederCode,
 			Addr:       remoteIP,
 		}
-		err := feedInContainer.Start()
+		_, err := feedInContainer.Start()
 		if err != nil {
 			log.Err(err).Msg(fmt.Sprintf("could not start %s", dstContainerName))
 		}

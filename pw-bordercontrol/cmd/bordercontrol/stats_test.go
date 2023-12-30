@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"pw_bordercontrol/lib/atc"
+	"pw_bordercontrol/lib/containers"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,10 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
+)
+
+var (
+	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 )
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
@@ -63,10 +68,14 @@ func TestStats(t *testing.T) {
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
 	)
 	TestDaemon.Start(t)
+	defer func(t *testing.T) {
+		TestDaemon.Stop(t)
+		TestDaemon.Cleanup(t)
+	}(t)
 
 	// prep testing client
 	t.Log("prep testing client")
-	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+	containers.GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using test docker client")
 		cctx := context.Background()
 		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
