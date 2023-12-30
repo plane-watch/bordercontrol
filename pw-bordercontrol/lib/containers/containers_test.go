@@ -94,7 +94,7 @@ func TestContainers(t *testing.T) {
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using closed docker client")
 		cctx := context.Background()
-		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
+		cli = &client.Client{}
 		err = cli.Close()
 		return &cctx, cli, err
 	}
