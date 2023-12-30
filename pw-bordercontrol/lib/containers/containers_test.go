@@ -150,11 +150,11 @@ func TestContainers(t *testing.T) {
 		}
 		_, err = fic.Start()
 		select {
-		case <-containersToStartRequests:
+		case <-containersToStartResponses:
 			assert.Error(t, err)
 			assert.Equal(t, "30s timeout waiting for container start request to be fulfilled", err.Error())
 		case <-time.After(time.Second * 31):
-			assert.Fail(t, "timeout receiving from containersToStartRequests")
+			assert.Fail(t, "timeout receiving from containersToStartResponses")
 		}
 		containerManagerInitialised = false
 	})
