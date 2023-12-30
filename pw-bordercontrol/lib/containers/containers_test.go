@@ -114,7 +114,11 @@ func TestContainers(t *testing.T) {
 
 	// start feed-in container - will fail, submit timeout
 	t.Run("start feed-in container submit timeout", func(t *testing.T) {
+		// prep test env
 		containerManagerInitialised = true
+		containersToStartRequests = make(chan FeedInContainer)
+		containersToStartResponses = make(chan startContainerResponse)
+
 		fic := FeedInContainer{
 			Lat:        TestFeederLatitude,
 			Lon:        TestFeederLongitude,
@@ -131,7 +135,11 @@ func TestContainers(t *testing.T) {
 
 	// start feed-in container - will fail, start timeout
 	t.Run("start feed-in container start timeout", func(t *testing.T) {
+		// prep test env
 		containerManagerInitialised = true
+		containersToStartRequests = make(chan FeedInContainer)
+		containersToStartResponses = make(chan startContainerResponse)
+
 		fic := FeedInContainer{
 			Lat:        TestFeederLatitude,
 			Lon:        TestFeederLongitude,
