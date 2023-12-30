@@ -104,6 +104,7 @@ func TestContainers(t *testing.T) {
 		checkFeederContainersConf := checkFeederContainersConfig{}
 		err := checkFeederContainers(checkFeederContainersConf)
 		assert.Error(t, err)
+		t.Log(err)
 	})
 
 	// test startFeederContainers with invalid docker client
@@ -111,6 +112,7 @@ func TestContainers(t *testing.T) {
 		startFeederContainersConf := startFeederContainersConfig{}
 		err := startFeederContainers(startFeederContainersConf)
 		assert.Error(t, err)
+		t.Log(err)
 	})
 
 	// prep test env docker client
