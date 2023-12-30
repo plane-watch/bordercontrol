@@ -55,7 +55,7 @@ type ContainerManager struct {
 
 func (conf *ContainerManager) Init() {
 
-	log.Info().Msg("starting container manager")
+	log.Info().Msg("starting feed-in container manager")
 
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
