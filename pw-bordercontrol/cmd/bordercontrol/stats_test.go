@@ -82,12 +82,6 @@ func TestStats(t *testing.T) {
 		return &cctx, cli, nil
 	}
 
-	// clean up
-	defer func() {
-		TestDaemon.Stop(t)
-		TestDaemon.Cleanup(t)
-	}()
-
 	// init stats
 	t.Log("init stats")
 	stats.mu.Lock()
