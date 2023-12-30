@@ -113,15 +113,15 @@ func TestContainers(t *testing.T) {
 		containersToStartResponses = make(chan startContainerResponse)
 
 		startFeederContainersConf := startFeederContainersConfig{
-			containersToStartRequests: containersToStartRequests,
-			logger:                    log.Logger,
+			containersToStartRequests:  containersToStartRequests,
+			containersToStartResponses: containersToStartResponses,
+			logger:                     log.Logger,
 		}
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func(t *testing.T) {
 			err := startFeederContainers(startFeederContainersConf)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "Cannot connect to the Docker daemon at")
+			assert.NoError(t, err)
 			wg.Done()
 		}(t)
 		fic := FeedInContainer{
@@ -138,9 +138,13 @@ func TestContainers(t *testing.T) {
 		case <-time.After(time.Second * 31):
 			assert.Fail(t, "timeout sending to chan containersToStartRequests")
 		}
-		r := <-containersToStartResponses
-		assert.Error(t, r.Err)
-		t.Log(r.Err)
+		select {
+		case r := <-containersToStartResponses:
+			assert.Error(t, r.Err)
+			t.Log(r.Err)
+		case <-time.After(time.Second * 31):
+			assert.Fail(t, "timeout receiving from chan containersToStartResponses")
+		}
 		wg.Wait()
 	})
 
