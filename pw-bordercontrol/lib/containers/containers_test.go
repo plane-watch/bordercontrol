@@ -64,8 +64,28 @@ func TestContainers(t *testing.T) {
 		TestDaemon.Cleanup(t)
 	}(t)
 
-	// prep testing client
-	t.Log("prep testing client")
+	// prep broken docker client
+	t.Log("prep broken testing client")
+	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+		log.Debug().Msg("using broken docker client")
+		cctx := context.Background()
+		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
+		return &cctx, cli, errors.New("error injected for testing")
+	}
+
+	// test broken docker client
+	t.Run("test broken docker client", func(t *testing.T) {
+		checkFeederContainersConf := checkFeederContainersConfig{
+			feedInImageName:       TestFeedInImageName,
+			feedInContainerPrefix: TestFeedInContainerPrefix,
+		}
+		err := checkFeederContainers(checkFeederContainersConf)
+		assert.Error(t, err)
+		assert.Equal(t, "error injected for testing", err.Error())
+	})
+
+	// prep test env docker client
+	t.Log("prep working testing client")
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 		log.Debug().Msg("using test docker client")
 		cctx := context.Background()
@@ -233,7 +253,7 @@ func TestContainers(t *testing.T) {
 	var cid string
 
 	// start feed-in container
-	t.Run("start feed-in container", func(t *testing.T) {
+	t.Run("start feed-in container working", func(t *testing.T) {
 		t.Log("requesting container start")
 		fic := FeedInContainer{
 			Lat:        TestFeederLatitude,
