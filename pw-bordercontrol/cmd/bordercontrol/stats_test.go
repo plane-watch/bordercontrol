@@ -41,11 +41,11 @@ func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) 
 			1,
 			strings.Count(body, expectedMetric),
 		)
-		if t.Failed() {
-			fmt.Println("---- BEGIN BODY ----")
-			fmt.Println(body)
-			fmt.Println("---- END BODY ----")
-		}
+		// if t.Failed() {
+		// 	fmt.Println("---- BEGIN BODY ----")
+		// 	fmt.Println(body)
+		// 	fmt.Println("---- END BODY ----")
+		// }
 	}
 }
 
