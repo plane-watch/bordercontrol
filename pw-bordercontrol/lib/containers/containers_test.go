@@ -66,7 +66,6 @@ func TestContainers(t *testing.T) {
 	// prep broken docker client
 	t.Log("prep broken testing docker client")
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-		log.Debug().Msg("using broken docker client")
 		cctx := context.Background()
 		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 		return &cctx, cli, errors.New("error injected for testing")
@@ -91,7 +90,6 @@ func TestContainers(t *testing.T) {
 	// prep invalid testing docker client
 	t.Log("prep invalid testing docker client")
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-		log.Debug().Msg("using invalid docker client")
 		cctx := context.Background()
 		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 		return &cctx, cli, nil
@@ -165,7 +163,6 @@ func TestContainers(t *testing.T) {
 	t.Log("prep working testing client")
 	TestDaemon.Start(t)
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-		log.Debug().Msg("using test docker client")
 		cctx := context.Background()
 		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 		return &cctx, cli, nil
