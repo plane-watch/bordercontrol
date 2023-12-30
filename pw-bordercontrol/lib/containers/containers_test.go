@@ -149,6 +149,7 @@ func TestContainers(t *testing.T) {
 			Addr:       TestFeederAddr,
 		}
 		_, err = fic.Start()
+		_ = <-containersToStartRequests
 		select {
 		case <-containersToStartResponses:
 			assert.Error(t, err)
