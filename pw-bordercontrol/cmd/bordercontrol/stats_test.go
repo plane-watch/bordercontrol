@@ -111,8 +111,10 @@ func TestStats(t *testing.T) {
 	}
 
 	// prep url pats
+	statsManagerMu.RLock()
 	statsBaseURL := fmt.Sprintf("http://%s", statsManagerAddr)
 	metricsURL := fmt.Sprintf("%s/metrics", statsBaseURL)
+	statsManagerMu.RUnlock()
 
 	body := getMetricsFromTestServer(t, metricsURL)
 
