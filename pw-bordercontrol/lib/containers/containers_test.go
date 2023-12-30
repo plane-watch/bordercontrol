@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"syscall"
@@ -322,7 +321,6 @@ func TestContainers(t *testing.T) {
 
 	// continually send SIGUSR1 to prevent checkFeederContainers from sleeping
 	t.Log("continually send SIGUSR1 to prevent checkFeederContainers from sleeping")
-	chanSkipDelay = make(chan os.Signal)
 	go func() {
 		for {
 			chanSkipDelay <- syscall.SIGUSR1
