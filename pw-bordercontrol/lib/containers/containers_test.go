@@ -151,7 +151,7 @@ func TestContainers(t *testing.T) {
 		select {
 		case r := <-containersToStartResponses:
 			assert.Error(t, r.Err)
-			assert.Contains(t, r.Err, "Cannot connect to the Docker daemon at")
+			assert.Contains(t, r.Err.Error(), "Cannot connect to the Docker daemon at")
 			t.Log(r.Err)
 		case <-time.After(time.Second * 31):
 			assert.Fail(t, "timeout receiving from chan containersToStartResponses")
