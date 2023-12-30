@@ -50,6 +50,10 @@ func TestContainers(t *testing.T) {
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
 	)
 	TestDaemon.Start(t)
+	defer func(t *testing.T) {
+		TestDaemon.Stop(t)
+		TestDaemon.Cleanup(t)
+	}(t)
 
 	// prep testing client
 	t.Log("prep testing client")
