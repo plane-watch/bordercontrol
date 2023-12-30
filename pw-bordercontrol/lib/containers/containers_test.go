@@ -38,6 +38,13 @@ var (
 	TestPWIngestSink = "nats://pw-ingest-sink:12345"
 )
 
+func TestGetDockerClient(t *testing.T) {
+	_, cli, err := GetDockerClient()
+	assert.NoError(t, err)
+	err = cli.Close()
+	assert.NoError(t, err)
+}
+
 func TestContainers(t *testing.T) {
 
 	// set logging to trace level
