@@ -101,7 +101,8 @@ func TestContainers(t *testing.T) {
 	// test checkFeederContainers with invalid feed-in image
 	t.Run("test checkFeederContainers with invalid feed-in image", func(t *testing.T) {
 		checkFeederContainersConf := checkFeederContainersConfig{
-			feedInImageName: "Myimage", //invalid as it contains uppercase
+			feedInImageName:       "Myimage", //invalid as it contains uppercase
+			feedInContainerPrefix: "Myimage",
 		}
 		err := checkFeederContainers(checkFeederContainersConf)
 		assert.Error(t, err)
