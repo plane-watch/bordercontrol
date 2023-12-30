@@ -89,6 +89,24 @@ func TestContainers(t *testing.T) {
 		assert.Equal(t, "error injected for testing", err.Error())
 	})
 
+	// prep closed testing docker client
+	t.Log("prep closed testing client")
+	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+		log.Debug().Msg("using closed docker client")
+		cctx := context.Background()
+		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
+		cli.Close()
+		return &cctx, cli, nil
+	}
+
+	// test checkFeederContainers with invalid feed-in image
+	t.Run("test checkFeederContainers with invalid feed-in image", func(t *testing.T) {
+		checkFeederContainersConf := checkFeederContainersConfig{}
+		err := checkFeederContainers(checkFeederContainersConf)
+		assert.Error(t, err)
+		t.Log(err)
+	})
+
 	// prep test env docker client
 	t.Log("prep working testing client")
 	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
@@ -97,16 +115,6 @@ func TestContainers(t *testing.T) {
 		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 		return &cctx, cli, nil
 	}
-
-	// test checkFeederContainers with invalid feed-in image
-	t.Run("test checkFeederContainers with invalid feed-in image", func(t *testing.T) {
-		checkFeederContainersConf := checkFeederContainersConfig{
-			feedInContainerPrefix: "INVALID IMAGE NAME",
-		}
-		err := checkFeederContainers(checkFeederContainersConf)
-		assert.Error(t, err)
-		t.Log(err)
-	})
 
 	// get docker client
 	t.Log("get docker client to inspect container")
