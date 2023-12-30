@@ -148,8 +148,7 @@ func (feedInContainer *FeedInContainer) Start() (containerID string, err error) 
 
 	// check for start errors
 	if startedContainer.Err != nil {
-		err := errors.New("error starting container")
-		return containerID, err
+		return containerID, startedContainer.Err
 	}
 
 	// wait for container start if needed
