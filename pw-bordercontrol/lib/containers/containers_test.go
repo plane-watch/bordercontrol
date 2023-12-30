@@ -74,12 +74,16 @@ func TestContainers(t *testing.T) {
 	}
 
 	// test broken docker client
-	t.Run("test broken docker client", func(t *testing.T) {
-		checkFeederContainersConf := checkFeederContainersConfig{
-			feedInImageName:       TestFeedInImageName,
-			feedInContainerPrefix: TestFeedInContainerPrefix,
-		}
+	t.Run("test checkFeederContainers with broken docker client", func(t *testing.T) {
+		checkFeederContainersConf := checkFeederContainersConfig{}
 		err := checkFeederContainers(checkFeederContainersConf)
+		assert.Error(t, err)
+		assert.Equal(t, "error injected for testing", err.Error())
+	})
+
+	t.Run("test checkFeederContainers with broken docker client", func(t *testing.T) {
+		startFeederContainersConf := startFeederContainersConfig{}
+		err := startFeederContainers(startFeederContainersConf)
 		assert.Error(t, err)
 		assert.Equal(t, "error injected for testing", err.Error())
 	})
