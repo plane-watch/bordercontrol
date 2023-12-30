@@ -112,6 +112,23 @@ func TestContainers(t *testing.T) {
 		assert.Equal(t, "container manager has not been initialised", err.Error())
 	})
 
+	// start feed-in container - will fail, submit timeout
+	t.Run("start feed-in container submit timeout", func(t *testing.T) {
+		containerManagerInitialised = true
+		fic := FeedInContainer{
+			Lat:        TestFeederLatitude,
+			Lon:        TestFeederLongitude,
+			Label:      TestFeederLabel,
+			ApiKey:     TestFeederAPIKey,
+			FeederCode: TestFeederCode,
+			Addr:       TestFeederAddr,
+		}
+		_, err = fic.Start()
+		assert.Error(t, err)
+		assert.Equal(t, "5s timeout waiting to submit container start request", err.Error())
+		containerManagerInitialised = false
+	})
+
 	// start feed-in container - will fail, start timeout
 	t.Run("start feed-in container start timeout", func(t *testing.T) {
 		containerManagerInitialised = true
@@ -124,8 +141,9 @@ func TestContainers(t *testing.T) {
 			Addr:       TestFeederAddr,
 		}
 		_, err = fic.Start()
+		_ = <-containersToStartRequests
 		assert.Error(t, err)
-		assert.Equal(t, "container manager has not been initialised", err.Error())
+		assert.Equal(t, "30s timeout waiting for container start request to be fulfilled", err.Error())
 		containerManagerInitialised = false
 	})
 
