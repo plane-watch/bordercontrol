@@ -109,7 +109,10 @@ func TestContainers(t *testing.T) {
 
 	// test startFeederContainers with invalid docker client
 	t.Run("test startFeederContainers with invalid docker client", func(t *testing.T) {
-		startFeederContainersConf := startFeederContainersConfig{}
+		containersToStartRequests = make(chan FeedInContainer)
+		startFeederContainersConf := startFeederContainersConfig{
+			containersToStartRequests: containersToStartRequests,
+		}
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		go func(t *testing.T) {
@@ -126,9 +129,12 @@ func TestContainers(t *testing.T) {
 			FeederCode: TestFeederCode,
 			Addr:       TestFeederAddr,
 		}
-		_, err := fic.Start()
-		assert.Error(t, err)
-		t.Log(err)
+		select {
+		case containersToStartRequests <- fic:
+			t.Log("sent to containersToStartRequests")
+		case <-time.After(time.Second * 31):
+			assert.Fail(t, "timeout sending to chan containersToStartRequests")
+		}
 		wg.Wait()
 	})
 
