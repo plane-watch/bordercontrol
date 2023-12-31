@@ -312,7 +312,7 @@ func TestContainers(t *testing.T) {
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
 		PWIngestSink:                       TestPWIngestSink,
 	}
-	t.Run("Running ContainerManager.Init()", func(t *testing.T) {
+	t.Run("running ContainerManager.Init()", func(t *testing.T) {
 		cm.Init()
 	})
 
