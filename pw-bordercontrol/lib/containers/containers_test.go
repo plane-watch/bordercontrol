@@ -330,15 +330,6 @@ func TestContainers(t *testing.T) {
 		cm.Init()
 	})
 
-	// continually send SIGUSR1 to prevent checkFeederContainers from sleeping
-	t.Log("continually send SIGUSR1 to prevent checkFeederContainers from sleeping")
-	go func() {
-		for {
-			chanSkipDelay <- syscall.SIGUSR1
-			time.Sleep(time.Millisecond * 250)
-		}
-	}()
-
 	var cid string
 
 	// start feed-in container
@@ -416,6 +407,21 @@ func TestContainers(t *testing.T) {
 		cm.Init()
 	})
 
+	// send SIGUSR1 to prevent checkFeederContainers from sleeping
+	t.Log("send SIGUSR1 to prevent checkFeederContainers from sleeping")
+	chanSkipDelay <- syscall.SIGUSR1
+
+	// ensure out-of-date container has been removed
+	time.Sleep(time.Second * 3) // wait for container to be removed by checkFeederContainers
+	t.Run("ensure out-of-date container has been removed", func(t *testing.T) {
+		cl, err := cli.ContainerList(*ctx, types.ContainerListOptions{})
+		assert.NoError(t, err, "expected no error from docker")
+		for _, c := range cl {
+			if c.ID == cid {
+				assert.Fail(t, "expected feed-in container to be killed")
+			}
+		}
+	})
 }
 
 // func TestContainersWithKill(t *testing.T) {
