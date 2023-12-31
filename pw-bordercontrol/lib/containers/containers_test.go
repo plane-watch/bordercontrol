@@ -177,13 +177,13 @@ func TestContainers(t *testing.T) {
 	t.Log("pull test image")
 	imageircFirst, err := cli.ImagePull(*ctx, TestFeedInImageNameFirst, types.ImagePullOptions{})
 	assert.NoError(t, err)
-	defer imageirc.Close()
+	defer imageircFirst.Close()
 
 	// pull test image
 	t.Log("pull test image")
 	imageircSecond, err := cli.ImagePull(*ctx, TestFeedInImageNameSecond, types.ImagePullOptions{})
 	assert.NoError(t, err)
-	defer imageirc.Close()
+	defer imageircSecond.Close()
 
 	// load test image
 	t.Log("load test image")
