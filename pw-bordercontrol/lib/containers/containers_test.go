@@ -330,6 +330,7 @@ func TestContainers(t *testing.T) {
 	t.Run("running ContainerManager.Init()", func(t *testing.T) {
 		cm.Init()
 	})
+	defer cm.Close() // ensure we clean up
 
 	var cid string
 
