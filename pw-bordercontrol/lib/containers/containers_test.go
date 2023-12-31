@@ -386,8 +386,9 @@ func TestContainers(t *testing.T) {
 		assert.True(t, ContainerNetworkOK)
 	})
 
-	// wait a few seconds for checkFeederContainers to run
-	time.Sleep(time.Second * 3)
+	t.Run("running ContainerManager.Close()", func(t *testing.T) {
+		cm.Close()
+	})
 
 }
 

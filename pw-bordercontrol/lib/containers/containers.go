@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -51,6 +52,9 @@ type ContainerManager struct {
 	SignalSkipContainerRecreationDelay syscall.Signal // Signal that will skip container recreation delay.
 	PWIngestSink                       string         // URL to pass to the --sink flag of pw-ingest in feed-in container.
 	Logger                             zerolog.Logger // Logging context to use
+	stop                               bool
+	stopMu                             sync.RWMutex
+	wg                                 sync.WaitGroup
 }
 
 func (conf *ContainerManager) Init() {
@@ -71,6 +75,7 @@ func (conf *ContainerManager) Init() {
 	containersToStartResponses = make(chan startContainerResponse)
 
 	// start goroutine to create feed-in containers
+	conf.wg.Add(1)
 	go func() {
 
 		// prep config
@@ -88,10 +93,20 @@ func (conf *ContainerManager) Init() {
 		for {
 			_ = startFeederContainers(startFeederContainersConf)
 			// no sleep here as this goroutune needs to be relaunched after each container start
+
+			conf.stopMu.RLock()
+			if conf.stop {
+				conf.stopMu.RUnlock()
+				break
+			} else {
+				conf.stopMu.RUnlock()
+			}
 		}
+		conf.wg.Done()
 	}()
 
 	// start goroutine to check feed-in containers
+	conf.wg.Add(1)
 	go func() {
 
 		// prep config
@@ -106,10 +121,26 @@ func (conf *ContainerManager) Init() {
 		for {
 			_ = checkFeederContainers(checkFeederContainersConf)
 			// no sleep here as this goroutune needs to be relaunched after each container kill
-		}
-	}()
 
+			conf.stopMu.RLock()
+			if conf.stop {
+				conf.stopMu.RUnlock()
+				break
+			} else {
+				conf.stopMu.RUnlock()
+			}
+		}
+		conf.wg.Done()
+	}()
 	containerManagerInitialised = true
+}
+
+func (conf *ContainerManager) Close() {
+	conf.stopMu.Lock()
+	conf.stop = true
+	conf.stopMu.Unlock()
+	conf.wg.Done()
+	log.Info().Msg("stopped feed-in container manager")
 }
 
 // struct for requests to the startFeederContainers goroutine start a container
@@ -291,7 +322,14 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 	defer cli.Close()
 
 	// read from channel (this blocks until a request comes in)
-	containerToStart := <-conf.containersToStartRequests
+	var containerToStart FeedInContainer
+	select {
+	case containerToStart = <-conf.containersToStartRequests:
+		log.Trace().Msg("received from containersToStartRequests")
+	case <-time.After(time.Second * 5):
+		log.Trace().Msg("timeout receiving from containersToStartRequests")
+		return nil
+	}
 
 	// prep response object
 	response := startContainerResponse{}
