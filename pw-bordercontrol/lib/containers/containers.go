@@ -292,7 +292,9 @@ ContainerLoop:
 		log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
 		break
 	case <-time.After(sleepTime * time.Second):
+		log.Trace().Msg("finished sleeping")
 	case <-conf.stop:
+		log.Trace().Msg("received from stop chan")
 	}
 
 	return nil
