@@ -405,7 +405,7 @@ func TestContainers(t *testing.T) {
 		PWIngestSink:                       TestPWIngestSink,
 		Logger:                             log.Logger,
 	}
-	t.Run("running ContainerManager.Init()", func(t *testing.T) {
+	t.Run("running ContainerManager.Init() with new feed-in image", func(t *testing.T) {
 		cm.Init()
 	})
 
