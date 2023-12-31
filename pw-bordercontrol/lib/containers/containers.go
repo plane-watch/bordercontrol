@@ -62,6 +62,8 @@ func (conf *ContainerManager) Init() {
 
 	log.Info().Msg("starting feed-in container manager")
 
+	conf.stopC = make(chan bool)
+
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
 
