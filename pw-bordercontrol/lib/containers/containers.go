@@ -54,6 +54,7 @@ type ContainerManager struct {
 	Logger                             zerolog.Logger // Logging context to use
 	stop                               bool
 	stopMu                             sync.RWMutex
+	stopC                              chan bool
 	wg                                 sync.WaitGroup
 }
 
@@ -115,6 +116,7 @@ func (conf *ContainerManager) Init() {
 			feedInContainerPrefix:    conf.FeedInContainerPrefix,
 			checkFeederContainerSigs: chanSkipDelay,
 			logger:                   conf.Logger,
+			stop:                     conf.stopC,
 		}
 
 		// run forever
@@ -139,6 +141,7 @@ func (conf *ContainerManager) Close() {
 	conf.stopMu.Lock()
 	conf.stop = true
 	conf.stopMu.Unlock()
+	conf.stopC <- true
 	conf.wg.Wait()
 	log.Info().Msg("stopped feed-in container manager")
 }
@@ -198,6 +201,7 @@ type checkFeederContainersConfig struct {
 	feedInContainerPrefix    string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
 	checkFeederContainerSigs chan os.Signal // Channel to receive signals. Received signal will skip sleeps and cause containers to be checked/recreated immediately.
 	logger                   zerolog.Logger // Logging context
+	stop                     chan bool
 }
 
 func checkFeederContainers(conf checkFeederContainersConfig) error {
@@ -286,6 +290,7 @@ ContainerLoop:
 		log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
 		break
 	case <-time.After(sleepTime * time.Second):
+	case <-conf.stop:
 	}
 
 	return nil
