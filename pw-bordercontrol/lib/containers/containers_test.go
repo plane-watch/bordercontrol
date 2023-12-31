@@ -24,7 +24,7 @@ var (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
 	TestFeedInImageNameFirst   = "wardsco/sleep:latest"
-	TestFeedInImageNameSecond  = "itisfoundation/sleeper"
+	TestFeedInImageNameSecond  = "itisfoundation/sleeper:latest"
 	TestFeedInContainerPrefix  = "test-feed-in-"
 	TestFeedInContainerNetwork = "bridge"
 
