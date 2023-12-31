@@ -349,6 +349,21 @@ func TestContainers(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	// start feed-in container
+	t.Run("start feed-in container already started", func(t *testing.T) {
+		t.Log("requesting container start")
+		fic := FeedInContainer{
+			Lat:        TestFeederLatitude,
+			Lon:        TestFeederLongitude,
+			Label:      TestFeederLabel,
+			ApiKey:     TestFeederAPIKey,
+			FeederCode: TestFeederCode,
+			Addr:       TestFeederAddr,
+		}
+		_, err = fic.Start()
+		assert.NoError(t, err)
+	})
+
 	var ct types.ContainerJSON
 
 	// inspect container

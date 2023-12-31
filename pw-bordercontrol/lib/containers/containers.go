@@ -139,7 +139,7 @@ func (conf *ContainerManager) Close() {
 	conf.stopMu.Lock()
 	conf.stop = true
 	conf.stopMu.Unlock()
-	conf.wg.Done()
+	conf.wg.Wait()
 	log.Info().Msg("stopped feed-in container manager")
 }
 
