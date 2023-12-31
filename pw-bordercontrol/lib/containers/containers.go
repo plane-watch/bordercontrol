@@ -98,12 +98,13 @@ func (conf *ContainerManager) Init() {
 			conf.stopMu.RLock()
 			if conf.stop {
 				conf.stopMu.RUnlock()
-				break
+				log.Debug().Msg("stopped startFeederContainers")
+				conf.wg.Done()
+				return
 			} else {
 				conf.stopMu.RUnlock()
 			}
 		}
-		conf.wg.Done()
 	}()
 
 	// start goroutine to check feed-in containers
@@ -127,12 +128,13 @@ func (conf *ContainerManager) Init() {
 			conf.stopMu.RLock()
 			if conf.stop {
 				conf.stopMu.RUnlock()
-				break
+				log.Debug().Msg("stopped checkFeederContainers")
+				conf.wg.Done()
+				return
 			} else {
 				conf.stopMu.RUnlock()
 			}
 		}
-		conf.wg.Done()
 	}()
 	containerManagerInitialised = true
 }
