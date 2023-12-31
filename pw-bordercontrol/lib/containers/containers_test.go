@@ -23,7 +23,8 @@ import (
 var (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
-	TestFeedInImageName        = "wardsco/sleep:latest"
+	TestFeedInImageNameFirst   = "wardsco/sleep:latest"
+	TestFeedInImageNameSecond  = "itisfoundation/sleeper"
 	TestFeedInContainerPrefix  = "test-feed-in-"
 	TestFeedInContainerNetwork = "bridge"
 
@@ -150,7 +151,6 @@ func TestContainers(t *testing.T) {
 		case r := <-containersToStartResponses:
 			assert.Error(t, r.Err)
 			assert.Contains(t, r.Err.Error(), "Cannot connect to the Docker daemon at")
-			t.Log(r.Err)
 		case <-time.After(time.Second * 31):
 			assert.Fail(t, "timeout receiving from chan containersToStartResponses")
 		}
@@ -175,13 +175,24 @@ func TestContainers(t *testing.T) {
 
 	// pull test image
 	t.Log("pull test image")
-	imageirc, err := cli.ImagePull(*ctx, TestFeedInImageName, types.ImagePullOptions{})
+	imageircFirst, err := cli.ImagePull(*ctx, TestFeedInImageNameFirst, types.ImagePullOptions{})
+	assert.NoError(t, err)
+	defer imageirc.Close()
+
+	// pull test image
+	t.Log("pull test image")
+	imageircSecond, err := cli.ImagePull(*ctx, TestFeedInImageNameSecond, types.ImagePullOptions{})
 	assert.NoError(t, err)
 	defer imageirc.Close()
 
 	// load test image
 	t.Log("load test image")
-	_, err = cli.ImageLoad(*ctx, imageirc, false)
+	_, err = cli.ImageLoad(*ctx, imageircFirst, false)
+	assert.NoError(t, err)
+
+	// load test image
+	t.Log("load test image")
+	_, err = cli.ImageLoad(*ctx, imageircSecond, false)
 	assert.NoError(t, err)
 
 	// start feed-in container - will fail, no init
@@ -309,7 +320,7 @@ func TestContainers(t *testing.T) {
 
 	// init container manager
 	cm := ContainerManager{
-		FeedInImageName:                    TestFeedInImageName,
+		FeedInImageName:                    TestFeedInImageNameFirst,
 		FeedInContainerPrefix:              TestFeedInContainerPrefix,
 		FeedInContainerNetwork:             TestFeedInContainerNetwork,
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
@@ -391,6 +402,18 @@ func TestContainers(t *testing.T) {
 
 	t.Run("running ContainerManager.Close()", func(t *testing.T) {
 		cm.Close()
+	})
+
+	// init container manager
+	cm = ContainerManager{
+		FeedInImageName:                    TestFeedInImageNameSecond,
+		FeedInContainerPrefix:              TestFeedInContainerPrefix,
+		FeedInContainerNetwork:             TestFeedInContainerNetwork,
+		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
+		PWIngestSink:                       TestPWIngestSink,
+	}
+	t.Run("running ContainerManager.Init()", func(t *testing.T) {
+		cm.Init()
 	})
 
 }
