@@ -174,24 +174,24 @@ func TestContainers(t *testing.T) {
 	assert.NoError(t, err)
 
 	// pull test image
-	t.Log("pull test image")
+	t.Logf("pull test image: %s", TestFeedInImageNameFirst)
 	imageircFirst, err := cli.ImagePull(*ctx, TestFeedInImageNameFirst, types.ImagePullOptions{})
 	assert.NoError(t, err)
 	defer imageircFirst.Close()
 
 	// pull test image
-	t.Log("pull test image")
+	t.Logf("pull test image: %s", TestFeedInImageNameSecond)
 	imageircSecond, err := cli.ImagePull(*ctx, TestFeedInImageNameSecond, types.ImagePullOptions{})
 	assert.NoError(t, err)
 	defer imageircSecond.Close()
 
 	// load test image
-	t.Log("load test image")
+	t.Logf("load test image: %s", TestFeedInImageNameFirst)
 	_, err = cli.ImageLoad(*ctx, imageircFirst, false)
 	assert.NoError(t, err)
 
 	// load test image
-	t.Log("load test image")
+	t.Logf("load test image: %s", TestFeedInImageNameSecond)
 	_, err = cli.ImageLoad(*ctx, imageircSecond, false)
 	assert.NoError(t, err)
 
