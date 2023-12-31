@@ -52,17 +52,20 @@ type ContainerManager struct {
 	SignalSkipContainerRecreationDelay syscall.Signal // Signal that will skip container recreation delay.
 	PWIngestSink                       string         // URL to pass to the --sink flag of pw-ingest in feed-in container.
 	Logger                             zerolog.Logger // Logging context to use
-	stop                               bool
-	stopMu                             sync.RWMutex
-	stopC                              chan bool
-	wg                                 sync.WaitGroup
+
+	// facility to stop goroutines
+	stop   bool           // set to false (using below mutex for safety) to stop goroutines
+	stopMu sync.RWMutex   // mutex for above bool
+	stopC  chan bool      // channel to stop checkFeederContainers
+	wg     sync.WaitGroup // waitgroup for sync
 }
 
 func (conf *ContainerManager) Init() {
+	// start goroutines associated with container manager
 
 	log.Info().Msg("starting feed-in container manager")
 
-	conf.stopC = make(chan bool)
+	conf.stopC = make(chan bool) // prep channel to stop checkFeederContainers
 
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
@@ -97,6 +100,7 @@ func (conf *ContainerManager) Init() {
 			_ = startFeederContainers(startFeederContainersConf)
 			// no sleep here as this goroutune needs to be relaunched after each container start
 
+			// if requested to stop, then don't loop any more
 			conf.stopMu.RLock()
 			if conf.stop {
 				conf.stopMu.RUnlock()
@@ -127,6 +131,7 @@ func (conf *ContainerManager) Init() {
 			_ = checkFeederContainers(checkFeederContainersConf)
 			// no sleep here as this goroutune needs to be relaunched after each container kill
 
+			// if requested to stop, then don't loop any more
 			conf.stopMu.RLock()
 			if conf.stop {
 				conf.stopMu.RUnlock()
@@ -142,6 +147,8 @@ func (conf *ContainerManager) Init() {
 }
 
 func (conf *ContainerManager) Close() {
+	// stop goroutines associated with container manager
+
 	conf.stopMu.Lock()
 	conf.stop = true
 	conf.stopMu.Unlock()
@@ -160,6 +167,7 @@ type FeedInContainer struct {
 }
 
 func (feedInContainer *FeedInContainer) Start() (containerID string, err error) {
+	// start a feed-in container, return the container ID
 
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
