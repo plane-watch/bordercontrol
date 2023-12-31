@@ -214,6 +214,8 @@ func TestContainers(t *testing.T) {
 			FeederCode: TestFeederCode,
 			Addr:       TestFeederAddr,
 		}
+
+		t.Log("waiting for timeout (~5 secs)...")
 		_, err = fic.Start()
 		assert.Error(t, err)
 		assert.Equal(t, "5s timeout waiting to submit container start request", err.Error())
@@ -241,6 +243,7 @@ func TestContainers(t *testing.T) {
 
 		wg.Add(1)
 		go func(t *testing.T) {
+			t.Log("waiting for timeout (~30 secs)...")
 			_, err = fic.Start()
 			assert.Error(t, err)
 			assert.Equal(t, "30s timeout waiting for container start request to be fulfilled", err.Error())
