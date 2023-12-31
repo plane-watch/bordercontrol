@@ -325,6 +325,7 @@ func TestContainers(t *testing.T) {
 		FeedInContainerNetwork:             TestFeedInContainerNetwork,
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
 		PWIngestSink:                       TestPWIngestSink,
+		Logger:                             log.Logger,
 	}
 	t.Run("running ContainerManager.Init()", func(t *testing.T) {
 		cm.Init()
@@ -402,6 +403,7 @@ func TestContainers(t *testing.T) {
 		FeedInContainerNetwork:             TestFeedInContainerNetwork,
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
 		PWIngestSink:                       TestPWIngestSink,
+		Logger:                             log.Logger,
 	}
 	t.Run("running ContainerManager.Init()", func(t *testing.T) {
 		cm.Init()
