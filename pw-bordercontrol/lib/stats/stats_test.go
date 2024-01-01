@@ -160,7 +160,13 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("test GetNumConnections 0", func(t *testing.T) {
+	t.Run("test GetNumConnections BEAST 0", func(t *testing.T) {
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, i)
+	})
+
+	t.Run("test GetNumConnections MLAT 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, i)
@@ -177,7 +183,7 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("test GetNumConnections 1", func(t *testing.T) {
+	t.Run("test GetNumConnections BEAST 1", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, i)
@@ -188,10 +194,10 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("test GetNumConnections 2", func(t *testing.T) {
-		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+	t.Run("test GetNumConnections BEAST 1", func(t *testing.T) {
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.MLAT)
 		assert.NoError(t, err)
-		assert.Equal(t, 2, i)
+		assert.Equal(t, 1, i)
 	})
 
 	// ---
@@ -209,7 +215,7 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("test GetNumConnections 1", func(t *testing.T) {
+	t.Run("test GetNumConnections BEAST 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, i)
@@ -220,7 +226,7 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("test GetNumConnections 0", func(t *testing.T) {
+	t.Run("test GetNumConnections MLAT 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, i)
