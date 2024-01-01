@@ -650,4 +650,6 @@ func Init(addr string) error {
 			log.Panic().AnErr("err", err).Msg("stats server stopped")
 		}
 	}()
+
+	return nil
 }
