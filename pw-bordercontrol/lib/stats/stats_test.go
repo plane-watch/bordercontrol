@@ -148,6 +148,12 @@ func TestStats(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("test UnregisterConnection ErrStatsNotInitialised", func(t *testing.T) {
+		conn := Connection{}
+		err := conn.UnregisterConnection()
+		assert.Error(t, err)
+	})
+
 	t.Run("test RegisterConnection ErrStatsNotInitialised", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
 		assert.Error(t, err)
