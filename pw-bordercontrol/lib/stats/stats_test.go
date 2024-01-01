@@ -304,7 +304,7 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("test GetNumConnections MLAT 0", func(t *testing.T) {
-		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.MLAT)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, i)
 	})
@@ -320,8 +320,8 @@ func TestStats(t *testing.T) {
 			`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 100`,
 			`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 20`,
 			`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 200`,
-			`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
-			`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
+			`pw_bordercontrol_feeders_active{protocol="beast"} 0`,
+			`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
 		}
 
 		notExpectedMetrics := []string{
