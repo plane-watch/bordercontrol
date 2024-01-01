@@ -619,4 +619,19 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 	})
+
+	t.Run("test statsEvictor", func(t *testing.T) {
+
+		// check stats.Feeders
+		_, ok := stats.Feeders[TestFeederAPIKey]
+		assert.True(t, ok)
+
+		// wait ~60 seconds for statsEvictor to do its thing
+		time.Sleep(61 * time.Second)
+
+		// check stats.Feeders
+		_, ok = stats.Feeders[TestFeederAPIKey]
+		assert.False(t, ok)
+
+	})
 }
