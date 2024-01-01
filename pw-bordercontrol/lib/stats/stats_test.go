@@ -622,6 +622,15 @@ func TestStats(t *testing.T) {
 
 	t.Run("test statsEvictor", func(t *testing.T) {
 
+		// register feeder
+		f := FeederDetails{
+			Label:      TestFeederLabel,
+			FeederCode: TestFeederCode,
+			ApiKey:     TestFeederAPIKey,
+		}
+		err := RegisterFeeder(f)
+		assert.NoError(t, err)
+
 		// check stats.Feeders
 		_, ok := stats.Feeders[TestFeederAPIKey]
 		assert.True(t, ok)
