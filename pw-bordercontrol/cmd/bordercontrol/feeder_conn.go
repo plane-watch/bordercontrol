@@ -611,7 +611,7 @@ func proxyClientConnection(conf proxyConfig) error {
 	// write any outstanding data
 	_, err = connOut.Write(buf[:bytesRead])
 	if err != nil {
-		log.Err(err).Msg(fmt.Sprintf("error writing to %s", dstContainerName))
+		log.Err(err).Msgf("error writing to %s", dstContainerName)
 		return err
 	}
 
@@ -624,7 +624,11 @@ func proxyClientConnection(conf proxyConfig) error {
 		FeederCode: clientDetails.feederCode,
 		ConnNum:    conf.connNum,
 	}
-	conn.RegisterConnection()
+	err = conn.RegisterConnection()
+	if err != nil {
+		log.Err(err).Msg("error registering connection with stats subsystem")
+		return err
+	}
 	defer conn.UnregisterConnection()
 
 	// prepare proxy config

@@ -215,7 +215,7 @@ type Connection struct {
 	ConnNum    uint
 }
 
-func (conn *Connection) UnregisterConnection() {
+func (conn *Connection) UnregisterConnection() error {
 	// updates the connected status of a feeder
 
 	log := log.With().
@@ -235,7 +235,7 @@ func (conn *Connection) UnregisterConnection() {
 	protoName, err := feedprotocol.GetName(conn.Proto)
 	if err != nil {
 		log.Err(err).Msgf("unsupported protocol: %d", conn.Proto)
-		return
+		return err
 	}
 
 	log = log.With().Str("proto", protoName).Logger()
@@ -250,14 +250,16 @@ func (conn *Connection) UnregisterConnection() {
 
 	_, found := stats.Feeders[conn.ApiKey].Connections[conn.Proto]
 	if !found {
-		log.Error().Msg("proto not found in stats.Feeders[uuid].Connections")
-		return
+		err := errors.New("proto not found in stats.Feeders[uuid].Connections")
+		log.Error().Msg("proto not found")
+		return err
 	}
 
 	_, found = stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum]
 	if !found {
-		log.Error().Msg("connNum not found in stats.Feeders[uuid].Connections[proto].ConnectionDetails")
-		return
+		err := errors.New("connNum not found in stats.Feeders[uuid].Connections[proto].ConnectionDetails")
+		log.Error().Msg("connNum not found")
+		return err
 	}
 
 	// unregister prom metrics
@@ -288,9 +290,11 @@ func (conn *Connection) UnregisterConnection() {
 			delete(stats.Feeders, conn.ApiKey)
 		}
 	}
+
+	return err
 }
 
-func (conn *Connection) RegisterConnection() {
+func (conn *Connection) RegisterConnection() error {
 	// updates the connected status of a feeder
 
 	log := log.With().
@@ -310,7 +314,7 @@ func (conn *Connection) RegisterConnection() {
 	protoName, err := feedprotocol.GetName(conn.Proto)
 	if err != nil {
 		log.Err(err).Msgf("unsupported protocol: %d", conn.Proto)
-		return
+		return err
 	}
 
 	log = log.With().Str("proto", protoName).Logger()
@@ -357,10 +361,13 @@ func (conn *Connection) RegisterConnection() {
 	err = prometheus.Register(c.promMetricBytesIn)
 	if err != nil {
 		log.Err(err).Msg("could not register per-feeder prometheus bytes in metric")
+		return err
 	}
+
 	err = prometheus.Register(c.promMetricBytesOut)
 	if err != nil {
 		log.Err(err).Msg("could not register per-feeder prometheus bytes out metric")
+		return err
 	}
 
 	// add connection to feeder connections map
@@ -381,6 +388,8 @@ func (conn *Connection) RegisterConnection() {
 
 	// write stats entry
 	stats.Feeders[conn.ApiKey] = s
+
+	return err
 }
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
