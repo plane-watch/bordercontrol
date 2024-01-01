@@ -467,26 +467,28 @@ func statsEvictor() {
 
 	// loop through stats data, evict any feeders that have been inactive for over 60 seconds
 	for {
-		var toEvict []uuid.UUID
-		// var activeBeast, activeMLAT uint
 
-		stats.mu.Lock()
+		func() {
+			var toEvict []uuid.UUID
+			// var activeBeast, activeMLAT uint
 
-		// find stale data
-		for u, _ := range stats.Feeders {
-			if len(stats.Feeders[u].Connections) == 0 {
-				if time.Now().Sub(stats.Feeders[u].TimeUpdated) > (time.Second * 60) {
-					toEvict = append(toEvict, u)
+			stats.mu.Lock()
+			defer stats.mu.Unlock()
+
+			// find stale data
+			for u := range stats.Feeders {
+				if len(stats.Feeders[u].Connections) == 0 {
+					if time.Now().Sub(stats.Feeders[u].TimeUpdated) > (time.Second * 60) {
+						toEvict = append(toEvict, u)
+					}
 				}
 			}
-		}
 
-		// dump stale data
-		for _, u := range toEvict {
-			delete(stats.Feeders, u)
-		}
-
-		stats.mu.Unlock()
+			// dump stale data
+			for _, u := range toEvict {
+				delete(stats.Feeders, u)
+			}
+		}()
 
 		time.Sleep(time.Minute * 1)
 	}
