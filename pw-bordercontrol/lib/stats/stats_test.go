@@ -102,16 +102,16 @@ func TestStats(t *testing.T) {
 
 	// prep prom test metric names
 	TestPromMetricFeederDataInBytesTotalBEAST := fmt.Sprintf(
-		`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%s",protocol="%s",uuid="%s"}`,
 		TestConnNumBEAST, TestFeederCode, "beast", TestFeederAPIKey.String())
 	TestPromMetricFeederDataInBytesTotalMLAT := fmt.Sprintf(
-		`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%s",protocol="%s",uuid="%s"}`,
 		TestConnNumMLAT, TestFeederCode, "mlat", TestFeederAPIKey.String())
 	TestPromMetricFeederDataOutBytesTotalBEAST := fmt.Sprintf(
-		`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%s",protocol="%s",uuid="%s"}`,
 		TestConnNumBEAST, TestFeederCode, "beast", TestFeederAPIKey.String())
 	TestPromMetricFeederDataOutBytesTotalMLAT := fmt.Sprintf(
-		`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%s",protocol="%s",uuid="%s"}`,
 		TestConnNumMLAT, TestFeederCode, "mlat", TestFeederAPIKey.String())
 
 	// get listenable address
