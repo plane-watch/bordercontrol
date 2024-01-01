@@ -43,7 +43,7 @@ func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) 
 		assert.Equal(t,
 			1,
 			strings.Count(body, expectedMetric),
-			expectedMetric,
+			fmt.Sprintf(`expected to find: "%s"`, expectedMetric),
 		)
 		if t.Failed() {
 			fmt.Println("---- BEGIN RESPONSE BODY ----")
@@ -58,7 +58,7 @@ func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []st
 		assert.Equal(t,
 			0,
 			strings.Count(body, notExpectedMetric),
-			notExpectedMetric,
+			fmt.Sprintf(`expected not to find: "%s"`, notExpectedMetric),
 		)
 		if t.Failed() {
 			fmt.Println("---- BEGIN RESPONSE BODY ----")
