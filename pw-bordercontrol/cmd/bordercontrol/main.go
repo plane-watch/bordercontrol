@@ -235,7 +235,11 @@ func runServer(ctx *cli.Context) error {
 	}()
 
 	// start statistics manager
-	stats.Init(":8080")
+	err = stats.Init(":8080")
+	if err != nil {
+		log.Err(err).Msg("could not start statistics manager")
+		return err
+	}
 
 	// start goroutine to regularly pull feeders from atc
 	go func() {

@@ -581,7 +581,7 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func registerPerFeederCounterVecs() {
+func registerPerFeederCounterVecs() error {
 
 	// define per-connection prometheus metrics
 	promFeederDataInBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -590,6 +590,10 @@ func registerPerFeederCounterVecs() {
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
 	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
+	err := prometheus.Register(promFeederDataInBytesTotal)
+	if err != nil {
+		return err
+	}
 
 	promFeederDataOutBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: PromNamespace,
@@ -597,10 +601,15 @@ func registerPerFeederCounterVecs() {
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
 	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
+	err = prometheus.Register(promFeederDataOutBytesTotal)
+	if err != nil {
+		return err
+	}
 
+	return nil
 }
 
-func Init(addr string) {
+func Init(addr string) error {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
@@ -614,7 +623,10 @@ func Init(addr string) {
 	go statsEvictor()
 
 	// register per-feeder prom metrics
-	registerPerFeederCounterVecs()
+	err := registerPerFeederCounterVecs()
+	if err != nil {
+		return err
+	}
 
 	// set initialised
 	initialisedMu.Lock()
