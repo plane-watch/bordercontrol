@@ -269,7 +269,10 @@ func TestStats(t *testing.T) {
 
 		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
 		assert.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
-		assert.WithinDuration(t, time.Now(), r.Data.(map[string]interface{})["TimeUpdated"].(time.Time), time.Minute*5)
+
+		timeUpdated, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
 
 		// check struct contents of connection 1
 		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
