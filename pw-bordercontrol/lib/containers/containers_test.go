@@ -36,8 +36,7 @@ var (
 	TestFeederMux       = "test-mux"
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
-
-	TestPWIngestSink = "nats://pw-ingest-sink:12345"
+	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
 )
 
 func TestGetDockerClient(t *testing.T) {

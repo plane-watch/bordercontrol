@@ -180,11 +180,11 @@ type FeederDetails struct {
 	ApiKey     uuid.UUID // feeder api key
 }
 
-func RegisterFeeder(f FeederDetails) {
+func RegisterFeeder(f FeederDetails) error {
 	// updates the details of a feeder
 
 	if !statsInitialised() {
-		log.Err(errors.New("stats not initialised")).Msg("stats not initialised")
+		return errors.New("stats not initialised")
 	}
 
 	stats.initFeederStats(f.ApiKey)
@@ -202,6 +202,8 @@ func RegisterFeeder(f FeederDetails) {
 
 	// write stats entry
 	stats.Feeders[f.ApiKey] = y
+
+	return nil
 }
 
 type Connection struct {

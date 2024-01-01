@@ -2,16 +2,26 @@ package stats
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
 
 var (
-	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
+	// mock feeder details
+	TestFeederAPIKey    = uuid.MustParse("6261B9C8-25C1-4B67-A5A2-51FC688E8A25") // not a real feeder api key, generated with uuidgen
+	TestFeederLabel     = "Test Feeder 123"
+	TestFeederLatitude  = 123.456789
+	TestFeederLongitude = 98.765432
+	TestFeederMux       = "test-mux"
+	TestFeederCode      = "ABCD-1234"
+	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
+	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
 )
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
@@ -60,8 +70,28 @@ func TestStats(t *testing.T) {
 	testAddr := testListener.Addr().String()
 	testListener.Close()
 
+	t.Run("test RegisterFeeder fail", func(t *testing.T) {
+		f := FeederDetails{
+			Label:      TestFeederLabel,
+			FeederCode: TestFeederCode,
+			ApiKey:     TestFeederAPIKey,
+		}
+		err := RegisterFeeder(f)
+		assert.Error(t, err)
+	})
+
 	// initialising stats subsystem
 	Init(testAddr)
+
+	t.Run("test RegisterFeeder working", func(t *testing.T) {
+		f := FeederDetails{
+			Label:      TestFeederLabel,
+			FeederCode: TestFeederCode,
+			ApiKey:     TestFeederAPIKey,
+		}
+		err := RegisterFeeder(f)
+		assert.NoError(t, err)
+	})
 
 }
 

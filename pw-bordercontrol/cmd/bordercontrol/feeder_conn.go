@@ -309,13 +309,19 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 
 	// get feeder info (lat/lon/mux/label) from atc cache
 	err = getFeederInfo(&clientDetails)
+	if err != nil {
+		return clientDetails, err
+	}
 
 	// update stats
-	stats.RegisterFeeder(stats.FeederDetails{
+	err = stats.RegisterFeeder(stats.FeederDetails{
 		Label:      clientDetails.label,
 		FeederCode: clientDetails.feederCode,
 		ApiKey:     clientDetails.clientApiKey,
 	})
+	if err != nil {
+		return clientDetails, err
+	}
 
 	return clientDetails, err
 }
