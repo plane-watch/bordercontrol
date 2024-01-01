@@ -247,6 +247,10 @@ func (conn *Connection) RegisterConnection() error {
 		return ErrStatsNotInitialised
 	}
 
+	if !feedprotocol.IsValid(conn.Proto) {
+		return feedprotocol.ErrUnknownProtocol
+	}
+
 	// // get protocol name
 	// protoName, err := feedprotocol.GetName(conn.Proto)
 	// if err != nil {

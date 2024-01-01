@@ -47,4 +47,16 @@ func TestFeedProtocol(t *testing.T) {
 		})
 		assert.Panics(t, ptf)
 	})
+
+	t.Run("test IsValid BEAST", func(t *testing.T) {
+		assert.True(t, IsValid(protoBEAST))
+	})
+
+	t.Run("test IsValid MLAT", func(t *testing.T) {
+		assert.True(t, IsValid(protoMLAT))
+	})
+
+	t.Run("test IsValid unsupported", func(t *testing.T) {
+		assert.False(t, IsValid(protoUnsupported))
+	})
 }
