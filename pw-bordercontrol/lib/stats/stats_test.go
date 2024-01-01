@@ -209,6 +209,10 @@ func TestStats(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/metrics", testAddr)
 		body := getMetricsFromTestServer(t, testURL)
 
+		fmt.Println("---- BEGIN RESPONSE BODY ----")
+		fmt.Println(body)
+		fmt.Println("---- END RESPONSE BODY ----")
+
 		expectedMetrics := []string{
 			`pw_bordercontrol_connections{protocol="beast"} 1`,
 			`pw_bordercontrol_connections{protocol="mlat"} 1`,
