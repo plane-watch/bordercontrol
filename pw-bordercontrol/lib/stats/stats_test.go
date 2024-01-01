@@ -276,7 +276,7 @@ func TestStats(t *testing.T) {
 
 		// check struct contents of connection 1
 		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
-		assert.Equal(t, 1, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(int))
+		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
 
 		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
 		assert.NoError(t, err)
