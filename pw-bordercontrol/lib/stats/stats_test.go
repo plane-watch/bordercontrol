@@ -553,8 +553,8 @@ func TestStats(t *testing.T) {
 
 	t.Run("test httpRenderStats", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/", testAddr)
-		body := getMetricsFromTestServer(t, testURL)
-		fmt.Println(body)
+		ptf := assert.PanicTestFunc(func() { _ = getMetricsFromTestServer(t, testURL) })
+		assert.NotPanics(t, ptf)
 	})
 
 	t.Run("test UnregisterConnection BEAST", func(t *testing.T) {
