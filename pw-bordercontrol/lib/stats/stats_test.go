@@ -27,8 +27,8 @@ var (
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
-	TestConnNumBEAST    = uint(1)
-	TestConnNumMLAT     = uint(2)
+	TestConnNumBEAST    = uint(2345)
+	TestConnNumMLAT     = uint(4567)
 )
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
