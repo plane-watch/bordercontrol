@@ -634,11 +634,12 @@ func TestStats(t *testing.T) {
 		stats.mu.RLock()
 		fmt.Println(stats.Feeders)
 		fmt.Println(stats.Feeders[TestFeederAPIKey])
-		stats.mu.RUnlock()
 
 		// check stats.Feeders
 		_, ok := stats.Feeders[TestFeederAPIKey]
 		assert.True(t, ok)
+
+		stats.mu.RUnlock()
 
 		// wait ~60 seconds for statsEvictor to do its thing
 		time.Sleep(61 * time.Second)
