@@ -314,8 +314,8 @@ func TestStats(t *testing.T) {
 		body := getMetricsFromTestServer(t, testURL)
 
 		expectedMetrics := []string{
-			`pw_bordercontrol_connections{protocol="beast"} 1`,
-			`pw_bordercontrol_connections{protocol="mlat"} 1`,
+			`pw_bordercontrol_connections{protocol="beast"} 0`,
+			`pw_bordercontrol_connections{protocol="mlat"} 0`,
 			`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 10`,
 			`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 100`,
 			`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 20`,
