@@ -613,4 +613,10 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 	})
+
+	t.Run("test /api/v1/feeders after unregisters", func(t *testing.T) {
+		testURL := fmt.Sprintf("http://%s/api/v1/feeders", testAddr)
+		body := getMetricsFromTestServer(t, testURL)
+		fmt.Println(body)
+	})
 }
