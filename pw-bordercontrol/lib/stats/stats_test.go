@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"pw_bordercontrol/lib/feedprotocol"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -286,7 +285,7 @@ func TestStats(t *testing.T) {
 		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
 		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
-		srcAddrPort, err := strconv.Atoi(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(string))
+		srcAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
 		assert.NoError(t, err)
 		srcAddr := net.TCPAddr{
 			IP:   net.ParseIP(srcAddrIP),
