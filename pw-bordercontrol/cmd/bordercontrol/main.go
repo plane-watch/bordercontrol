@@ -338,8 +338,13 @@ type listenConfig struct {
 func listener(conf listenConfig) error {
 	// incoming connection listener
 
+	protoName, err := feedprotocol.GetName(conf.listenProto)
+	if err != nil {
+		return err
+	}
+
 	log := log.With().
-		Str("proto", string(conf.listenProto)).
+		Str("proto", protoName).
 		Str("ip", conf.listenAddr.IP.String()).
 		Int("port", conf.listenAddr.Port).
 		Logger()
@@ -377,6 +382,7 @@ func listener(conf listenConfig) error {
 			connIn:    conn,
 			connProto: conf.listenProto,
 			connNum:   incomingConnTracker.getNum(),
+			logger:    log,
 		}
 
 		// initiate proxying of the connection

@@ -448,12 +448,13 @@ type proxyConfig struct {
 	connIn    net.Conn              // Incoming connection from feeder out on the internet.
 	connProto feedprotocol.Protocol // Incoming connection protocol.
 	connNum   uint                  // Connection number.
+	logger    zerolog.Logger        // logger context to use
 }
 
 func proxyClientConnection(conf proxyConfig) error {
 	// handles incoming connections
 
-	log := log.With().
+	log := conf.logger.With().
 		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).
 		Str("proto", string(conf.connProto)).
 		Uint("connNum", conf.connNum).
