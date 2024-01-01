@@ -262,12 +262,12 @@ func TestStats(t *testing.T) {
 
 		// unmarshall json into struct
 		r := &APIResponse{}
-		r.Data = FeederStats{}
 		err := json.Unmarshal([]byte(body), r)
 		assert.NoError(t, err)
 
 		// check struct contents of feeder
-		assert.Equal(t, TestFeederLabel, r.Data.(*FeederStats).Label)
+		f := r.Data.(*FeederStats)
+		assert.Equal(t, TestFeederLabel, f.Label)
 		assert.Equal(t, TestFeederCode, r.Data.(*FeederStats).Code)
 		assert.Equal(t, TestFeederCode, r.Data.(*FeederStats).Code)
 		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).TimeUpdated, time.Minute*5)
