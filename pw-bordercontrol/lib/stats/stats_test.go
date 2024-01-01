@@ -629,16 +629,12 @@ func TestStats(t *testing.T) {
 			ApiKey:     TestFeederAPIKey,
 		}
 		err := RegisterFeeder(f)
-		assert.NoError(t, err)
-
 		stats.mu.RLock()
-		fmt.Println(stats.Feeders)
-		fmt.Println(stats.Feeders[TestFeederAPIKey])
+		assert.NoError(t, err)
 
 		// check stats.Feeders
 		_, ok := stats.Feeders[TestFeederAPIKey]
 		assert.True(t, ok)
-
 		stats.mu.RUnlock()
 
 		// wait ~60 seconds for statsEvictor to do its thing
