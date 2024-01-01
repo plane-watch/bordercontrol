@@ -223,12 +223,6 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, 1, i)
 	})
 
-	t.Run("test UnregisterConnection ErrProtoNotFound", func(t *testing.T) {
-		err := TestConnMLAT.UnregisterConnection()
-		assert.Error(t, err)
-		assert.Equal(t, ErrProtoNotFound.Error(), err.Error())
-	})
-
 	t.Run("test RegisterConnection MLAT", func(t *testing.T) {
 		err := TestConnMLAT.RegisterConnection()
 		assert.NoError(t, err)

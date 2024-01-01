@@ -353,12 +353,6 @@ func (conn *Connection) UnregisterConnection() error {
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
-	// ensure feeder has connection of this protocol type
-	_, found := stats.Feeders[conn.ApiKey].Connections[conn.Proto]
-	if !found {
-		return ErrProtoNotFound
-	}
-
 	// ensure connection number is found under this feeder
 	_, found = stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum]
 	if !found {
