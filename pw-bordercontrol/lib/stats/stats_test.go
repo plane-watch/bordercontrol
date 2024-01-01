@@ -209,10 +209,6 @@ func TestStats(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/metrics", testAddr)
 		body := getMetricsFromTestServer(t, testURL)
 
-		fmt.Println("---- BEGIN RESPONSE BODY ----")
-		fmt.Println(body)
-		fmt.Println("---- END RESPONSE BODY ----")
-
 		expectedMetrics := []string{
 			`pw_bordercontrol_connections{protocol="beast"} 1`,
 			`pw_bordercontrol_connections{protocol="mlat"} 1`,
@@ -222,10 +218,6 @@ func TestStats(t *testing.T) {
 			`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 0`,
 			`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
 			`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
-			// fmt.Sprintf("%s 0", TestPromMetricFeederDataInBytesTotalBEAST),
-			// fmt.Sprintf("%s 0", TestPromMetricFeederDataInBytesTotalMLAT),
-			// fmt.Sprintf("%s 0", TestPromMetricFeederDataOutBytesTotalBEAST),
-			// fmt.Sprintf("%s 0", TestPromMetricFeederDataOutBytesTotalMLAT),
 		}
 		checkPromMetricsExist(t, body, expectedMetrics)
 	})
@@ -243,6 +235,10 @@ func TestStats(t *testing.T) {
 	t.Run("test prom metrics nonzero values", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/metrics", testAddr)
 		body := getMetricsFromTestServer(t, testURL)
+
+		fmt.Println("---- BEGIN RESPONSE BODY ----")
+		fmt.Println(body)
+		fmt.Println("---- END RESPONSE BODY ----")
 
 		expectedMetrics := []string{
 			`pw_bordercontrol_connections{protocol="beast"} 1`,
