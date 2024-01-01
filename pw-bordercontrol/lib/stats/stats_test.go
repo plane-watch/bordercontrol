@@ -308,14 +308,14 @@ func TestStats(t *testing.T) {
 			`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
 		}
 
-		// notExpectedMetrics := []string{
-		// 	TestPromMetricFeederDataInBytesTotalBEAST,
-		// 	TestPromMetricFeederDataInBytesTotalMLAT,
-		// 	TestPromMetricFeederDataOutBytesTotalBEAST,
-		// 	TestPromMetricFeederDataOutBytesTotalMLAT,
-		// }
+		notExpectedMetrics := []string{
+			TestPromMetricFeederDataInBytesTotalBEAST,
+			TestPromMetricFeederDataInBytesTotalMLAT,
+			TestPromMetricFeederDataOutBytesTotalBEAST,
+			TestPromMetricFeederDataOutBytesTotalMLAT,
+		}
 
 		checkPromMetricsExist(t, body, expectedMetrics)
-		// checkPromMetricsNotExist(t, body, notExpectedMetrics)
+		checkPromMetricsNotExist(t, body, notExpectedMetrics)
 	})
 }
