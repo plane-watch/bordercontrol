@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -257,7 +258,10 @@ func TestStats(t *testing.T) {
 		fmt.Println("---- BEGIN RESPONSE BODY ----")
 		fmt.Println(body)
 		fmt.Println("---- END RESPONSE BODY ----")
-
+		r := &APIResponse{}
+		err := json.Unmarshal([]byte(body), r)
+		assert.NoError(t, err)
+		fmt.Println(r)
 	})
 
 	t.Run("test IncrementByteCounters BEAST", func(t *testing.T) {
