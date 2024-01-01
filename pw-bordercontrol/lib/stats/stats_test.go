@@ -9,6 +9,7 @@ import (
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -264,18 +265,14 @@ func TestStats(t *testing.T) {
 		err := json.Unmarshal([]byte(body), r)
 		assert.NoError(t, err)
 
-		fmt.Println(r)
+		// check struct contents of feeder
 
-		// // check struct contents of feeder
-		// f := r.Data.(map[string](*FeederStats))
+		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
+		assert.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
+		assert.WithinDuration(t, time.Now(), r.Data.(map[string]interface{})["TimeUpdated"].(time.Time), time.Minute*5)
 
-		// assert.Equal(t, TestFeederLabel, f.Label)
-		// assert.Equal(t, TestFeederCode, r.Data.(*FeederStats).Code)
-		// assert.Equal(t, TestFeederCode, r.Data.(*FeederStats).Code)
-		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).TimeUpdated, time.Minute*5)
-
-		// // check struct contents of connection 1
-		// assert.True(t, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].Status)
+		// check struct contents of connection 1
+		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
 		// assert.Equal(t, 1, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionCount)
 		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].MostRecentConnection, time.Minute*5)
 		// assert.Equal(t, TestConnBEAST.SrcAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].Src)
