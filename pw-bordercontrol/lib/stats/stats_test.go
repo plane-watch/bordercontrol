@@ -152,6 +152,7 @@ func TestStats(t *testing.T) {
 		conn := Connection{}
 		err := conn.UnregisterConnection()
 		assert.Error(t, err)
+		assert.Equal(t, ErrStatsNotInitialised.Error(), err.Error())
 	})
 
 	t.Run("test RegisterConnection ErrStatsNotInitialised", func(t *testing.T) {
@@ -162,6 +163,13 @@ func TestStats(t *testing.T) {
 
 	// initialising stats subsystem
 	Init(testAddr)
+
+	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
+		conn := Connection{}
+		err := conn.UnregisterConnection()
+		assert.Error(t, err)
+		assert.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
+	})
 
 	t.Run("test RegisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
@@ -278,10 +286,24 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("test UnregisterConnection BEAST ErrProtoNotFound", func(t *testing.T) {
+		err := TestConnBEAST.UnregisterConnection()
+		assert.Error(t, err)
+		assert.Equal(t, ErrProtoNotFound.Error(), err.Error())
+	})
+
 	t.Run("test GetNumConnections BEAST 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, i)
+	})
+
+	t.Run("test UnregisterConnection MLAT ErrConnNumNotFound", func(t *testing.T) {
+		c := TestConnMLAT
+		c.ConnNum = 3 // connection number that doesn't exist
+		err := TestConnMLAT.UnregisterConnection()
+		assert.Error(t, err)
+		assert.Equal(t, ErrConnNumNotFound.Error(), err.Error())
 	})
 
 	t.Run("test UnregisterConnection MLAT", func(t *testing.T) {
