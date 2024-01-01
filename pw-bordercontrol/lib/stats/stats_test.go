@@ -387,7 +387,7 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
 		assert.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
 
-		timeUpdated, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
+		timeUpdated, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
 		assert.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
 
@@ -395,7 +395,7 @@ func TestStats(t *testing.T) {
 		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
 		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
 
-		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
+		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
 		assert.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
@@ -430,7 +430,7 @@ func TestStats(t *testing.T) {
 		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
 		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
 
-		timeMostRecentConnection, err = time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["MostRecentConnection"].(string))
+		timeMostRecentConnection, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["MostRecentConnection"].(string))
 		assert.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
@@ -454,7 +454,7 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
 		assert.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
 
-		timeConnected, err = time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["TimeConnected"].(string))
+		timeConnected, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["TimeConnected"].(string))
 		assert.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
