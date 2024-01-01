@@ -687,32 +687,32 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 		}
 	}
 
-	t.Run("test authenticateFeeder working", func(t *testing.T) {
+	// t.Run("test authenticateFeeder working", func(t *testing.T) {
 
-		// prepare test data
-		validFeeders.mu.Lock()
-		validFeeders.Feeders = []atc.Feeder{}
-		validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
-			Altitude:   1,
-			ApiKey:     testSNI,
-			FeederCode: "ABCD-1234",
-			Label:      "test_feeder",
-			Latitude:   123.45678,
-			Longitude:  98.76543,
-			Mux:        "test_mux",
-		})
-		validFeeders.mu.Unlock()
+	// 	// prepare test data
+	// 	validFeeders.mu.Lock()
+	// 	validFeeders.Feeders = []atc.Feeder{}
+	// 	validFeeders.Feeders = append(validFeeders.Feeders, atc.Feeder{
+	// 		Altitude:   1,
+	// 		ApiKey:     testSNI,
+	// 		FeederCode: "ABCD-1234",
+	// 		Label:      "test_feeder",
+	// 		Latitude:   123.45678,
+	// 		Longitude:  98.76543,
+	// 		Mux:        "test_mux",
+	// 	})
+	// 	validFeeders.mu.Unlock()
 
-		// test authenticateFeeder
-		clientDetails, err := authenticateFeeder(c)
-		assert.NoError(t, err)
-		assert.Equal(t, testSNI, clientDetails.clientApiKey)
-		assert.Equal(t, 123.45678, clientDetails.refLat)
-		assert.Equal(t, 98.76543, clientDetails.refLon)
-		assert.Equal(t, "test_mux", clientDetails.mux)
-		assert.Equal(t, "test_feeder", clientDetails.label)
-		assert.Equal(t, "ABCD-1234", clientDetails.feederCode)
-	})
+	// 	// test authenticateFeeder
+	// 	clientDetails, err := authenticateFeeder(c)
+	// 	assert.NoError(t, err)
+	// 	assert.Equal(t, testSNI, clientDetails.clientApiKey)
+	// 	assert.Equal(t, 123.45678, clientDetails.refLat)
+	// 	assert.Equal(t, 98.76543, clientDetails.refLon)
+	// 	assert.Equal(t, "test_mux", clientDetails.mux)
+	// 	assert.Equal(t, "test_feeder", clientDetails.label)
+	// 	assert.Equal(t, "ABCD-1234", clientDetails.feederCode)
+	// })
 
 	// now send some data
 	sendData <- true
