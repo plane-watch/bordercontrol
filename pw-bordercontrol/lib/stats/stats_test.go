@@ -636,11 +636,12 @@ func TestStats(t *testing.T) {
 		_, ok := stats.Feeders[TestFeederAPIKey]
 		assert.True(t, ok)
 
-		// move timeupdated back 61 seconds so it will be evicted without having to wait
+		// move timeupdated back 120 seconds so it will be evicted without having to wait
 		fs := stats.Feeders[TestFeederAPIKey]
-		fs.TimeUpdated = time.Now().Add(-time.Second * 61)
+		fs.TimeUpdated = time.Now().Add(-time.Second * 120)
 		stats.Feeders[TestFeederAPIKey] = fs
 
+		fmt.Println(stats.Feeders[TestFeederAPIKey])
 		stats.mu.RUnlock()
 
 		// run statsEvictorInner
