@@ -271,15 +271,25 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, TestFeederCode, r.Data.(*FeederStats).Code)
 		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).TimeUpdated, time.Minute*5)
 
-		// // check struct contents of connection 1
-		// assert.True(t, r.Data.(*FeederStats).Connections[1].Status)
-		// assert.Equal(t, 1, r.Data.(*FeederStats).Connections[1].ConnectionCount)
-		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[1].MostRecentConnection, time.Minute*5)
-		// assert.Equal(t, TestConnBEAST.SrcAddr, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].Src)
-		// assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].Dst)
-		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].TimeConnected, time.Minute*5)
-		// assert.Equal(t, 0, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].BytesIn)
-		// assert.Equal(t, 0, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].BytesOut)
+		// check struct contents of connection 1
+		assert.True(t, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].Status)
+		assert.Equal(t, 1, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionCount)
+		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].MostRecentConnection, time.Minute*5)
+		assert.Equal(t, TestConnBEAST.SrcAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].Src)
+		assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].Dst)
+		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].TimeConnected, time.Minute*5)
+		assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].BytesIn)
+		assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].BytesOut)
+
+		// check struct contents of connection 2
+		assert.True(t, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].Status)
+		assert.Equal(t, 1, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionCount)
+		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].MostRecentConnection, time.Minute*5)
+		assert.Equal(t, TestConnBEAST.SrcAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].Src)
+		assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].Dst)
+		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].TimeConnected, time.Minute*5)
+		assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].BytesIn)
+		assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].BytesOut)
 	})
 
 	t.Run("test IncrementByteCounters BEAST", func(t *testing.T) {
