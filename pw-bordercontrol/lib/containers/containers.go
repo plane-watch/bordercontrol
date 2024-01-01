@@ -30,6 +30,9 @@ var (
 	containersToStartRequests   chan FeedInContainer        // channel for container start requests
 	containersToStartResponses  chan startContainerResponse // channel for container start responses
 	containerManagerInitialised bool                        // has ContainerManager.Init() been run?
+
+	promMetricFeederContainersImageCurrent    prometheus.GaugeFunc // prom metric "feedercontainers_image_current"
+	promMetricFeederContainersImageNotCurrent prometheus.GaugeFunc // prom metric "feedercontainers_image_not_current"
 )
 
 // struct for responses from the startFeederContainers goroutine start a container
@@ -50,7 +53,7 @@ var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 
 func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 
-	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	promMetricFeederContainersImageCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: stats.PromNamespace,
 		Subsystem: stats.PromSubsystem,
 		Name:      "feedercontainers_image_current",
@@ -89,7 +92,7 @@ func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 			return n
 		})
 
-	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	promMetricFeederContainersImageNotCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: stats.PromNamespace,
 		Subsystem: stats.PromSubsystem,
 		Name:      "feedercontainers_image_not_current",
@@ -242,6 +245,17 @@ func (conf *ContainerManager) Close() {
 	conf.stopMu.Unlock()
 	conf.stopC <- true
 	conf.wg.Wait()
+
+	// unregister prom metrics
+	ok := prometheus.Unregister(promMetricFeederContainersImageCurrent)
+	if !ok {
+		log.Error().Msg("could not unregister promMetricFeederContainersImageCurrent")
+	}
+	ok = prometheus.Unregister(promMetricFeederContainersImageNotCurrent)
+	if !ok {
+		log.Error().Msg("could not unregister promMetricFeederContainersImageNotCurrent")
+	}
+
 	log.Info().Msg("stopped feed-in container manager")
 }
 
