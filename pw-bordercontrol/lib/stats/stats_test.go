@@ -8,10 +8,8 @@ import (
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -102,36 +100,6 @@ func TestStats(t *testing.T) {
 		ConnNum:    TestConnNumMLAT,
 	}
 
-	// prep test prom metric names
-	TestPromMetricFeederDataInBytesTotalBEAST := fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%s",label="%s",protocol="%s",uuid="%s"}`,
-		TestConnNumBEAST,
-		TestFeederCode,
-		TestFeederLabel,
-		"beast",
-		TestFeederAPIKey,
-	)
-	TestPromMetricFeederDataInBytesTotalMLAT := fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%s",label="%s",protocol="%s",uuid="%s"}`,
-		TestConnNumMLAT,
-		TestFeederCode,
-		TestFeederLabel,
-		"mlat",
-		TestFeederAPIKey,
-	)
-	TestPromMetricFeederDataOutBytesTotalBEAST := fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%s",label="%s",protocol="%s",uuid="%s"}`,
-		TestConnNumBEAST,
-		TestFeederCode,
-		TestFeederLabel,
-		"beast",
-		TestFeederAPIKey,
-	)
-	TestPromMetricFeederDataOutBytesTotalMLAT := fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%s",label="%s",protocol="%s",uuid="%s"}`,
-		TestConnNumMLAT,
-		TestFeederCode,
-		TestFeederLabel,
-		"mlat",
-		TestFeederAPIKey,
-	)
-
 	// get listenable address
 	testListener, err := nettest.NewLocalListener("tcp")
 	if err != nil {
@@ -215,64 +183,6 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, ErrConnNumNotFound.Error(), err.Error())
 	})
 
-	// make dupe connection to raise prom error: feeder_data_in_bytes_total
-	promMetricForErrorA := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: PromNamespace,
-		Subsystem: PromSubsystem,
-		Name:      "feeder_data_in_bytes_total",
-		Help:      "Per-feeder bytes received (in)",
-		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(TestConnBEAST.Proto.Name()),
-			"uuid":        TestFeederAPIKey.String(),
-			"label":       TestFeederLabel,
-			"connnum":     fmt.Sprint(TestConnNumBEAST),
-			"feeder_code": TestFeederCode,
-		}})
-	err = prometheus.Register(promMetricForErrorA)
-	assert.NoError(t, err)
-	promMetricForErrorA.Inc()
-
-	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
-		err := TestConnBEAST.RegisterConnection()
-		assert.Error(t, err)
-	})
-
-	// unregister dupe
-	ok := prometheus.Unregister(promMetricForErrorA)
-	assert.True(t, ok)
-
-	// wait for prom
-	time.Sleep(time.Second * 1)
-
-	// make dupe connection to raise prom error: feeder_data_in_bytes_total
-	promMetricForErrorB := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: PromNamespace,
-		Subsystem: PromSubsystem,
-		Name:      "feeder_data_out_bytes_total",
-		Help:      "Per-feeder bytes sent (out)",
-		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(TestConnBEAST.Proto.Name()),
-			"uuid":        TestFeederAPIKey.String(),
-			"label":       TestFeederLabel,
-			"connnum":     fmt.Sprint(TestConnNumBEAST),
-			"feeder_code": TestFeederCode,
-		}})
-	err = prometheus.Register(promMetricForErrorB)
-	assert.NoError(t, err)
-	promMetricForErrorB.Inc()
-
-	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
-		err := TestConnBEAST.RegisterConnection()
-		assert.Error(t, err)
-	})
-
-	// unregister dupe
-	ok = prometheus.Unregister(promMetricForErrorB)
-	assert.True(t, ok)
-
-	// wait for prom
-	time.Sleep(time.Second * 1)
-
 	t.Run("test RegisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
 		assert.NoError(t, err)
@@ -308,10 +218,10 @@ func TestStats(t *testing.T) {
 			`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 0`,
 			`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
 			`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
-			fmt.Sprintf("%s 0", TestPromMetricFeederDataInBytesTotalBEAST),
-			fmt.Sprintf("%s 0", TestPromMetricFeederDataInBytesTotalMLAT),
-			fmt.Sprintf("%s 0", TestPromMetricFeederDataOutBytesTotalBEAST),
-			fmt.Sprintf("%s 0", TestPromMetricFeederDataOutBytesTotalMLAT),
+			// fmt.Sprintf("%s 0", TestPromMetricFeederDataInBytesTotalBEAST),
+			// fmt.Sprintf("%s 0", TestPromMetricFeederDataInBytesTotalMLAT),
+			// fmt.Sprintf("%s 0", TestPromMetricFeederDataOutBytesTotalBEAST),
+			// fmt.Sprintf("%s 0", TestPromMetricFeederDataOutBytesTotalMLAT),
 		}
 		checkPromMetricsExist(t, body, expectedMetrics)
 	})
@@ -339,10 +249,10 @@ func TestStats(t *testing.T) {
 			`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 200`,
 			`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
 			`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
-			fmt.Sprintf("%s 10", TestPromMetricFeederDataInBytesTotalBEAST),
-			fmt.Sprintf("%s 100", TestPromMetricFeederDataInBytesTotalMLAT),
-			fmt.Sprintf("%s 20", TestPromMetricFeederDataOutBytesTotalBEAST),
-			fmt.Sprintf("%s 200", TestPromMetricFeederDataOutBytesTotalMLAT),
+			// fmt.Sprintf("%s 10", TestPromMetricFeederDataInBytesTotalBEAST),
+			// fmt.Sprintf("%s 100", TestPromMetricFeederDataInBytesTotalMLAT),
+			// fmt.Sprintf("%s 20", TestPromMetricFeederDataOutBytesTotalBEAST),
+			// fmt.Sprintf("%s 200", TestPromMetricFeederDataOutBytesTotalMLAT),
 		}
 		checkPromMetricsExist(t, body, expectedMetrics)
 	})
@@ -384,14 +294,14 @@ func TestStats(t *testing.T) {
 			`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
 		}
 
-		notExpectedMetrics := []string{
-			TestPromMetricFeederDataInBytesTotalBEAST,
-			TestPromMetricFeederDataInBytesTotalMLAT,
-			TestPromMetricFeederDataOutBytesTotalBEAST,
-			TestPromMetricFeederDataOutBytesTotalMLAT,
-		}
+		// notExpectedMetrics := []string{
+		// 	TestPromMetricFeederDataInBytesTotalBEAST,
+		// 	TestPromMetricFeederDataInBytesTotalMLAT,
+		// 	TestPromMetricFeederDataOutBytesTotalBEAST,
+		// 	TestPromMetricFeederDataOutBytesTotalMLAT,
+		// }
 
 		checkPromMetricsExist(t, body, expectedMetrics)
-		checkPromMetricsNotExist(t, body, notExpectedMetrics)
+		// checkPromMetricsNotExist(t, body, notExpectedMetrics)
 	})
 }

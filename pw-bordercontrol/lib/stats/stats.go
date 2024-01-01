@@ -48,13 +48,11 @@ type ProtocolDetail struct {
 }
 
 type ConnectionDetail struct {
-	Src                net.Addr           // source ip:port of incoming connection
-	Dst                net.Addr           // destination ip:port of outgoing connection
-	TimeConnected      time.Time          // time connection was established
-	BytesIn            uint64             // bytes received from feeder client
-	BytesOut           uint64             // bytes sent to feeder client
-	promMetricBytesIn  prometheus.Counter // holds the prometheus counter for bytes in
-	promMetricBytesOut prometheus.Counter // holds the prometheus counter for bytes out
+	Src           net.Addr  // source ip:port of incoming connection
+	Dst           net.Addr  // destination ip:port of outgoing connection
+	TimeConnected time.Time // time connection was established
+	BytesIn       uint64    // bytes received from feeder client
+	BytesOut      uint64    // bytes sent to feeder client
 }
 
 // statistics subsystem struct (+ mutex for sync)
@@ -87,6 +85,10 @@ var (
 	// for functions to determine if Init() had been run
 	initialised   bool
 	initialisedMu sync.RWMutex
+
+	// per-feeder prom metrics
+	promFeederDataInBytesTotal  *prometheus.CounterVec
+	promFeederDataOutBytesTotal *prometheus.CounterVec
 
 	// custom errors
 	ErrStatsNotInitialised = errors.New("stats not initialised")
@@ -136,11 +138,20 @@ func IncrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint6
 
 				// increment per-connection counters
 				c.BytesIn += bytesIn
-				c.promMetricBytesIn.Add(float64(bytesIn))
 				c.BytesOut += bytesOut
-				c.promMetricBytesOut.Add(float64(bytesOut))
-
 				y.Connections[proto].ConnectionDetails[connNum] = c
+
+				// prep prom labels
+				pl := prometheus.Labels{
+					"protocol":    proto.Name(),
+					"uuid":        uuid.String(),
+					"connnum":     fmt.Sprint(cn),
+					"feeder_code": y.Code,
+				}
+
+				// increment prom counters
+				promFeederDataInBytesTotal.With(pl).Add(float64(bytesIn))
+				promFeederDataOutBytesTotal.With(pl).Add(float64(bytesOut))
 
 				// increment global counters
 				switch proto {
@@ -236,22 +247,22 @@ func (conn *Connection) RegisterConnection() error {
 		return ErrStatsNotInitialised
 	}
 
-	// get protocol name
-	protoName, err := feedprotocol.GetName(conn.Proto)
-	if err != nil {
-		return err
-	}
+	// // get protocol name
+	// protoName, err := feedprotocol.GetName(conn.Proto)
+	// if err != nil {
+	// 	return err
+	// }
 
-	// update log context
-	log := log.With().
-		Str("code", conn.FeederCode).
-		Str("dst", conn.DstAddr.String()).
-		Str("proto", protoName).
-		Str("src", conn.SrcAddr.String()).
-		Str("uuid", conn.ApiKey.String()).
-		Strs("func", []string{"stats.go", "addConnection"}).
-		Uint("connNum", conn.ConnNum).
-		Logger()
+	// // update log context
+	// log := log.With().
+	// 	Str("code", conn.FeederCode).
+	// 	Str("dst", conn.DstAddr.String()).
+	// 	Str("proto", protoName).
+	// 	Str("src", conn.SrcAddr.String()).
+	// 	Str("uuid", conn.ApiKey.String()).
+	// 	Strs("func", []string{"stats.go", "addConnection"}).
+	// 	Uint("connNum", conn.ConnNum).
+	// 	Logger()
 
 	// ensure feeder exists in stats subsystem
 	stats.initFeederStats(conn.ApiKey)
@@ -268,43 +279,6 @@ func (conn *Connection) RegisterConnection() error {
 	// get lock for stats var to prevent race
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
-
-	// define per-connection prometheus metrics
-	c.promMetricBytesIn = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: PromNamespace,
-		Subsystem: PromSubsystem,
-		Name:      "feeder_data_in_bytes_total",
-		Help:      "Per-feeder bytes received (in)",
-		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(protoName),
-			"uuid":        conn.ApiKey.String(),
-			"label":       stats.Feeders[conn.ApiKey].Label,
-			"connnum":     fmt.Sprintf("%d", conn.ConnNum),
-			"feeder_code": conn.FeederCode,
-		}})
-	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: PromNamespace,
-		Subsystem: PromSubsystem,
-		Name:      "feeder_data_out_bytes_total",
-		Help:      "Per-feeder bytes sent (out)",
-		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(protoName),
-			"uuid":        conn.ApiKey.String(),
-			"label":       stats.Feeders[conn.ApiKey].Label,
-			"connnum":     fmt.Sprintf("%d", conn.ConnNum),
-			"feeder_code": conn.FeederCode,
-		}})
-	err = prometheus.Register(c.promMetricBytesIn)
-	if err != nil {
-		log.Err(err).Msg("could not register per-feeder prometheus bytes in metric")
-		return err
-	}
-
-	err = prometheus.Register(c.promMetricBytesOut)
-	if err != nil {
-		log.Err(err).Msg("could not register per-feeder prometheus bytes out metric")
-		return err
-	}
 
 	// add connection to feeder connections map
 	stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum] = c
@@ -325,7 +299,7 @@ func (conn *Connection) RegisterConnection() error {
 	// write stats entry
 	stats.Feeders[conn.ApiKey] = s
 
-	return err
+	return nil
 }
 
 func (conn *Connection) UnregisterConnection() error {
@@ -359,6 +333,18 @@ func (conn *Connection) UnregisterConnection() error {
 	// ensure feeder exists in stats subsystem
 	stats.initFeederStats(conn.ApiKey)
 
+	// prep prom labels
+	pl := prometheus.Labels{
+		"protocol":    conn.Proto.Name(),
+		"uuid":        conn.ApiKey.String(),
+		"connnum":     fmt.Sprint(conn.ConnNum),
+		"feeder_code": conn.FeederCode,
+	}
+
+	// increment prom counters
+	promFeederDataInBytesTotal.Delete(pl)
+	promFeederDataOutBytesTotal.Delete(pl)
+
 	// get lock for stats var to prevent race
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
@@ -374,10 +360,6 @@ func (conn *Connection) UnregisterConnection() error {
 	if !found {
 		return ErrConnNumNotFound
 	}
-
-	// unregister prom metrics
-	_ = prometheus.Unregister(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum].promMetricBytesIn)
-	_ = prometheus.Unregister(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum].promMetricBytesOut)
 
 	// delete the connection from stats subsystem
 	delete(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails, conn.ConnNum)
@@ -593,6 +575,24 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+}
+
+func registerPerFeederCounterVecs() {
+
+	// define per-connection prometheus metrics
+	promFeederDataInBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
+		Name:      "feeder_data_in_bytes_total",
+		Help:      "Per-feeder bytes received (in)",
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
+
+	promFeederDataOutBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
+		Name:      "feeder_data_out_bytes_total",
+		Help:      "Per-feeder bytes sent (out)",
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
 
 }
 
@@ -608,6 +608,9 @@ func Init(addr string) {
 
 	// start up stats evictor
 	go statsEvictor()
+
+	// register per-feeder prom metrics
+	registerPerFeederCounterVecs()
 
 	// set initialised
 	initialisedMu.Lock()
