@@ -602,9 +602,11 @@ func Init(addr string) {
 	http.Handle("/metrics/", promhttp.Handler())
 
 	// start stats http server
-	log.Info().Str("addr", addr).Msg("starting statistics listener")
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
-		log.Panic().AnErr("err", err).Msg("stats server stopped")
-	}
+	go func() {
+		log.Info().Str("addr", addr).Msg("starting statistics listener")
+		err := http.ListenAndServe(addr, nil)
+		if err != nil {
+			log.Panic().AnErr("err", err).Msg("stats server stopped")
+		}
+	}()
 }

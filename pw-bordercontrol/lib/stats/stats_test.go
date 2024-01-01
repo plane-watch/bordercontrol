@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/nettest"
 )
 
 var (
@@ -46,6 +47,22 @@ func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []st
 			strings.Count(body, notExpectedMetric),
 		)
 	}
+}
+
+func TestStats(t *testing.T) {
+
+	// get listenable address
+	testListener, err := nettest.NewLocalListener("tcp")
+	if err != nil {
+		assert.Fail(t, "error creating test listener")
+		t.FailNow()
+	}
+	testAddr := testListener.Addr().String()
+	testListener.Close()
+
+	// initialising stats subsystem
+	Init(testAddr)
+
 }
 
 // func TestStats(t *testing.T) {
