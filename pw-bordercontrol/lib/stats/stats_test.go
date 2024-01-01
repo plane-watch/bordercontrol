@@ -617,6 +617,13 @@ func TestStats(t *testing.T) {
 	t.Run("test /api/v1/feeders after unregisters", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/api/v1/feeders", testAddr)
 		body := getMetricsFromTestServer(t, testURL)
+
+		// unmarshall json into struct
+		r := &APIResponse{}
+		err := json.Unmarshal([]byte(body), r)
+		assert.NoError(t, err)
+
 		fmt.Println(body)
+		fmt.Println(r)
 	})
 }
