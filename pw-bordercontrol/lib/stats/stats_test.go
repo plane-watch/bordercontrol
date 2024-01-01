@@ -230,6 +230,7 @@ func TestStats(t *testing.T) {
 		}})
 	err = prometheus.Register(promMetricForErrorA)
 	assert.NoError(t, err)
+	promMetricForErrorA.Inc()
 
 	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
@@ -258,6 +259,7 @@ func TestStats(t *testing.T) {
 		}})
 	err = prometheus.Register(promMetricForErrorB)
 	assert.NoError(t, err)
+	promMetricForErrorB.Inc()
 
 	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
