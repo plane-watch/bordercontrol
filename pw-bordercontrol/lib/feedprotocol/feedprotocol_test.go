@@ -59,4 +59,22 @@ func TestFeedProtocol(t *testing.T) {
 	t.Run("test IsValid unsupported", func(t *testing.T) {
 		assert.False(t, IsValid(protoUnsupported))
 	})
+
+	t.Run("test GetProtoFromName BEAST", func(t *testing.T) {
+		p, err := GetProtoFromName(ProtocolNameBEAST)
+		assert.NoError(t, err)
+		assert.Equal(t, BEAST, p)
+	})
+
+	t.Run("test GetProtoFromName MLAT", func(t *testing.T) {
+		p, err := GetProtoFromName(ProtocolNameMLAT)
+		assert.NoError(t, err)
+		assert.Equal(t, MLAT, p)
+	})
+
+	t.Run("test GetProtoFromName unsupported", func(t *testing.T) {
+		_, err := GetProtoFromName("unsupported")
+		assert.Error(t, err)
+		assert.Equal(t, ErrUnknownProtocol.Error(), err.Error())
+	})
 }
