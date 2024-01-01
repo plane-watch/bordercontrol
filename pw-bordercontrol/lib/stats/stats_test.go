@@ -625,5 +625,7 @@ func TestStats(t *testing.T) {
 
 		fmt.Println(body)
 		fmt.Println(r)
+		fmt.Println(r.Data.(map[string]interface{}))
+
 	})
 }
