@@ -296,7 +296,7 @@ func TestStats(t *testing.T) {
 	t.Run("test UnregisterConnection MLAT ErrConnNumNotFound", func(t *testing.T) {
 		c := TestConnMLAT
 		c.ConnNum = 3 // connection number that doesn't exist
-		err := TestConnMLAT.UnregisterConnection()
+		err := c.UnregisterConnection()
 		assert.Error(t, err)
 		assert.Equal(t, ErrConnNumNotFound.Error(), err.Error())
 	})
