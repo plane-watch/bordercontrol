@@ -251,6 +251,15 @@ func TestStats(t *testing.T) {
 		checkPromMetricsExist(t, body, expectedMetrics)
 	})
 
+	t.Run("test /api/v1/feeder zero values", func(t *testing.T) {
+		testURL := fmt.Sprintf("http://%s/api/v1/feeder/%s", testAddr, TestFeederAPIKey)
+		body := getMetricsFromTestServer(t, testURL)
+		fmt.Println("---- BEGIN RESPONSE BODY ----")
+		fmt.Println(body)
+		fmt.Println("---- END RESPONSE BODY ----")
+
+	})
+
 	t.Run("test IncrementByteCounters BEAST", func(t *testing.T) {
 		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, 10, 20)
 		assert.NoError(t, err)
