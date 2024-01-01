@@ -8,6 +8,7 @@ import (
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
@@ -239,6 +240,9 @@ func TestStats(t *testing.T) {
 	ok := prometheus.Unregister(promMetricForErrorA)
 	assert.True(t, ok)
 
+	// wait for prom
+	time.Sleep(time.Second * 1)
+
 	// make dupe connection to raise prom error: feeder_data_in_bytes_total
 	promMetricForErrorB := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: PromNamespace,
@@ -263,6 +267,9 @@ func TestStats(t *testing.T) {
 	// unregister dupe
 	ok = prometheus.Unregister(promMetricForErrorB)
 	assert.True(t, ok)
+
+	// wait for prom
+	time.Sleep(time.Second * 1)
 
 	t.Run("test RegisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
