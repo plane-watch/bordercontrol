@@ -608,10 +608,10 @@ func TestStats(t *testing.T) {
 		expectedMetrics := []string{
 			`pw_bordercontrol_connections{protocol="beast"} 0`,
 			`pw_bordercontrol_connections{protocol="mlat"} 0`,
-			`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 10`,
-			`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 100`,
-			`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 20`,
-			`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 200`,
+			`pw_bordercontrol_data_in_bytes_total{protocol="beast"} 1034`,
+			`pw_bordercontrol_data_in_bytes_total{protocol="mlat"} 1.073741924e+09`,
+			`pw_bordercontrol_data_out_bytes_total{protocol="beast"} 1.048596e+06`,
+			`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 1.099511627976e+12`,
 			`pw_bordercontrol_feeders_active{protocol="beast"} 0`,
 			`pw_bordercontrol_feeders_active{protocol="mlat"} 0`,
 		}
