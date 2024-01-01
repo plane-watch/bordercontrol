@@ -519,10 +519,10 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	numConnections := stats.GetNumConnections(clientDetails.clientApiKey, conf.connProto)
 
-	log = log.With().Str("connections", fmt.Sprintf("%d/%d", numConnections, maxConnectionsPerProto)).Logger()
+	log = log.With().Str("connections", fmt.Sprintf("%d/%d", numConnections+1, maxConnectionsPerProto)).Logger()
 
 	// check number of connections, and drop connection if limit exceeded
-	if numConnections > maxConnectionsPerProto {
+	if numConnections >= maxConnectionsPerProto {
 		err := errors.New("connection limit exceeded")
 		log.Err(err).Msg("dropping connection")
 		return err
