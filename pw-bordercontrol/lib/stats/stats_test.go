@@ -223,6 +223,12 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, 1, i)
 	})
 
+	t.Run("test UnregisterConnection ErrProtoNotFound", func(t *testing.T) {
+		err := TestConnMLAT.UnregisterConnection()
+		assert.Error(t, err)
+		assert.Equal(t, ErrProtoNotFound.Error(), err.Error())
+	})
+
 	t.Run("test RegisterConnection MLAT", func(t *testing.T) {
 		err := TestConnMLAT.RegisterConnection()
 		assert.NoError(t, err)
@@ -285,12 +291,6 @@ func TestStats(t *testing.T) {
 	t.Run("test UnregisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.UnregisterConnection()
 		assert.NoError(t, err)
-	})
-
-	t.Run("test UnregisterConnection BEAST ErrProtoNotFound", func(t *testing.T) {
-		err := TestConnBEAST.UnregisterConnection()
-		assert.Error(t, err)
-		assert.Equal(t, ErrProtoNotFound.Error(), err.Error())
 	})
 
 	t.Run("test GetNumConnections BEAST 0", func(t *testing.T) {
