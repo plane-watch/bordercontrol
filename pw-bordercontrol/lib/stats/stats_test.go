@@ -295,7 +295,7 @@ func TestStats(t *testing.T) {
 	t.Run("test GetNumConnections BEAST 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		assert.NoError(t, err)
-		assert.Equal(t, 1, i)
+		assert.Equal(t, 0, i)
 	})
 
 	t.Run("test UnregisterConnection MLAT", func(t *testing.T) {
