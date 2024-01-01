@@ -640,6 +640,9 @@ func TestStats(t *testing.T) {
 		// wait ~60 seconds for statsEvictor to do its thing
 		time.Sleep(61 * time.Second)
 
+		// run statsEvictorInner
+		statsEvictorInner()
+
 		// check stats.Feeders
 		_, ok = stats.Feeders[TestFeederAPIKey]
 		assert.False(t, ok)
