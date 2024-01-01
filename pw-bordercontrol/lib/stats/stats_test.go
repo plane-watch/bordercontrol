@@ -265,6 +265,8 @@ func TestStats(t *testing.T) {
 		err := json.Unmarshal([]byte(body), r)
 		assert.NoError(t, err)
 
+		fmt.Println(r)
+
 		// check struct contents of feeder
 
 		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
@@ -281,6 +283,8 @@ func TestStats(t *testing.T) {
 		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
 		assert.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+
+		fmt.Println(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[)
 
 		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["IP"].(string)
 		srcAddrPort := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Port"].(int)
