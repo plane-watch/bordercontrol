@@ -215,7 +215,7 @@ func TestStats(t *testing.T) {
 	})
 
 	// make dupe connection to raise prom error: feeder_data_in_bytes_total
-	promMetricForError := prometheus.NewCounter(prometheus.CounterOpts{
+	promMetricForErrorA := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: PromNamespace,
 		Subsystem: PromSubsystem,
 		Name:      "feeder_data_in_bytes_total",
@@ -227,7 +227,7 @@ func TestStats(t *testing.T) {
 			"connnum":     fmt.Sprint(TestConnNumBEAST),
 			"feeder_code": TestFeederCode,
 		}})
-	err = prometheus.Register(promMetricForError)
+	err = prometheus.Register(promMetricForErrorA)
 	assert.NoError(t, err)
 
 	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
@@ -236,11 +236,11 @@ func TestStats(t *testing.T) {
 	})
 
 	// unregister dupe
-	ok := prometheus.Unregister(promMetricForError)
+	ok := prometheus.Unregister(promMetricForErrorA)
 	assert.True(t, ok)
 
 	// make dupe connection to raise prom error: feeder_data_in_bytes_total
-	promMetricForError = prometheus.NewCounter(prometheus.CounterOpts{
+	promMetricForErrorB := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: PromNamespace,
 		Subsystem: PromSubsystem,
 		Name:      "feeder_data_out_bytes_total",
@@ -252,7 +252,7 @@ func TestStats(t *testing.T) {
 			"connnum":     fmt.Sprint(TestConnNumBEAST),
 			"feeder_code": TestFeederCode,
 		}})
-	err = prometheus.Register(promMetricForError)
+	err = prometheus.Register(promMetricForErrorB)
 	assert.NoError(t, err)
 
 	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
@@ -261,7 +261,7 @@ func TestStats(t *testing.T) {
 	})
 
 	// unregister dupe
-	ok = prometheus.Unregister(promMetricForError)
+	ok = prometheus.Unregister(promMetricForErrorB)
 	assert.True(t, ok)
 
 	t.Run("test RegisterConnection BEAST", func(t *testing.T) {
