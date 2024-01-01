@@ -100,6 +100,20 @@ func TestStats(t *testing.T) {
 		ConnNum:    TestConnNumMLAT,
 	}
 
+	// prep prom test metric names
+	TestPromMetricFeederDataInBytesTotalBEAST := fmt.Sprintf(
+		`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		TestConnNumBEAST, TestFeederCode, "beast", TestFeederAPIKey.String())
+	TestPromMetricFeederDataInBytesTotalMLAT := fmt.Sprintf(
+		`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		TestConnNumMLAT, TestFeederCode, "mlat", TestFeederAPIKey.String())
+	TestPromMetricFeederDataOutBytesTotalBEAST := fmt.Sprintf(
+		`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		TestConnNumBEAST, TestFeederCode, "beast", TestFeederAPIKey.String())
+	TestPromMetricFeederDataOutBytesTotalMLAT := fmt.Sprintf(
+		`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%d",protocol="%d",uuid="%d"}`,
+		TestConnNumMLAT, TestFeederCode, "mlat", TestFeederAPIKey.String())
+
 	// get listenable address
 	testListener, err := nettest.NewLocalListener("tcp")
 	if err != nil {
@@ -236,10 +250,6 @@ func TestStats(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/metrics", testAddr)
 		body := getMetricsFromTestServer(t, testURL)
 
-		fmt.Println("---- BEGIN RESPONSE BODY ----")
-		fmt.Println(body)
-		fmt.Println("---- END RESPONSE BODY ----")
-
 		expectedMetrics := []string{
 			`pw_bordercontrol_connections{protocol="beast"} 1`,
 			`pw_bordercontrol_connections{protocol="mlat"} 1`,
@@ -249,10 +259,10 @@ func TestStats(t *testing.T) {
 			`pw_bordercontrol_data_out_bytes_total{protocol="mlat"} 200`,
 			`pw_bordercontrol_feeders_active{protocol="beast"} 1`,
 			`pw_bordercontrol_feeders_active{protocol="mlat"} 1`,
-			// fmt.Sprintf("%s 10", TestPromMetricFeederDataInBytesTotalBEAST),
-			// fmt.Sprintf("%s 100", TestPromMetricFeederDataInBytesTotalMLAT),
-			// fmt.Sprintf("%s 20", TestPromMetricFeederDataOutBytesTotalBEAST),
-			// fmt.Sprintf("%s 200", TestPromMetricFeederDataOutBytesTotalMLAT),
+			fmt.Sprintf("%s 10", TestPromMetricFeederDataInBytesTotalBEAST),
+			fmt.Sprintf("%s 100", TestPromMetricFeederDataInBytesTotalMLAT),
+			fmt.Sprintf("%s 20", TestPromMetricFeederDataOutBytesTotalBEAST),
+			fmt.Sprintf("%s 200", TestPromMetricFeederDataOutBytesTotalMLAT),
 		}
 		checkPromMetricsExist(t, body, expectedMetrics)
 	})
@@ -282,6 +292,10 @@ func TestStats(t *testing.T) {
 	t.Run("test prom metrics after unregisters", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/metrics", testAddr)
 		body := getMetricsFromTestServer(t, testURL)
+
+		fmt.Println("---- BEGIN RESPONSE BODY ----")
+		fmt.Println(body)
+		fmt.Println("---- END RESPONSE BODY ----")
 
 		expectedMetrics := []string{
 			`pw_bordercontrol_connections{protocol="beast"} 0`,

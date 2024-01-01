@@ -143,7 +143,7 @@ func IncrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint6
 
 				// prep prom labels
 				pl := prometheus.Labels{
-					"protocol":    proto.Name(),
+					"protocol":    strings.ToLower(proto.Name()),
 					"uuid":        uuid.String(),
 					"connnum":     fmt.Sprint(cn),
 					"feeder_code": y.Code,
@@ -339,7 +339,7 @@ func (conn *Connection) UnregisterConnection() error {
 
 	// prep prom labels
 	pl := prometheus.Labels{
-		"protocol":    conn.Proto.Name(),
+		"protocol":    strings.ToLower(conn.Proto.Name()),
 		"uuid":        conn.ApiKey.String(),
 		"connnum":     fmt.Sprint(conn.ConnNum),
 		"feeder_code": conn.FeederCode,
