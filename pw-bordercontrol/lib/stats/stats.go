@@ -354,7 +354,7 @@ func (conn *Connection) UnregisterConnection() error {
 	defer stats.mu.Unlock()
 
 	// ensure connection number is found under this feeder
-	_, found = stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum]
+	_, found := stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum]
 	if !found {
 		return ErrConnNumNotFound
 	}
