@@ -284,8 +284,6 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
-		fmt.Println(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[)
-
 		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["IP"].(string)
 		srcAddrPort := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Port"].(int)
 		srcAddr := net.TCPAddr{
