@@ -165,8 +165,9 @@ func TestStats(t *testing.T) {
 	Init(testAddr)
 
 	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
-		conn := Connection{}
-		err := conn.UnregisterConnection()
+		c := TestConnBEAST
+		c.Proto = feedprotocol.Protocol(254)
+		err := c.UnregisterConnection()
 		assert.Error(t, err)
 		assert.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
 	})
