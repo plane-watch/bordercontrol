@@ -9,6 +9,7 @@ import (
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -258,10 +259,27 @@ func TestStats(t *testing.T) {
 		fmt.Println("---- BEGIN RESPONSE BODY ----")
 		fmt.Println(body)
 		fmt.Println("---- END RESPONSE BODY ----")
+
+		// unmarshall json into struct
 		r := &APIResponse{}
 		err := json.Unmarshal([]byte(body), r)
 		assert.NoError(t, err)
-		fmt.Println(r)
+
+		// check struct contents of feeder
+		assert.Equal(t, TestFeederLabel, r.Data.(*FeederStats).Label)
+		assert.Equal(t, TestFeederCode, r.Data.(*FeederStats).Code)
+		assert.Equal(t, TestFeederCode, r.Data.(*FeederStats).Code)
+		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).TimeUpdated, time.Minute*5)
+
+		// check struct contents of connection 1
+		assert.True(t, r.Data.(*FeederStats).Connections[1].Status)
+		assert.Equal(t, 1, r.Data.(*FeederStats).Connections[1].ConnectionCount)
+		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[1].MostRecentConnection, time.Minute*5)
+		assert.Equal(t, TestConnBEAST.SrcAddr, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].Src)
+		assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].Dst)
+		assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].TimeConnected, time.Minute*5)
+		assert.Equal(t, 0, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].BytesIn)
+		assert.Equal(t, 0, r.Data.(*FeederStats).Connections[1].ConnectionDetails[1].BytesOut)
 	})
 
 	t.Run("test IncrementByteCounters BEAST", func(t *testing.T) {
