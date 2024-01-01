@@ -471,12 +471,6 @@ func TestStats(t *testing.T) {
 		err := json.Unmarshal([]byte(body), r)
 		assert.NoError(t, err)
 
-		// fmt.Println("---- BEGIN RESPONSE BODY ----")
-		// fmt.Println(body)
-		// fmt.Println("---- END RESPONSE BODY ----")
-
-		// fmt.Println(r)
-
 		// check struct contents of feeder
 
 		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Label"])
