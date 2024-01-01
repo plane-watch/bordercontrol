@@ -631,7 +631,7 @@ func TestStats(t *testing.T) {
 		err := RegisterFeeder(f)
 		assert.NoError(t, err)
 
-		fmt.Println(stats)
+		fmt.Println(stats.Feeders)
 
 		// check stats.Feeders
 		_, ok := stats.Feeders[TestFeederAPIKey]
