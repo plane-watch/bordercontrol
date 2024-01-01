@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -71,6 +72,9 @@ func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []st
 }
 
 func TestStats(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	// prep test connections
 	TestConnBEAST := Connection{
