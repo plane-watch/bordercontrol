@@ -486,6 +486,7 @@ func statsEvictor() {
 
 			// dump stale data
 			for _, u := range toEvict {
+				log.Warn().Str("uuid", u.String()).Msg("stale feeder")
 				delete(stats.Feeders, u)
 			}
 		}()
