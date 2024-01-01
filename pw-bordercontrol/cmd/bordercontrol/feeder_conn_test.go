@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"pw_bordercontrol/lib/atc"
+	"pw_bordercontrol/lib/feedprotocol"
 	"strconv"
 	"strings"
 	"sync"
@@ -243,10 +244,10 @@ func TestProxyClientToServer_Working(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	// init stats
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// test connections
 	clientOuter, clientInner := net.Pipe()
@@ -318,10 +319,10 @@ func TestProxyServerToClient_Working(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	// init stats
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// test connections
 	clientOuter, clientInner := net.Pipe()
@@ -393,10 +394,10 @@ func TestProxyClientToServer_FeederBanned(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	// init stats
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// test connections
 	clientOuter, clientInner := net.Pipe()
@@ -475,10 +476,10 @@ func TestProxyServerToClient_FeederBanned(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	// init stats
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// test connections
 	clientOuter, clientInner := net.Pipe()
@@ -624,11 +625,11 @@ func TestAuthenticateFeeder_Working(t *testing.T) {
 	// prep waitgoup
 	wg := sync.WaitGroup{}
 
-	// init stats
-	t.Log("init stats")
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// t.Log("init stats")
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// set up TLS environment, listener & client config
 	prepTestEnvironmentTLS(t)
@@ -799,11 +800,11 @@ func TestAuthenticateFeeder_WrongAPIKey(t *testing.T) {
 	// Test where client sends a correctly-formatted UUID,
 	// but that UUID is not in the database as an allowed feeder.
 
-	// init stats
-	t.Log("init stats")
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// t.Log("init stats")
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// set up TLS environment, listener & client config
 	prepTestEnvironmentTLS(t)
@@ -872,11 +873,11 @@ func TestAuthenticateFeeder_WrongAPIKey(t *testing.T) {
 
 func TestAuthenticateFeeder_HandshakeIncomplete(t *testing.T) {
 
-	// init stats
-	t.Log("init stats")
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// t.Log("init stats")
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// set up TLS environment, listener & client config
 	prepTestEnvironmentTLS(t)
@@ -925,11 +926,11 @@ func TestAuthenticateFeeder_InvalidApiKey(t *testing.T) {
 	// Test where client sends a correctly-formatted UUID,
 	// but that UUID is not in the database as an allowed feeder.
 
-	// init stats
-	t.Log("init stats")
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// t.Log("init stats")
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// set up TLS environment, listener & client config
 	prepTestEnvironmentTLS(t)
@@ -1004,11 +1005,11 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	// define waitgroup
 	wg := sync.WaitGroup{}
 
-	// init stats
-	t.Log("init stats")
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// t.Log("init stats")
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// define channels for controlling test goroutines
 	closeConn := make(chan bool)
@@ -1118,7 +1119,7 @@ func TestProxyClientConnection_MLAT(t *testing.T) {
 	// prepare proxy config
 	pc := proxyConfig{
 		connIn:    connIn,
-		connProto: protoMLAT, // must be MLAT for two way communications
+		connProto: feedprotocol.MLAT, // must be MLAT for two way communications
 		connNum:   1,
 	}
 
@@ -1156,11 +1157,11 @@ func TestProxyClientConnection_MLAT_ConnectingTooFast(t *testing.T) {
 	// define waitgroup
 	wg := sync.WaitGroup{}
 
-	// init stats
-	t.Log("init stats")
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// t.Log("init stats")
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	// define channels for controlling test goroutines
 	serverQuit := make(chan bool)
@@ -1264,7 +1265,7 @@ func TestProxyClientConnection_MLAT_ConnectingTooFast(t *testing.T) {
 		// prepare proxy config
 		pc := proxyConfig{
 			connIn:    connIn,
-			connProto: protoMLAT, // must be MLAT for two way communications
+			connProto: feedprotocol.MLAT, // must be MLAT for two way communications
 			connNum:   1,
 		}
 

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -92,11 +91,11 @@ func prepTestEnvironmentTLSClientConfig(t *testing.T) *tls.Config {
 
 func TestTLS_CertReload(t *testing.T) {
 
-	// init stats
-	t.Log("init stats")
-	stats.mu.Lock()
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-	stats.mu.Unlock()
+	// // init stats
+	// t.Log("init stats")
+	// stats.mu.Lock()
+	// stats.Feeders = make(map[uuid.UUID]FeederStats)
+	// stats.mu.Unlock()
 
 	t.Log("preparing test environment TLS cert/key")
 

@@ -7,6 +7,8 @@ import (
 	"net"
 	"os"
 	"pw_bordercontrol/lib/containers"
+	"pw_bordercontrol/lib/feedprotocol"
+	"pw_bordercontrol/lib/stats"
 	"strings"
 	"sync"
 	"time"
@@ -309,7 +311,11 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 	err = getFeederInfo(&clientDetails)
 
 	// update stats
-	stats.setFeederDetails(clientDetails)
+	stats.RegisterFeeder(stats.FeederDetails{
+		Label:      clientDetails.label,
+		FeederCode: clientDetails.feederCode,
+		ApiKey:     clientDetails.clientApiKey,
+	})
 
 	return clientDetails, err
 }
@@ -373,7 +379,7 @@ func proxyClientToServer(conf protocolProxyConfig) {
 			}
 
 			// update stats
-			stats.incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
+			stats.IncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
 		}
 
 		// check feeder is still valid (every 60 secs)
@@ -424,7 +430,7 @@ func proxyServerToClient(conf protocolProxyConfig) {
 			}
 
 			// update stats
-			stats.incrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
+			stats.IncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
 		}
 
 		// check feeder is still valid (every 60 secs)
@@ -439,9 +445,9 @@ func proxyServerToClient(conf protocolProxyConfig) {
 }
 
 type proxyConfig struct {
-	connIn    net.Conn     // Incoming connection from feeder out on the internet.
-	connProto feedProtocol // Incoming connection protocol.
-	connNum   uint         // Connection number.
+	connIn    net.Conn              // Incoming connection from feeder out on the internet.
+	connProto feedprotocol.Protocol // Incoming connection protocol.
+	connNum   uint                  // Connection number.
 }
 
 func proxyClientConnection(conf proxyConfig) error {
@@ -511,13 +517,14 @@ func proxyClientConnection(conf proxyConfig) error {
 		Str("code", clientDetails.feederCode).
 		Logger()
 
+	numConnections := stats.GetNumConnections(clientDetails.clientApiKey, conf.connProto)
+
+	log = log.With().Str("connections", fmt.Sprintf("%d/%d", numConnections, maxConnectionsPerProto)).Logger()
+
 	// check number of connections, and drop connection if limit exceeded
-	if stats.getNumConnections(clientDetails.clientApiKey, conf.connProto) > maxConnectionsPerProto {
+	if numConnections > maxConnectionsPerProto {
 		err := errors.New("connection limit exceeded")
-		log.Err(err).
-			Int("connections", stats.Feeders[clientDetails.clientApiKey].Connections[protoMLAT].ConnectionCount).
-			Int("max", maxConnectionsPerProto).
-			Msg("dropping connection")
+		log.Err(err).Msg("dropping connection")
 		return err
 	}
 
@@ -526,7 +533,7 @@ func proxyClientConnection(conf proxyConfig) error {
 	// If the client has been authenticated, then we can do stuff with the data
 
 	switch conf.connProto {
-	case protoBEAST:
+	case feedprotocol.BEAST:
 
 		dstContainerName = "feed-in container"
 
@@ -556,7 +563,7 @@ func proxyClientConnection(conf proxyConfig) error {
 			return err
 		}
 
-	case protoMLAT:
+	case feedprotocol.MLAT:
 
 		dstContainerName = "mlat-server"
 
@@ -603,8 +610,16 @@ func proxyClientConnection(conf proxyConfig) error {
 	}
 
 	// update stats
-	stats.addConnection(clientDetails.clientApiKey, conf.connIn.RemoteAddr(), connOut.RemoteAddr(), conf.connProto, clientDetails.feederCode, conf.connNum)
-	defer stats.delConnection(clientDetails.clientApiKey, conf.connProto, conf.connNum)
+	conn := stats.Connection{
+		ApiKey:     clientDetails.clientApiKey,
+		SrcAddr:    conf.connIn.RemoteAddr(),
+		DstAddr:    connOut.RemoteAddr(),
+		Proto:      conf.connProto,
+		FeederCode: clientDetails.feederCode,
+		ConnNum:    conf.connNum,
+	}
+	conn.RegisterConnection()
+	defer conn.UnregisterConnection()
 
 	// prepare proxy config
 	protoProxyConf := protocolProxyConfig{
@@ -630,7 +645,7 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	// handle data from server container to feeder client (if required, no point doing this for BEAST)
 	switch conf.connProto {
-	case protoMLAT:
+	case feedprotocol.MLAT:
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

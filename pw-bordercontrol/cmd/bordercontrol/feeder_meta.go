@@ -4,10 +4,13 @@ import (
 	"errors"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
+	"pw_bordercontrol/lib/stats"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/rs/zerolog/log"
 )
@@ -20,6 +23,19 @@ type atcFeeders struct {
 
 var (
 	validFeeders atcFeeders // list of valid feeders
+
+	// prom metric for number of valid feeders
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: stats.PromNamespace,
+		Subsystem: stats.PromSubsystem,
+		Name:      "feeders",
+		Help:      "The total number of feeders configured in ATC (active and inactive).",
+	},
+		func() float64 {
+			validFeeders.mu.RLock()
+			defer validFeeders.mu.RUnlock()
+			return float64(len(validFeeders.Feeders))
+		})
 )
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {

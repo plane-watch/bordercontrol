@@ -1,12 +1,14 @@
-package main
+package stats
 
 import (
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net"
 	"net/http"
+	"pw_bordercontrol/lib/feedprotocol"
 	"regexp"
 	"strings"
 	"sync"
@@ -26,14 +28,12 @@ var statsTemplate string
 // struct for per-feeder statistics
 type FeederStats struct {
 	// feeder details
-	Label string  // feeder label
-	Lat   float64 // feeder lat
-	Lon   float64 // feeder lon
-	Code  string  // feeder_code
+	Label string // feeder label
+	Code  string // feeder_code
 
 	// Connection details
 	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
-	Connections map[feedProtocol]ProtocolDetail
+	Connections map[feedprotocol.Protocol]ProtocolDetail
 
 	TimeUpdated time.Time // time these stats were updated
 }
@@ -79,26 +79,31 @@ var (
 
 	matchUrlSingleFeeder *regexp.Regexp // regex to match api request for single feeder stats
 	matchUUID            *regexp.Regexp // regex to match UUID
+
+	initialised   bool
+	initialisedMu sync.RWMutex
 )
 
-func (stats *Statistics) getNumConnections(uuid uuid.UUID, proto feedProtocol) int {
+func statsInitialised() bool {
+	initialisedMu.RLock()
+	defer initialisedMu.RUnlock()
+	return initialised
+}
+
+func GetNumConnections(uuid uuid.UUID, proto feedprotocol.Protocol) int {
 	// returns the number of connections for a given uuid and protocol
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
 	return stats.Feeders[uuid].Connections[proto].ConnectionCount
 }
 
-func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
+func IncrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) {
 	// increment byte counters of a feeder
 	//   - sets time_last_updated to now
 
-	// log := log.With().
-	// 	Strs("func", []string{"stats.go", "incrementByteCounters"}).
-	// 	Str("uuid", uuid.String()).
-	// 	Uint("connNum", connNum).
-	//  Uint64("bytesIn", bytesIn).
-	//  Uint64("bytesOut", bytesOut).
-	// 	Logger()
+	if !statsInitialised() {
+		log.Err(errors.New("stats not initialised")).Msg("stats not initialised")
+	}
 
 	stats.initFeederStats(uuid)
 
@@ -123,10 +128,10 @@ func (stats *Statistics) incrementByteCounters(uuid uuid.UUID, connNum uint, byt
 				y.Connections[proto].ConnectionDetails[connNum] = c
 
 				switch proto {
-				case protoBEAST:
+				case feedprotocol.BEAST:
 					stats.BytesInBEAST += bytesIn
 					stats.BytesOutBEAST += bytesOut
-				case protoMLAT:
+				case feedprotocol.MLAT:
 					stats.BytesInMLAT += bytesIn
 					stats.BytesOutMLAT += bytesOut
 				}
@@ -158,60 +163,82 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	_, ok := stats.Feeders[uuid]
 	if !ok {
 		stats.Feeders[uuid] = FeederStats{
-			Connections: make(map[feedProtocol]ProtocolDetail),
+			Connections: make(map[feedprotocol.Protocol]ProtocolDetail),
 		}
-		stats.Feeders[uuid].Connections[protoBEAST] = ProtocolDetail{
+		stats.Feeders[uuid].Connections[feedprotocol.BEAST] = ProtocolDetail{
 			ConnectionDetails: make(map[uint]ConnectionDetail),
 		}
-		stats.Feeders[uuid].Connections[protoMLAT] = ProtocolDetail{
+		stats.Feeders[uuid].Connections[feedprotocol.MLAT] = ProtocolDetail{
 			ConnectionDetails: make(map[uint]ConnectionDetail),
 		}
 	}
 }
 
-func (stats *Statistics) setFeederDetails(f feederClient) {
+type FeederDetails struct {
+	Label      string    // feeder label
+	FeederCode string    // unique feeder code
+	ApiKey     uuid.UUID // feeder api key
+}
+
+func RegisterFeeder(f FeederDetails) {
 	// updates the details of a feeder
 
-	// log := log.With().
-	// 	Strs("func", []string{"stats.go", "setFeederDetails"}).
-	// 	Str("uuid", uuid.String()).
-	//  Str("label", label).
-	//  Float64("lat", lat).
-	//  Float64("lon", lon)/
-	// 	Logger()
+	if !statsInitialised() {
+		log.Err(errors.New("stats not initialised")).Msg("stats not initialised")
+	}
 
-	stats.initFeederStats(f.clientApiKey)
+	stats.initFeederStats(f.ApiKey)
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
 	// copy stats entry
-	y := stats.Feeders[f.clientApiKey]
+	y := stats.Feeders[f.ApiKey]
 
-	// update label, lat, lon and time last updated
-	y.Label = f.label
-	y.Lat = f.refLat
-	y.Lon = f.refLon
-	y.Code = f.feederCode
+	// update label and time last updated
+	y.Label = f.Label
+	y.Code = f.FeederCode
 	y.TimeUpdated = time.Now()
 
 	// write stats entry
-	stats.Feeders[f.clientApiKey] = y
+	stats.Feeders[f.ApiKey] = y
 }
 
-func (stats *Statistics) delConnection(uuid uuid.UUID, proto feedProtocol, connNum uint) {
+type Connection struct {
+	ApiKey     uuid.UUID
+	SrcAddr    net.Addr
+	DstAddr    net.Addr
+	Proto      feedprotocol.Protocol
+	FeederCode string
+	ConnNum    uint
+}
+
+func (conn *Connection) UnregisterConnection() {
 	// updates the connected status of a feeder
 
 	log := log.With().
-		Strs("func", []string{"stats.go", "delConnection"}).
-		Str("uuid", uuid.String()).
-		Str("proto", string(proto)).
-		Uint("connNum", connNum).
+		Strs("func", []string{"stats.go", "addConnection"}).
+		Str("uuid", conn.ApiKey.String()).
+		Str("src", conn.SrcAddr.String()).
+		Str("dst", conn.DstAddr.String()).
+		Str("code", conn.FeederCode).
+		Uint("connNum", conn.ConnNum).
 		Logger()
 
-	// log.Debug().Msg("started")
+	if !statsInitialised() {
+		log.Err(errors.New("stats not initialised")).Msg("stats not initialised")
+	}
 
-	stats.initFeederStats(uuid)
+	// get protocol name
+	protoName, err := feedprotocol.GetName(conn.Proto)
+	if err != nil {
+		log.Err(err).Msgf("unsupported protocol: %d", conn.Proto)
+		return
+	}
+
+	log = log.With().Str("proto", protoName).Logger()
+
+	stats.initFeederStats(conn.ApiKey)
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
@@ -219,80 +246,82 @@ func (stats *Statistics) delConnection(uuid uuid.UUID, proto feedProtocol, connN
 	// section below commented out
 	// uuid should always exist in stats.Feeders due to the stats.initFeederStats above
 
-	// _, found := stats.Feeders[uuid]
-	// if !found {
-	// 	log.Error().Msg("uuid not found in stats.Feeders")
-	// 	return
-	// }
-
-	_, found := stats.Feeders[uuid].Connections[proto]
+	_, found := stats.Feeders[conn.ApiKey].Connections[conn.Proto]
 	if !found {
 		log.Error().Msg("proto not found in stats.Feeders[uuid].Connections")
 		return
 	}
 
-	_, found = stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum]
+	_, found = stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum]
 	if !found {
 		log.Error().Msg("connNum not found in stats.Feeders[uuid].Connections[proto].ConnectionDetails")
 		return
 	}
 
 	// unregister prom metrics
-	_ = prometheus.Unregister(stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum].promMetricBytesIn)
-	_ = prometheus.Unregister(stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum].promMetricBytesOut)
+	_ = prometheus.Unregister(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum].promMetricBytesIn)
+	_ = prometheus.Unregister(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum].promMetricBytesOut)
 
 	// delete the connection
-	delete(stats.Feeders[uuid].Connections[proto].ConnectionDetails, connNum)
+	delete(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails, conn.ConnNum)
 
 	// update connection status & count
-	conn, _ := stats.Feeders[uuid].Connections[proto]
-	conn.ConnectionCount = len(stats.Feeders[uuid].Connections[proto].ConnectionDetails)
-	if len(stats.Feeders[uuid].Connections[proto].ConnectionDetails) > 0 {
-		conn.Status = true
+	c, _ := stats.Feeders[conn.ApiKey].Connections[conn.Proto]
+	c.ConnectionCount = len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails)
+	if len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails) > 0 {
+		c.Status = true
 	} else {
-		conn.Status = false
+		c.Status = false
 	}
-	stats.Feeders[uuid].Connections[proto] = conn
+	stats.Feeders[conn.ApiKey].Connections[conn.Proto] = c
 
 	// update time last updated
-	feeder, _ := stats.Feeders[uuid]
+	feeder, _ := stats.Feeders[conn.ApiKey]
 	feeder.TimeUpdated = time.Now()
-	stats.Feeders[uuid] = feeder
+	stats.Feeders[conn.ApiKey] = feeder
 
 	// do we completely remove the entry?
-	if stats.Feeders[uuid].Connections[protoBEAST].ConnectionCount == 0 {
-		if stats.Feeders[uuid].Connections[protoMLAT].ConnectionCount == 0 {
-			delete(stats.Feeders, uuid)
+	if stats.Feeders[conn.ApiKey].Connections[feedprotocol.BEAST].ConnectionCount == 0 {
+		if stats.Feeders[conn.ApiKey].Connections[feedprotocol.MLAT].ConnectionCount == 0 {
+			delete(stats.Feeders, conn.ApiKey)
 		}
 	}
-
-	log.Debug()
-
-	// log.Debug().Msg("finished")
 }
 
-func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Addr, proto feedProtocol, code string, connNum uint) {
+func (conn *Connection) RegisterConnection() {
 	// updates the connected status of a feeder
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "addConnection"}).
-		Str("uuid", uuid.String()).
-		Str("src", src.String()).
-		Str("dst", dst.String()).
-		Str("proto", string(proto)).
-		Str("code", code).
-		Uint("connNum", connNum).
+		Str("uuid", conn.ApiKey.String()).
+		Str("src", conn.SrcAddr.String()).
+		Str("dst", conn.DstAddr.String()).
+		Str("code", conn.FeederCode).
+		Uint("connNum", conn.ConnNum).
 		Logger()
 
-	stats.initFeederStats(uuid)
+	if !statsInitialised() {
+		log.Err(errors.New("stats not initialised")).Msg("stats not initialised")
+	}
+
+	// get protocol name
+	protoName, err := feedprotocol.GetName(conn.Proto)
+	if err != nil {
+		log.Err(err).Msgf("unsupported protocol: %d", conn.Proto)
+		return
+	}
+
+	log = log.With().Str("proto", protoName).Logger()
+
+	stats.initFeederStats(conn.ApiKey)
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
 	// add connection
 	c := ConnectionDetail{
-		Src:           src,
-		Dst:           dst,
+		Src:           conn.SrcAddr,
+		Dst:           conn.DstAddr,
 		TimeConnected: time.Now(),
 		BytesIn:       0,
 		BytesOut:      0,
@@ -300,30 +329,30 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 
 	// define per-connection prometheus metrics
 	c.promMetricBytesIn = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
 		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(string(proto)),
-			"uuid":        uuid.String(),
-			"label":       stats.Feeders[uuid].Label,
-			"connnum":     fmt.Sprintf("%d", connNum),
-			"feeder_code": code,
+			"protocol":    strings.ToLower(protoName),
+			"uuid":        conn.ApiKey.String(),
+			"label":       stats.Feeders[conn.ApiKey].Label,
+			"connnum":     fmt.Sprintf("%d", conn.ConnNum),
+			"feeder_code": conn.FeederCode,
 		}})
 	c.promMetricBytesOut = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: promNamespace,
-		Subsystem: promSubsystem,
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
 		ConstLabels: prometheus.Labels{
-			"protocol":    strings.ToLower(string(proto)),
-			"uuid":        uuid.String(),
-			"label":       stats.Feeders[uuid].Label,
-			"connnum":     fmt.Sprintf("%d", connNum),
-			"feeder_code": code,
+			"protocol":    strings.ToLower(protoName),
+			"uuid":        conn.ApiKey.String(),
+			"label":       stats.Feeders[conn.ApiKey].Label,
+			"connnum":     fmt.Sprintf("%d", conn.ConnNum),
+			"feeder_code": conn.FeederCode,
 		}})
-	err := prometheus.Register(c.promMetricBytesIn)
+	err = prometheus.Register(c.promMetricBytesIn)
 	if err != nil {
 		log.Err(err).Msg("could not register per-feeder prometheus bytes in metric")
 	}
@@ -333,24 +362,23 @@ func (stats *Statistics) addConnection(uuid uuid.UUID, src net.Addr, dst net.Add
 	}
 
 	// add connection to feeder connections map
-	stats.Feeders[uuid].Connections[proto].ConnectionDetails[connNum] = c
+	stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum] = c
 
 	// update connection state
-	if len(stats.Feeders[uuid].Connections[proto].ConnectionDetails) > 0 {
-		pd := stats.Feeders[uuid].Connections[proto]
+	if len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails) > 0 {
+		pd := stats.Feeders[conn.ApiKey].Connections[conn.Proto]
 		pd.Status = true
 		pd.MostRecentConnection = c.TimeConnected
-		pd.ConnectionCount = len(stats.Feeders[uuid].Connections[proto].ConnectionDetails)
-		stats.Feeders[uuid].Connections[proto] = pd
+		pd.ConnectionCount = len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails)
+		stats.Feeders[conn.ApiKey].Connections[conn.Proto] = pd
 	}
 
 	// update time updated
-	s := stats.Feeders[uuid]
+	s := stats.Feeders[conn.ApiKey]
 	s.TimeUpdated = time.Now()
 
 	// write stats entry
-	stats.Feeders[uuid] = s
-
+	stats.Feeders[conn.ApiKey] = s
 }
 
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
@@ -424,10 +452,6 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 func statsEvictor() {
 
-	// log := log.With().
-	// 	Strs("func", []string{"stats.go", "statsEvictor"}).
-	// 	Logger()
-
 	// loop through stats data, evict any feeders that have been inactive for over 60 seconds
 	for {
 		var toEvict []uuid.UUID
@@ -450,9 +474,6 @@ func statsEvictor() {
 		}
 
 		stats.mu.Unlock()
-
-		// log number of connections & goroutines
-		// log.Info().Uint("beast", activeBeast).Uint("mlat", activeMLAT).Int("goroutines", runtime.NumGoroutine()).Msg("active connections")
 
 		time.Sleep(time.Minute * 1)
 	}
@@ -549,16 +570,12 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func statsManager(addr string) {
+func Init(addr string) {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
 		Str("addr", addr).
 		Logger()
-
-	statsManagerMu.Lock()
-	statsManagerAddr = addr
-	statsManagerMu.Unlock()
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
@@ -569,6 +586,11 @@ func statsManager(addr string) {
 
 	// start up stats evictor
 	go statsEvictor()
+
+	// set initialised
+	initialisedMu.Lock()
+	initialised = true
+	initialisedMu.Unlock()
 
 	// stats http server routes
 	http.HandleFunc("/", httpRenderStats)

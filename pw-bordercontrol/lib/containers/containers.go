@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"pw_bordercontrol/lib/stats"
 	"sync"
 	"syscall"
 	"time"
@@ -17,6 +18,8 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -45,6 +48,88 @@ var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	return &cctx, cli, err
 }
 
+func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
+
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: stats.PromNamespace,
+		Subsystem: stats.PromSubsystem,
+		Name:      "feedercontainers_image_current",
+		Help:      "The number of feed-in-* containers running on this host that are using the latest feed-in image.",
+	},
+		func() float64 {
+			n := float64(0)
+
+			// TODO: move container count to containers.go
+			// set up docker client
+			dockerCtx, cli, err := GetDockerClient()
+			if err != nil {
+				panic(err)
+			}
+			defer cli.Close()
+
+			// prepare filter to find feed-in containers
+			filters := filters.NewArgs()
+			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
+
+			// find containers
+			containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
+			if err != nil {
+				panic(err)
+			}
+
+			// for each container...
+			for _, container := range containers {
+
+				// check containers are running latest feed-in image
+				if container.Image == feedInImage {
+					n++
+				}
+
+			}
+			return n
+		})
+
+	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: stats.PromNamespace,
+		Subsystem: stats.PromSubsystem,
+		Name:      "feedercontainers_image_not_current",
+		Help:      "The number of feed-in-* containers running on this host that are using an out of date feed-in image and require upgrading.",
+	},
+		func() float64 {
+			n := float64(0)
+
+			// TODO: move container count to containers.go
+			// set up docker client
+			dockerCtx, cli, err := GetDockerClient()
+			if err != nil {
+				panic(err)
+			}
+			defer cli.Close()
+
+			// prepare filter to find feed-in containers
+			filters := filters.NewArgs()
+			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
+
+			// find containers
+			containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
+			if err != nil {
+				panic(err)
+			}
+
+			// for each container...
+			for _, container := range containers {
+
+				// check containers are running latest feed-in image
+				if container.Image != feedInImage {
+					n++
+				}
+
+			}
+			return n
+		})
+
+}
+
 type ContainerManager struct {
 	FeedInImageName                    string         // Name of docker image for feed-in containers.
 	FeedInContainerPrefix              string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
@@ -69,6 +154,9 @@ func (conf *ContainerManager) Init() {
 
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
+
+	// register prom metrics
+	registerPromMetrics(conf.FeedInImageName, conf.FeedInContainerPrefix)
 
 	// prep channel for signal to skip delay for out-of-date feed-in container recreation
 	chanSkipDelay = make(chan os.Signal, 1)

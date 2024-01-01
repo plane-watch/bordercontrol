@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"net"
+	"pw_bordercontrol/lib/feedprotocol"
 	"strconv"
 	"strings"
 	"syscall"
@@ -73,7 +74,7 @@ func TestListener(t *testing.T) {
 
 	// prep listener config
 	conf := listenConfig{
-		listenProto: protoBEAST,
+		listenProto: feedprotocol.BEAST,
 		listenAddr: net.TCPAddr{
 			IP:   net.ParseIP(ip),
 			Port: port,

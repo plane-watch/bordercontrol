@@ -10,21 +10,18 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"pw_bordercontrol/lib/containers"
+	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/logging"
+	"pw_bordercontrol/lib/stats"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
-)
-
-type (
-	feedProtocol string
 )
 
 var (
@@ -38,12 +35,8 @@ var (
 	chanSIGHUP  chan os.Signal
 	chanSIGUSR1 chan os.Signal
 
-	statsManagerAddr string
-	statsManagerMu   sync.RWMutex
-
-	// standardise the protocol name strings
-	protoMLAT  feedProtocol = "MLAT"
-	protoBEAST feedProtocol = "BEAST"
+	// statsManagerAddr string
+	// statsManagerMu   sync.RWMutex
 )
 
 const (
@@ -242,7 +235,7 @@ func runServer(ctx *cli.Context) error {
 	}()
 
 	// start statistics manager
-	go statsManager(":8080")
+	go stats.Init(":8080")
 
 	// start goroutine to regularly pull feeders from atc
 	go func() {
@@ -285,7 +278,7 @@ func runServer(ctx *cli.Context) error {
 			log.Err(err).Str("addr", ctx.String("listenbeast")).Msg("invalid listen port")
 		}
 		conf := listenConfig{
-			listenProto: protoBEAST,
+			listenProto: feedprotocol.BEAST,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
 				Port: port,
@@ -311,7 +304,7 @@ func runServer(ctx *cli.Context) error {
 			log.Err(err).Str("addr", ctx.String("listenmlat")).Msg("invalid listen port")
 		}
 		conf := listenConfig{
-			listenProto: protoMLAT,
+			listenProto: feedprotocol.MLAT,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
 				Port: port,
@@ -337,9 +330,9 @@ func runServer(ctx *cli.Context) error {
 }
 
 type listenConfig struct {
-	listenProto feedProtocol      // Protocol handled by the listener
-	listenAddr  net.TCPAddr       // TCP address to listen on for incoming stunnel'd BEAST connections
-	mgmt        *goRoutineManager // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
+	listenProto feedprotocol.Protocol // Protocol handled by the listener
+	listenAddr  net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
+	mgmt        *goRoutineManager     // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
 }
 
 func listener(conf listenConfig) error {
