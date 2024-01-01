@@ -556,8 +556,18 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("test httpRenderStats", func(t *testing.T) {
+		// check
 		testURL := fmt.Sprintf("http://%s/", testAddr)
 		ptf := assert.PanicTestFunc(func() { _ = getMetricsFromTestServer(t, testURL) })
+		assert.NotPanics(t, ptf)
+
+		// increase counters
+		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, 1024, 1024*1024)
+		assert.NoError(t, err)
+		err = IncrementByteCounters(TestFeederAPIKey, TestConnNumMLAT, 1024*1024*1024, 1024*1024*1024*1024)
+		assert.NoError(t, err)
+
+		// check again
 		assert.NotPanics(t, ptf)
 	})
 
