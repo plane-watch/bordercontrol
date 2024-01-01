@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -212,6 +213,50 @@ func TestStats(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, ErrConnNumNotFound.Error(), err.Error())
 	})
+
+	// make dupe connection to raise prom error: feeder_data_in_bytes_total
+	promMetricForError := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
+		Name:      "feeder_data_in_bytes_total",
+		Help:      "Per-feeder bytes received (in)",
+		ConstLabels: prometheus.Labels{
+			"protocol":    strings.ToLower(TestConnBEAST.Proto.Name()),
+			"uuid":        TestFeederAPIKey.String(),
+			"label":       TestFeederLabel,
+			"connnum":     string(TestConnNumBEAST),
+			"feeder_code": TestFeederCode,
+		}})
+
+	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
+		err := TestConnBEAST.RegisterConnection()
+		assert.Error(t, err)
+	})
+
+	// unregister dupe
+	_ = prometheus.Unregister(promMetricForError)
+
+	// make dupe connection to raise prom error: feeder_data_in_bytes_total
+	promMetricForError = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
+		Name:      "feeder_data_out_bytes_total",
+		Help:      "Per-feeder bytes sent (out)",
+		ConstLabels: prometheus.Labels{
+			"protocol":    strings.ToLower(TestConnBEAST.Proto.Name()),
+			"uuid":        TestFeederAPIKey.String(),
+			"label":       TestFeederLabel,
+			"connnum":     string(TestConnNumBEAST),
+			"feeder_code": TestFeederCode,
+		}})
+
+	t.Run("test RegisterConnection BEAST prom error", func(t *testing.T) {
+		err := TestConnBEAST.RegisterConnection()
+		assert.Error(t, err)
+	})
+
+	// unregister dupe
+	_ = prometheus.Unregister(promMetricForError)
 
 	t.Run("test RegisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
