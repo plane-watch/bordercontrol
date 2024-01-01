@@ -631,7 +631,10 @@ func TestStats(t *testing.T) {
 		err := RegisterFeeder(f)
 		assert.NoError(t, err)
 
+		stats.mu.RLock()
 		fmt.Println(stats.Feeders)
+		fmt.Println(stats.Feeders[TestFeederAPIKey])
+		stats.mu.RUnlock()
 
 		// check stats.Feeders
 		_, ok := stats.Feeders[TestFeederAPIKey]
