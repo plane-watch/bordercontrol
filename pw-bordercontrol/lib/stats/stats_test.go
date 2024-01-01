@@ -109,7 +109,7 @@ func TestStats(t *testing.T) {
 		TestFeederAPIKey,
 	)
 	TestPromMetricFeederDataInBytesTotalMLAT := fmt.Sprintf(`pw_bordercontrol_feeder_data_in_bytes_total{connnum="%d",feeder_code="%s",label="%s",protocol="%s",uuid="%s"}`,
-		TestConnNumBEAST,
+		TestConnNumMLAT,
 		TestFeederCode,
 		TestFeederLabel,
 		"mlat",
@@ -123,7 +123,7 @@ func TestStats(t *testing.T) {
 		TestFeederAPIKey,
 	)
 	TestPromMetricFeederDataOutBytesTotalMLAT := fmt.Sprintf(`pw_bordercontrol_feeder_data_out_bytes_total{connnum="%d",feeder_code="%s",label="%s",protocol="%s",uuid="%s"}`,
-		TestConnNumBEAST,
+		TestConnNumMLAT,
 		TestFeederCode,
 		TestFeederLabel,
 		"mlat",
