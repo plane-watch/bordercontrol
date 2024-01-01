@@ -224,7 +224,7 @@ func TestStats(t *testing.T) {
 			"protocol":    strings.ToLower(TestConnBEAST.Proto.Name()),
 			"uuid":        TestFeederAPIKey.String(),
 			"label":       TestFeederLabel,
-			"connnum":     string(TestConnNumBEAST),
+			"connnum":     fmt.Sprint(TestConnNumBEAST),
 			"feeder_code": TestFeederCode,
 		}})
 
@@ -246,7 +246,7 @@ func TestStats(t *testing.T) {
 			"protocol":    strings.ToLower(TestConnBEAST.Proto.Name()),
 			"uuid":        TestFeederAPIKey.String(),
 			"label":       TestFeederLabel,
-			"connnum":     string(TestConnNumBEAST),
+			"connnum":     fmt.Sprint(TestConnNumBEAST),
 			"feeder_code": TestFeederCode,
 		}})
 
