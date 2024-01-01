@@ -551,6 +551,12 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, float64(200), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
 	})
 
+	t.Run("test httpRenderStats", func(t *testing.T) {
+		testURL := fmt.Sprintf("http://%s/", testAddr)
+		body := getMetricsFromTestServer(t, testURL)
+		fmt.Println(body)
+	})
+
 	t.Run("test UnregisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.UnregisterConnection()
 		assert.NoError(t, err)
