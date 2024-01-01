@@ -1,6 +1,9 @@
 package feedprotocol
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 type Protocol uint8
 
@@ -8,6 +11,9 @@ const (
 	_ Protocol = iota
 	BEAST
 	MLAT
+
+	ProtocolNameBEAST = "BEAST"
+	ProtocolNameMLAT  = "MLAT"
 )
 
 var (
@@ -27,9 +33,9 @@ func GetName(p Protocol) (string, error) {
 	// returns a string of the name of the protocol
 	switch p {
 	case BEAST:
-		return "BEAST", nil
+		return ProtocolNameBEAST, nil
 	case MLAT:
-		return "MLAT", nil
+		return ProtocolNameMLAT, nil
 	default:
 		return "", ErrUnknownProtocol
 	}
@@ -44,5 +50,17 @@ func IsValid(p Protocol) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func GetProtoFromName(name string) (Protocol, error) {
+	// returns protocol from name
+	switch strings.ToUpper(name) {
+	case ProtocolNameBEAST:
+		return BEAST, nil
+	case ProtocolNameMLAT:
+		return MLAT, nil
+	default:
+		return Protocol(0), ErrUnknownProtocol
 	}
 }

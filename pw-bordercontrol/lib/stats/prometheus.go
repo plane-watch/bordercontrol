@@ -30,7 +30,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				n += float64(stats.Feeders[u].Connections[feedprotocol.BEAST].ConnectionCount)
+				n += float64(stats.Feeders[u].Connections[feedprotocol.ProtocolNameBEAST].ConnectionCount)
 			}
 			return n
 		})
@@ -47,7 +47,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				n += float64(stats.Feeders[u].Connections[feedprotocol.MLAT].ConnectionCount)
+				n += float64(stats.Feeders[u].Connections[feedprotocol.ProtocolNameMLAT].ConnectionCount)
 			}
 			return n
 		})
@@ -64,7 +64,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections[feedprotocol.BEAST].Status == true {
+				if stats.Feeders[u].Connections[feedprotocol.ProtocolNameBEAST].Status == true {
 					n++
 				}
 			}
@@ -83,7 +83,7 @@ var (
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections[feedprotocol.MLAT].Status == true {
+				if stats.Feeders[u].Connections[feedprotocol.ProtocolNameMLAT].Status == true {
 					n++
 				}
 			}
