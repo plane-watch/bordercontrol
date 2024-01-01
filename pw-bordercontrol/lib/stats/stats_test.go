@@ -135,6 +135,9 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, ErrStatsNotInitialised, err)
 	})
 
+	// initialising stats subsystem
+	Init(testAddr)
+
 	t.Run("test RegisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
 		c.Proto = feedprotocol.Protocol(254)
@@ -142,9 +145,6 @@ func TestStats(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, feedprotocol.ErrUnknownProtocol, err)
 	})
-
-	// initialising stats subsystem
-	Init(testAddr)
 
 	t.Run("test statsInitialised true", func(t *testing.T) {
 		assert.True(t, statsInitialised())
