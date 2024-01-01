@@ -291,8 +291,18 @@ func TestStats(t *testing.T) {
 			IP:   net.ParseIP(srcAddrIP),
 			Port: srcAddrPort,
 		}
-		fmt.Println(TestConnBEAST.SrcAddr, srcAddr)
-		assert.Equal(t, TestConnBEAST.SrcAddr, srcAddr)
+		assert.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
+		assert.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
+
+		dstAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
+		dstAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
+		assert.NoError(t, err)
+		dstAddr := net.TCPAddr{
+			IP:   net.ParseIP(dstAddrIP),
+			Port: dstAddrPort,
+		}
+		assert.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
+		assert.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
 
 		// assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].Dst)
 		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].TimeConnected, time.Minute*5)
