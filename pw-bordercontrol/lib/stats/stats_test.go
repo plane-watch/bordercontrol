@@ -642,6 +642,9 @@ func TestStats(t *testing.T) {
 		stats.Feeders[TestFeederAPIKey] = fs
 
 		fmt.Println(stats.Feeders[TestFeederAPIKey])
+
+		fmt.Println(time.Now().Sub(stats.Feeders[TestFeederAPIKey].TimeUpdated) > (time.Second * 60))
+
 		stats.mu.RUnlock()
 
 		// run statsEvictorInner

@@ -465,7 +465,6 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 func statsEvictorInner() {
 	var toEvict []uuid.UUID
-	// var activeBeast, activeMLAT uint
 
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
