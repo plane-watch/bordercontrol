@@ -256,12 +256,13 @@ func TestStats(t *testing.T) {
 	t.Run("test /api/v1/feeder zero values", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/api/v1/feeder/%s", testAddr, TestFeederAPIKey)
 		body := getMetricsFromTestServer(t, testURL)
-		fmt.Println("---- BEGIN RESPONSE BODY ----")
-		fmt.Println(body)
-		fmt.Println("---- END RESPONSE BODY ----")
+		// fmt.Println("---- BEGIN RESPONSE BODY ----")
+		// fmt.Println(body)
+		// fmt.Println("---- END RESPONSE BODY ----")
 
 		// unmarshall json into struct
 		r := &APIResponse{}
+		r.Data = FeederStats{}
 		err := json.Unmarshal([]byte(body), r)
 		assert.NoError(t, err)
 
