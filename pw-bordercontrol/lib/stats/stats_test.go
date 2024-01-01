@@ -276,9 +276,21 @@ func TestStats(t *testing.T) {
 
 		// check struct contents of connection 1
 		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
-		// assert.Equal(t, 1, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionCount)
-		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].MostRecentConnection, time.Minute*5)
-		// assert.Equal(t, TestConnBEAST.SrcAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].Src)
+		assert.Equal(t, 1, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(int))
+
+		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+
+		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[string(TestConnNumBEAST)].(map[string]interface{})["IP"].(string)
+		srcAddrPort := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[string(TestConnNumBEAST)].(map[string]interface{})["Port"].(int)
+		srcAddr := net.TCPAddr{
+			IP:   net.ParseIP(srcAddrIP),
+			Port: srcAddrPort,
+		}
+		fmt.Println(TestConnBEAST.SrcAddr, srcAddr)
+		assert.Equal(t, TestConnBEAST.SrcAddr, srcAddr)
+
 		// assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].Dst)
 		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].TimeConnected, time.Minute*5)
 		// assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].BytesIn)
