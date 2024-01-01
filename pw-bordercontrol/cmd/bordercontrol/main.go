@@ -210,7 +210,7 @@ func runServer(ctx *cli.Context) error {
 	log.Info().Msg(banner)
 	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
 
-	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
+	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
 	// prep signal channels
 	createSignalChannels()
