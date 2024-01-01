@@ -640,15 +640,16 @@ func TestStats(t *testing.T) {
 		_, ok := stats.Feeders[TestFeederAPIKey]
 		assert.True(t, ok)
 
-		// move timeupdated back 120 seconds so it will be evicted without having to wait
 		fs := stats.Feeders[TestFeederAPIKey]
+
+		// move timeupdated back 120 seconds so it will be evicted without having to wait
 		fs.TimeUpdated = time.Now().Add(-time.Second * 120)
+
+		// delete connections so it will be evicted
+		fs.Connections = map[string]ProtocolDetail{}
+
+		// update feeder stats
 		stats.Feeders[TestFeederAPIKey] = fs
-
-		fmt.Println(stats.Feeders[TestFeederAPIKey])
-
-		fmt.Println(time.Now().Sub(stats.Feeders[TestFeederAPIKey].TimeUpdated) > (time.Second * 60))
-
 		stats.mu.RUnlock()
 
 		// run statsEvictorInner
