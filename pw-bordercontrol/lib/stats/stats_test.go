@@ -256,16 +256,11 @@ func TestStats(t *testing.T) {
 	t.Run("test /api/v1/feeder zero values", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/api/v1/feeder/%s", testAddr, TestFeederAPIKey)
 		body := getMetricsFromTestServer(t, testURL)
-		fmt.Println("---- BEGIN RESPONSE BODY ----")
-		fmt.Println(body)
-		fmt.Println("---- END RESPONSE BODY ----")
 
 		// unmarshall json into struct
 		r := &APIResponse{}
 		err := json.Unmarshal([]byte(body), r)
 		assert.NoError(t, err)
-
-		fmt.Println(r)
 
 		// check struct contents of feeder
 
@@ -304,20 +299,47 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
 		assert.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
 
-		// assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].Dst)
-		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].TimeConnected, time.Minute*5)
-		// assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].BytesIn)
-		// assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[TestConnNumBEAST].BytesOut)
+		timeConnected, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["TimeConnected"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
-		// // check struct contents of connection 2
-		// assert.True(t, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].Status)
-		// assert.Equal(t, 1, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionCount)
-		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].MostRecentConnection, time.Minute*5)
-		// assert.Equal(t, TestConnBEAST.SrcAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].Src)
-		// assert.Equal(t, TestConnBEAST.DstAddr, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].Dst)
-		// assert.WithinDuration(t, time.Now(), r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].TimeConnected, time.Minute*5)
-		// assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].BytesIn)
-		// assert.Equal(t, 0, r.Data.(*FeederStats).Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[TestConnNumMLAT].BytesOut)
+		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
+		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
+
+		// check struct contents of connection 2
+		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
+		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
+
+		timeMostRecentConnection, err = time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["MostRecentConnection"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+
+		srcAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
+		srcAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
+		assert.NoError(t, err)
+		srcAddr = net.TCPAddr{
+			IP:   net.ParseIP(srcAddrIP),
+			Port: srcAddrPort,
+		}
+		assert.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
+		assert.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
+
+		dstAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
+		dstAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
+		assert.NoError(t, err)
+		dstAddr = net.TCPAddr{
+			IP:   net.ParseIP(dstAddrIP),
+			Port: dstAddrPort,
+		}
+		assert.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
+		assert.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
+
+		timeConnected, err = time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["TimeConnected"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+
+		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
+		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
 	})
 
 	t.Run("test IncrementByteCounters BEAST", func(t *testing.T) {
@@ -349,6 +371,95 @@ func TestStats(t *testing.T) {
 			fmt.Sprintf("%s 200", TestPromMetricFeederDataOutBytesTotalMLAT),
 		}
 		checkPromMetricsExist(t, body, expectedMetrics)
+	})
+
+	t.Run("test /api/v1/feeder nonzero values", func(t *testing.T) {
+		testURL := fmt.Sprintf("http://%s/api/v1/feeder/%s", testAddr, TestFeederAPIKey)
+		body := getMetricsFromTestServer(t, testURL)
+
+		// unmarshall json into struct
+		r := &APIResponse{}
+		err := json.Unmarshal([]byte(body), r)
+		assert.NoError(t, err)
+
+		// check struct contents of feeder
+
+		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
+		assert.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
+
+		timeUpdated, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
+
+		// check struct contents of connection 1
+		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
+		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
+
+		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+
+		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
+		srcAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
+		assert.NoError(t, err)
+		srcAddr := net.TCPAddr{
+			IP:   net.ParseIP(srcAddrIP),
+			Port: srcAddrPort,
+		}
+		assert.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
+		assert.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
+
+		dstAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
+		dstAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
+		assert.NoError(t, err)
+		dstAddr := net.TCPAddr{
+			IP:   net.ParseIP(dstAddrIP),
+			Port: dstAddrPort,
+		}
+		assert.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
+		assert.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
+
+		timeConnected, err := time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["TimeConnected"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+
+		assert.Equal(t, float64(10), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
+		assert.Equal(t, float64(20), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
+
+		// check struct contents of connection 2
+		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
+		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
+
+		timeMostRecentConnection, err = time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["MostRecentConnection"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+
+		srcAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
+		srcAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
+		assert.NoError(t, err)
+		srcAddr = net.TCPAddr{
+			IP:   net.ParseIP(srcAddrIP),
+			Port: srcAddrPort,
+		}
+		assert.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
+		assert.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
+
+		dstAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
+		dstAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
+		assert.NoError(t, err)
+		dstAddr = net.TCPAddr{
+			IP:   net.ParseIP(dstAddrIP),
+			Port: dstAddrPort,
+		}
+		assert.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
+		assert.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
+
+		timeConnected, err = time.Parse("2006-01-02T15:04:05.000000000Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["TimeConnected"].(string))
+		assert.NoError(t, err)
+		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+
+		assert.Equal(t, float64(100), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
+		assert.Equal(t, float64(200), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
 	})
 
 	t.Run("test UnregisterConnection BEAST", func(t *testing.T) {
