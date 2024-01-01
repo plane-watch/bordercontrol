@@ -1,9 +1,11 @@
 package stats
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 	"testing"
 
@@ -22,6 +24,8 @@ var (
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
+	TestConnNumBEAST    = uint(1)
+	TestConnNumMLAT     = uint(2)
 )
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
@@ -41,11 +45,11 @@ func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) 
 			1,
 			strings.Count(body, expectedMetric),
 		)
-		// if t.Failed() {
-		// 	fmt.Println("---- BEGIN BODY ----")
-		// 	fmt.Println(body)
-		// 	fmt.Println("---- END BODY ----")
-		// }
+		if t.Failed() {
+			fmt.Println("---- BEGIN RESPONSE BODY ----")
+			fmt.Println(body)
+			fmt.Println("---- END RESPONSE BODY ----")
+		}
 	}
 }
 
@@ -61,6 +65,36 @@ func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []st
 
 func TestStats(t *testing.T) {
 
+	TestConnBEAST := Connection{
+		ApiKey: TestFeederAPIKey,
+		SrcAddr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 23456,
+		},
+		DstAddr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 12345,
+		},
+		Proto:      feedprotocol.BEAST,
+		FeederCode: TestFeederCode,
+		ConnNum:    TestConnNumBEAST,
+	}
+
+	TestConnMLAT := Connection{
+		ApiKey: TestFeederAPIKey,
+		SrcAddr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 23457,
+		},
+		DstAddr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 12346,
+		},
+		Proto:      feedprotocol.MLAT,
+		FeederCode: TestFeederCode,
+		ConnNum:    TestConnNumMLAT,
+	}
+
 	// get listenable address
 	testListener, err := nettest.NewLocalListener("tcp")
 	if err != nil {
@@ -70,7 +104,22 @@ func TestStats(t *testing.T) {
 	testAddr := testListener.Addr().String()
 	testListener.Close()
 
-	t.Run("test RegisterFeeder fail", func(t *testing.T) {
+	t.Run("test statsInitialised false", func(t *testing.T) {
+		assert.False(t, statsInitialised())
+	})
+
+	t.Run("test GetNumConnections ErrStatsNotInitialised", func(t *testing.T) {
+		_, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		assert.Error(t, err)
+	})
+
+	t.Run("test IncrementByteCounters ErrStatsNotInitialised", func(t *testing.T) {
+		err := IncrementByteCounters(TestFeederAPIKey, 0, 1, 1)
+		assert.Error(t, err)
+		assert.Equal(t, ErrStatsNotInitialised.Error(), err.Error())
+	})
+
+	t.Run("test RegisterFeeder ErrStatsNotInitialised", func(t *testing.T) {
 		f := FeederDetails{
 			Label:      TestFeederLabel,
 			FeederCode: TestFeederCode,
@@ -80,10 +129,28 @@ func TestStats(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("test RegisterConnection ErrStatsNotInitialised", func(t *testing.T) {
+		err := TestConnBEAST.RegisterConnection()
+		assert.Error(t, err)
+		assert.Equal(t, ErrStatsNotInitialised, err)
+	})
+
+	t.Run("test RegisterConnection ErrUnknownProtocol", func(t *testing.T) {
+		c := TestConnBEAST
+		c.Proto = feedprotocol.Protocol(254)
+		err := c.RegisterConnection()
+		assert.Error(t, err)
+		assert.Equal(t, feedprotocol.ErrUnknownProtocol, err)
+	})
+
 	// initialising stats subsystem
 	Init(testAddr)
 
-	t.Run("test RegisterFeeder working", func(t *testing.T) {
+	t.Run("test statsInitialised true", func(t *testing.T) {
+		assert.True(t, statsInitialised())
+	})
+
+	t.Run("test RegisterFeeder", func(t *testing.T) {
 		f := FeederDetails{
 			Label:      TestFeederLabel,
 			FeederCode: TestFeederCode,
@@ -93,6 +160,71 @@ func TestStats(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("test GetNumConnections 0", func(t *testing.T) {
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, i)
+	})
+
+	t.Run("test IncrementByteCounters ErrConnNumNotFound", func(t *testing.T) {
+		err := IncrementByteCounters(TestFeederAPIKey, 0, 1, 1)
+		assert.Error(t, err)
+		assert.Equal(t, ErrConnNumNotFound.Error(), err.Error())
+	})
+
+	t.Run("test RegisterConnection BEAST", func(t *testing.T) {
+		err := TestConnBEAST.RegisterConnection()
+		assert.NoError(t, err)
+	})
+
+	t.Run("test GetNumConnections 1", func(t *testing.T) {
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, i)
+	})
+
+	t.Run("test RegisterConnection MLAT", func(t *testing.T) {
+		err := TestConnMLAT.RegisterConnection()
+		assert.NoError(t, err)
+	})
+
+	t.Run("test GetNumConnections 2", func(t *testing.T) {
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, i)
+	})
+
+	// ---
+
+	t.Run("test prom metrics zero values", func(t *testing.T) {
+		testURL := fmt.Sprintf("http://%s/metrics", testAddr)
+		body := getMetricsFromTestServer(t, testURL)
+		fmt.Println(body)
+	})
+
+	// ---
+
+	t.Run("test UnregisterConnection BEAST", func(t *testing.T) {
+		err := TestConnBEAST.UnregisterConnection()
+		assert.NoError(t, err)
+	})
+
+	t.Run("test GetNumConnections 1", func(t *testing.T) {
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, i)
+	})
+
+	t.Run("test UnregisterConnection MLAT", func(t *testing.T) {
+		err := TestConnMLAT.UnregisterConnection()
+		assert.NoError(t, err)
+	})
+
+	t.Run("test GetNumConnections 0", func(t *testing.T) {
+		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, i)
+	})
 }
 
 // func TestStats(t *testing.T) {

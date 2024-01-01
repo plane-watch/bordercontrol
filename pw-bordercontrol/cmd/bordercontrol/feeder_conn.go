@@ -523,7 +523,11 @@ func proxyClientConnection(conf proxyConfig) error {
 		Str("code", clientDetails.feederCode).
 		Logger()
 
-	numConnections := stats.GetNumConnections(clientDetails.clientApiKey, conf.connProto)
+	numConnections, err := stats.GetNumConnections(clientDetails.clientApiKey, conf.connProto)
+	if err != nil {
+		log.Err(err).Msg("error getting number of connections")
+		return err
+	}
 
 	log = log.With().Str("connections", fmt.Sprintf("%d/%d", numConnections+1, maxConnectionsPerProto)).Logger()
 

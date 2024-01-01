@@ -10,14 +10,18 @@ const (
 	MLAT
 )
 
-func GetName(p Protocol) (s string, err error) {
+var (
+	ErrUnknownProtocol = errors.New("unknown protocol")
+)
+
+func GetName(p Protocol) (string, error) {
+	// returns a string of the name of the protocol
 	switch p {
 	case BEAST:
-		s = "BEAST"
+		return "BEAST", nil
 	case MLAT:
-		s = "MLAT"
+		return "MLAT", nil
 	default:
-		err = errors.New("unknown protocol")
+		return "", ErrUnknownProtocol
 	}
-	return s, err
 }
