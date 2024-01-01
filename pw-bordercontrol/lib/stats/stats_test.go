@@ -172,7 +172,7 @@ func TestStats(t *testing.T) {
 
 	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
-		c.Proto = feedprotocol.Protocol(254)
+		c.Proto = feedprotocol.Protocol(0)
 		err := c.UnregisterConnection()
 		assert.Error(t, err)
 		assert.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
@@ -180,7 +180,7 @@ func TestStats(t *testing.T) {
 
 	t.Run("test RegisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
-		c.Proto = feedprotocol.Protocol(254)
+		c.Proto = feedprotocol.Protocol(0)
 		err := c.RegisterConnection()
 		assert.Error(t, err)
 		assert.Equal(t, feedprotocol.ErrUnknownProtocol, err)
