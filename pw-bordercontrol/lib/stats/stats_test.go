@@ -518,7 +518,7 @@ func TestStats(t *testing.T) {
 		checkPromMetricsNotExist(t, body, notExpectedMetrics)
 	})
 
-	t.Run("test /api/v1/feeder nonzero values", func(t *testing.T) {
+	t.Run("test /api/v1/feeder after unregisters", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/api/v1/feeder/%s", testAddr, TestFeederAPIKey)
 		body := getMetricsFromTestServer(t, testURL)
 
