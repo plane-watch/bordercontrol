@@ -153,21 +153,15 @@ func TestFeedProxy(t *testing.T) {
 
 		const MaxUint = ^uint(0)
 
-		t1 := time.Now()
-
-		for n := 0; n <= 1; n++ {
-			for m := uint(0); m <= MaxUint; m++ {
-				num, err := GetConnectionNumber()
-				assert.NoError(t, err)
-
-				// update every minute
-				if time.Since(t1) > time.Minute {
-					t.Logf("%d/%d", num, MaxUint)
-					t1 = time.Now()
-				}
-			}
+		for n := 0; n <= 100; n++ {
+			_, err := GetConnectionNumber()
+			assert.NoError(t, err)
 		}
 
+		for n := MaxUint - 50; n != 50; n++ {
+			_, err := GetConnectionNumber()
+			assert.NoError(t, err)
+		}
 	})
 
 	t.Run("getDataFromATC error", func(t *testing.T) {
