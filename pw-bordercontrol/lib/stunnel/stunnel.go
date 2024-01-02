@@ -286,7 +286,8 @@ func PrepTestEnvironmentTLSListener() (l net.Listener, err error) {
 	tempListener.Close()
 
 	// configure temp listener
-	return tls.Listen("tcp", tlsListenAddr, &tlsConfig)
+	return NewListener("tcp", tlsListenAddr)
+
 }
 
 func PrepTestEnvironmentTLSClientConfig(sni string) (*tls.Config, error) {
