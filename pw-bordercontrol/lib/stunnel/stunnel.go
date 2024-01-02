@@ -55,7 +55,8 @@ func LoadCertAndKeyFromFile(certFile, keyFile string) error {
 		return ErrNotInitialised
 	}
 
-	kpr, err := NewKeypairReloader(certFile, keyFile)
+	var err error
+	kpr, err = NewKeypairReloader(certFile, keyFile)
 	if err != nil {
 		return err
 	}
