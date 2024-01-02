@@ -61,7 +61,7 @@ func TestFeedProxy(t *testing.T) {
 	t.Run("initialise feedproxy subsystem error", func(t *testing.T) {
 		c := FeedProxyConfig{
 			UpdateFreqency: time.Second * 10,
-			ATCUrl:         "\\\\invalid url.tld/",
+			ATCUrl:         "wibble://www.bbc.co.uk",
 		}
 		err := Init(&c)
 		assert.NoError(t, err)
