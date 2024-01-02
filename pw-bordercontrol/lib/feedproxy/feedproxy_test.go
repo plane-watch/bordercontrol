@@ -372,7 +372,8 @@ func TestFeedProxy(t *testing.T) {
 				FeedInContainerPrefix: "test-feed-in-",
 			}
 			t.Log("listener starts proxy")
-			go c.Start()
+			err = c.Start()
+			assert.NoError(t, err)
 
 			_ = <-stopListener
 
