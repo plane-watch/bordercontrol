@@ -167,6 +167,12 @@ func TestFeedProxy(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
+		c := incomingConnection{
+			connNum: 20,
+		}
+
+		incomingConnTracker.connections = append(incomingConnTracker.connections, c)
+
 		incomingConnTracker.connectionNumber = MaxUint - 50
 
 		for n := 0; n <= 100; n++ {
