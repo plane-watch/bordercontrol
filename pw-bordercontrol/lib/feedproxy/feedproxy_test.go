@@ -2,6 +2,7 @@ package feedproxy
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
@@ -147,8 +148,6 @@ func TestFeedProxy(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	// ---
-
 	t.Run("lookupContainerTCP", func(t *testing.T) {
 		n, err := lookupContainerTCP("localhost", 8080)
 		assert.NoError(t, err)
@@ -158,18 +157,22 @@ func TestFeedProxy(t *testing.T) {
 
 	// ---
 
+	// ---
+
 	t.Run("GetConnectionNumber", func(t *testing.T) {
 
 		const MaxUint = ^uint(0)
 
 		for n := 0; n <= 100; n++ {
-			_, err := GetConnectionNumber()
+			num, err := GetConnectionNumber()
 			assert.NoError(t, err)
+			fmt.Println(num)
 		}
 
 		for n := MaxUint - 50; n != 50; n++ {
-			_, err := GetConnectionNumber()
+			num, err := GetConnectionNumber()
 			assert.NoError(t, err)
+			fmt.Println(num)
 		}
 	})
 
