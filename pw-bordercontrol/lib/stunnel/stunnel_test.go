@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ var (
 
 func TestStunnel(t *testing.T) {
 
+	// ensure functions that need initialisation throw an error if not initialised
 	t.Run("test not initialised", func(t *testing.T) {
 		t.Run("LoadCertAndKeyFromFile", func(t *testing.T) {
 			err := LoadCertAndKeyFromFile("", "")
@@ -75,6 +77,19 @@ func TestStunnel(t *testing.T) {
 			assert.Error(t, err)
 			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
+	})
+
+	// initialise stunnel subsystem, with SIGHUP as signal to reload
+	t.Run("initialise stunnel subsystem", func(t *testing.T) {
+		ptf := assert.PanicTestFunc(func() { Init(syscall.SIGHUP) })
+		assert.NotPanics(t, ptf)
+	})
+
+	// ensure now initialised
+	t.Run("isInitialised", func(t *testing.T) {
+		initialisedMu.RLock()
+		t.Cleanup(func() { initialisedMu.RUnlock() })
+		assert.True(t, initialised)
 	})
 
 }
