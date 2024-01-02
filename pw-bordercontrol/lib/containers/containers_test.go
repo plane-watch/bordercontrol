@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"syscall"
@@ -53,14 +54,19 @@ func TestContainers(t *testing.T) {
 
 	// starting test docker daemon
 	t.Log("starting test docker daemon")
+	tmpDir, err := os.MkdirTemp("", "pw-bordercontrol-go-test-*")
+	assert.NoError(t, err)
 	TestDaemon := daemon.New(
 		t,
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
+		daemon.WithEnvVars("DEST", tmpDir),
 	)
 	TestDaemon.Start(t)
 	t.Cleanup(func() {
 		TestDaemon.Cleanup(t)
 		TestDaemon.Stop(t)
+		TestDaemon.Kill()
+		os.RemoveAll(tmpDir)
 	})
 
 	// prep broken docker client
