@@ -1,9 +1,12 @@
 package stunnel
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -175,7 +178,98 @@ func TestStunnel(t *testing.T) {
 		assert.NotEqual(t, c1, c2)
 		// ensure c2 & c3 are the same (as no files to reload, they were deleted)
 		assert.Equal(t, c2, c3)
+	})
 
+	t.Run("prepare for testing connections", func(t *testing.T) {
+		err := PrepTestEnvironmentTLSCertAndKey()
+		assert.NoError(t, err)
+	})
+
+	var listener net.Listener
+	var clientTlsConfig *tls.Config
+
+	t.Run("prepare test environment listener", func(t *testing.T) {
+		var err error
+		listener, err = PrepTestEnvironmentTLSListener()
+		assert.NoError(t, err)
+	})
+
+	t.Run("prepare test environment client tls config", func(t *testing.T) {
+		var err error
+		clientTlsConfig, err = PrepTestEnvironmentTLSClientConfig(TestSNI.String())
+		assert.NoError(t, err)
+	})
+
+	t.Run("test client connection", func(t *testing.T) {
+
+		testData := "Hello World!"
+		stopListener := make(chan bool, 1)
+		wg := sync.WaitGroup{}
+
+		// server side
+		wg.Add(1)
+		go func(t *testing.T) {
+
+			buf := make([]byte, len(testData))
+
+			// accept one connection
+			conn, err := listener.Accept()
+			assert.NoError(t, err)
+
+			// check TLS handshake completed
+			assert.True(t, conn.(*tls.Conn).ConnectionState().HandshakeComplete, "TLS handshake")
+
+			// check SNI
+			sni := conn.(*tls.Conn).ConnectionState().ServerName
+			assert.Equal(t, TestSNI.String(), sni)
+
+			// read some data
+			n, err := conn.Read(buf)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			assert.Equal(t, testData, string(buf))
+
+			// write some data
+			n, err = conn.Write(buf)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+
+			// wait until we're ready to stop
+			_ = <-stopListener
+			conn.Close()
+			wg.Done()
+		}(t)
+
+		// client side
+		wg.Add(1)
+		go func(t *testing.T) {
+
+			buf := make([]byte, len(testData))
+
+			// dial server
+			conn, err := tls.Dial("tcp", listener.Addr().String(), clientTlsConfig)
+			assert.NoError(t, err)
+
+			// write some data
+			n, err := conn.Write([]byte(testData))
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+
+			// read some data
+			n, err = conn.Read(buf)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			assert.Equal(t, testData, string(buf))
+
+			err = conn.Close()
+			assert.NoError(t, err)
+
+			// stop listener
+			stopListener <- true
+			wg.Done()
+		}(t)
+
+		wg.Wait()
 	})
 
 }
