@@ -318,6 +318,8 @@ func TestFeedProxy(t *testing.T) {
 			conn, err := server.Accept()
 			assert.NoError(t, err)
 
+			conn.SetDeadline(time.Now().Add(time.Second * 30))
+
 			n, err := readFromClient(conn, buf)
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
@@ -345,6 +347,8 @@ func TestFeedProxy(t *testing.T) {
 			conn, err := listener.Accept()
 			assert.NoError(t, err)
 
+			conn.SetDeadline(time.Now().Add(time.Second * 30))
+
 			connNum, err := GetConnectionNumber()
 			assert.NoError(t, err)
 
@@ -364,9 +368,13 @@ func TestFeedProxy(t *testing.T) {
 
 		}(t)
 
+		time.Sleep(time.Second)
+
 		// start client
 		conn, err := net.Dial("tcp", listener.Addr().String())
 		assert.NoError(t, err)
+
+		conn.SetDeadline(time.Now().Add(time.Second * 30))
 
 		n, err := conn.Write([]byte(testData))
 		assert.NoError(t, err)
