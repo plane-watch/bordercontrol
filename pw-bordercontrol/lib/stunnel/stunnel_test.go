@@ -121,13 +121,18 @@ func TestStunnel(t *testing.T) {
 		err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
 		assert.NoError(t, err)
 
-		kpr, err := NewKeypairReloader(tmpCertFile.Name(), tmpKeyFileName)
+		// initialise keypair reloader
+		kpr, err := NewKeypairReloader(tmpCertFile.Name(), tmpKeyFile.Name())
 		assert.NoError(t, err)
 
 		// get copy of original cert
 		kpr.certMu.RLock()
 		c1 := *kpr.cert
 		kpr.certMu.RUnlock()
+
+		// generate new test environment TLS Cert/Key
+		err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
+		assert.NoError(t, err)
 
 		// send signal
 		signalChan <- syscall.SIGHUP
