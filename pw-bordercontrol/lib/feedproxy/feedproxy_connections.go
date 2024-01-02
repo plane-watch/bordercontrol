@@ -274,9 +274,9 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	return c, err
 }
 
-func getUUIDfromSNI(c net.Conn) (u uuid.UUID, err error) {
-	return uuid.Parse(stunnel.GetSNI(c))
-}
+// allow override of these functions to simplify testing
+var getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return uuid.Parse(stunnel.GetSNI(c)) }
+var handshakeComplete = func(c net.Conn) bool { return stunnel.HandshakeComplete(c) }
 
 func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error) {
 	// authenticates a feeder
@@ -288,7 +288,7 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 		Logger()
 
 	// check TLS handshake
-	if !stunnel.HandshakeComplete(connIn) {
+	if !handshakeComplete(connIn) {
 		// if TLS handshake is not complete, then kill the connection
 		err := errors.New("tls handshake incomplete")
 		return clientDetails, err
