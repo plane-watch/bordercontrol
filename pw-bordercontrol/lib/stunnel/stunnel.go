@@ -135,13 +135,6 @@ func (kpr *keypairReloader) maybeReload() error {
 
 func (kpr *keypairReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-
-	if !isInitialised() {
-		return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return &tls.Certificate{}, ErrNotInitialised
-		}
-	}
-
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		kpr.certMu.RLock()
 		defer kpr.certMu.RUnlock()
