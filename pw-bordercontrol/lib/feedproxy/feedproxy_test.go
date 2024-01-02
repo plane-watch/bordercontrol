@@ -105,7 +105,7 @@ func TestFeedProxy(t *testing.T) {
 		assert.Error(t, err)
 
 		// wait for evictor
-		time.Sleep(time.Second * 30)
+		time.Sleep(time.Second * 15)
 
 		// run evictor
 		i.evict()
@@ -119,6 +119,11 @@ func TestFeedProxy(t *testing.T) {
 
 	t.Run("test feedersGaugeFunc", func(t *testing.T) {
 		assert.Equal(t, float64(1), feedersGaugeFunc())
+	})
+
+	t.Run("test isValidApiKey", func(t *testing.T) {
+		assert.True(t, isValidApiKey(TestFeederAPIKey))
+		assert.False(t, isValidApiKey(uuid.New()))
 	})
 
 }
