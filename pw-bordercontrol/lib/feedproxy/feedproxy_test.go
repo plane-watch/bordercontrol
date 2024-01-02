@@ -83,7 +83,13 @@ func TestFeedProxy(t *testing.T) {
 		err = i.check(srcIP, cn)
 		assert.NoError(t, err)
 
-		// third connection, should fail
+		// third connection, should work
+		cn, err = GetConnectionNumber()
+		assert.NoError(t, err)
+		err = i.check(srcIP, cn)
+		assert.NoError(t, err)
+
+		// fourth connection, should fail
 		cn, err = GetConnectionNumber()
 		assert.NoError(t, err)
 		err = i.check(srcIP, cn)
