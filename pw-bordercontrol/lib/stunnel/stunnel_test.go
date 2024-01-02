@@ -97,7 +97,9 @@ func TestStunnel(t *testing.T) {
 	})
 
 	t.Run("test handling of invalid cert/key", func(t *testing.T) {
-		tName := t.Name()
+
+		// get test name & remove path separator chars
+		tName := strings.ReplaceAll(t.Name(), "/", "_")
 
 		// make temp file for cert
 		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
