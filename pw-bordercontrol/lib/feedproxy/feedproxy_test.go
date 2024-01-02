@@ -297,6 +297,9 @@ func TestFeedProxy(t *testing.T) {
 
 	t.Run("ProxyConnection MLAT", func(t *testing.T) {
 
+		registerConnectionStats = func(conn stats.Connection) error { return nil }
+		unregisterConnectionStats = func(conn stats.Connection) error { return nil }
+
 		stopListener := make(chan bool)
 		stopServer := make(chan bool)
 
