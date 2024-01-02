@@ -40,7 +40,7 @@ func TestStunnel(t *testing.T) {
 			// make temp file for cert
 			tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
 			t.Cleanup(func() {
-				os.Remove(tmpCertFileName)
+				fmt.Println(os.Remove(tmpCertFileName))
 			})
 			tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
 			assert.NoError(t, err)
