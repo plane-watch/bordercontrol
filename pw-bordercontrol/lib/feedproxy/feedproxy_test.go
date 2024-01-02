@@ -258,6 +258,11 @@ func TestFeedProxy(t *testing.T) {
 
 			conn.Close()
 
+			t.Run("readFromClient error", func(t *testing.T) {
+				_, err := readFromClient(conn, buf)
+				assert.Error(t, err)
+			})
+
 			wg.Done()
 		}(t)
 
