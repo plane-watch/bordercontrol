@@ -313,3 +313,11 @@ func PrepTestEnvironmentTLSClientConfig(sni string) (*tls.Config, error) {
 
 	return &tlsClientConfig, nil
 }
+
+func HandshakeComplete(c net.Conn) bool {
+	return c.(*tls.Conn).ConnectionState().HandshakeComplete
+}
+
+func GetSNI(c net.Conn) string {
+	return c.(*tls.Conn).ConnectionState().ServerName
+}

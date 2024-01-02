@@ -1,7 +1,6 @@
 package feedproxy
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -9,6 +8,7 @@ import (
 	"pw_bordercontrol/lib/containers"
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/stats"
+	"pw_bordercontrol/lib/stunnel"
 	"strings"
 	"sync"
 	"time"
@@ -274,12 +274,8 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	return c, err
 }
 
-func checkConnTLSHandshakeComplete(c net.Conn) bool {
-	return c.(*tls.Conn).ConnectionState().HandshakeComplete
-}
-
 func getUUIDfromSNI(c net.Conn) (u uuid.UUID, err error) {
-	return uuid.Parse(c.(*tls.Conn).ConnectionState().ServerName)
+	return uuid.Parse(stunnel.GetSNI(c))
 }
 
 func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error) {
@@ -292,7 +288,7 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 		Logger()
 
 	// check TLS handshake
-	if !checkConnTLSHandshakeComplete(connIn) {
+	if !stunnel.HandshakeComplete(connIn) {
 		// if TLS handshake is not complete, then kill the connection
 		err := errors.New("tls handshake incomplete")
 		return clientDetails, err

@@ -219,15 +219,17 @@ func TestStunnel(t *testing.T) {
 			// read some data
 			n, err := conn.Read(buf)
 			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
-			assert.Equal(t, testData, string(buf))
 
 			// check TLS handshake completed
-			assert.True(t, conn.(*tls.Conn).ConnectionState().HandshakeComplete, "TLS handshake")
+			assert.True(t, HandshakeComplete(conn), "TLS handshake")
 
 			// check SNI
-			sni := conn.(*tls.Conn).ConnectionState().ServerName
+			sni := GetSNI(conn)
 			assert.Equal(t, TestSNI.String(), sni)
+
+			// check received data
+			assert.Equal(t, len(testData), n)
+			assert.Equal(t, testData, string(buf))
 
 			// write some data
 			n, err = conn.Write(buf)
@@ -273,24 +275,3 @@ func TestStunnel(t *testing.T) {
 	})
 
 }
-
-// func TestTLS_CertReload(t *testing.T) {
-
-// 	Init(syscall.SIGHUP)
-
-// 	t.Log("preparing test environment TLS cert/key")
-
-// 	err := PrepTestEnvironmentTLSCertAndKey()
-// 	assert.NoError(t, err)
-
-// 	// test reload via signal
-// 	t.Log("sending SIGHUP for cert/key reload (working)")
-// 	signalChan <- syscall.SIGHUP
-
-// 	// wait for the channel to be read
-// 	time.Sleep(time.Second)
-
-// 	// test reload via signal
-// 	t.Log("sending SIGHUP for cert/key reload (will not work, files missing)")
-// 	signalChan <- syscall.SIGHUP
-// }
