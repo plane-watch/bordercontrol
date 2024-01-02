@@ -26,6 +26,7 @@ var (
 
 func TestFeedProxy(t *testing.T) {
 
+	getDataFromATCMu.Lock()
 	getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
 		f := atc.Feeders{
 			Feeders: []atc.Feeder{
@@ -41,6 +42,7 @@ func TestFeedProxy(t *testing.T) {
 		}
 		return f, nil
 	}
+	getDataFromATCMu.Unlock()
 
 	t.Run("test not initialised", func(t *testing.T) {
 
@@ -148,9 +150,11 @@ func TestFeedProxy(t *testing.T) {
 	// ---
 
 	t.Run("getDataFromATC error", func(t *testing.T) {
+		getDataFromATCMu.Lock()
 		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
 			return atc.Feeders{}, errors.New("injected error for testing")
 		}
+		getDataFromATCMu.Unlock()
 		// wait for error
 		time.Sleep(time.Second * 15)
 	})
