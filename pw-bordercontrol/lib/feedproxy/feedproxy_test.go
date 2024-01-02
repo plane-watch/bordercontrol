@@ -306,7 +306,7 @@ func TestFeedProxy(t *testing.T) {
 		RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
 
 		// create server
-		server, err := nettest.NewLocalListener("tcp")
+		server, err := net.Listen("tcp4", "127.0.0.1:12346")
 		assert.NoError(t, err)
 
 		// start server
