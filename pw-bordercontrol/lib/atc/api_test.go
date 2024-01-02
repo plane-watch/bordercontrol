@@ -102,7 +102,6 @@ func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 
 			// response code
 			switch testScenario {
-			case MockServerTestScenarioBadResponseCodeSignIn:
 			case MockServerTestScenarioBadResponseCodeFeeder:
 				w.WriteHeader(http.StatusBadRequest)
 			default:
@@ -137,7 +136,6 @@ func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 
 			// response code
 			switch testScenario {
-			case MockServerTestScenarioBadResponseCodeSignIn:
 			case MockServerTestScenarioBadResponseCodeFeeders:
 				w.WriteHeader(http.StatusBadRequest)
 			default:
