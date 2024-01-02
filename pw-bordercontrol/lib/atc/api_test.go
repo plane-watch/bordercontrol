@@ -145,7 +145,12 @@ func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 			}
 
 			// response body
-			w.Write([]byte(resp))
+			switch testScenario {
+			case MockServerTestScenarioInvalidJSON:
+				w.Write([]byte(resp)[2:])
+			default:
+				w.Write([]byte(resp))
+			}
 
 		default:
 			t.Log("invalid request URL:", r.URL.Path)
