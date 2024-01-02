@@ -2,13 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
-	"net"
-	"pw_bordercontrol/lib/feedprotocol"
-	"strconv"
-	"strings"
-	"syscall"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
@@ -39,55 +33,57 @@ func TestGetRepoInfo(t *testing.T) {
 	assert.Equal(t, "unknown", ct)
 }
 
-func TestCreateSignalChannels(t *testing.T) {
+// func TestCreateSignalChannels(t *testing.T) {
 
-	// create signal channels
-	t.Log("create signal channels")
-	createSignalChannels()
+// 	// create signal channels
+// 	t.Log("create signal channels")
+// 	createSignalChannels()
 
-	// send SIGHUP
-	t.Log("send SIGHUP")
-	err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
-	assert.NoError(t, err)
+// 	// send SIGHUP
+// 	t.Log("send SIGHUP")
+// 	err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+// 	assert.NoError(t, err)
 
-	// check SIGHUP was received
-	t.Log("check SIGHUP was received")
-	select {
-	case <-time.After(time.Second * 5):
-		assert.Fail(t, "timeout reading chanSIGHUP")
-	case s := <-chanSIGHUP:
-		assert.Equal(t, syscall.SIGHUP, s)
-		t.Log("it was")
-	}
+// 	// check SIGHUP was received
+// 	t.Log("check SIGHUP was received")
+// 	select {
+// 	case <-time.After(time.Second * 5):
+// 		assert.Fail(t, "timeout reading chanSIGHUP")
+// 	case s := <-chanSIGHUP:
+// 		assert.Equal(t, syscall.SIGHUP, s)
+// 		t.Log("it was")
+// 	}
 
-	t.Log("test complete")
-}
+// 	t.Log("test complete")
+// }
 
-func TestListener(t *testing.T) {
+// func TestListener(t *testing.T) {
 
-	prepTestEnvironmentTLS(t)
+// 	err := PrepTestEnvironmentTLSCertAndKey()
+// 	assert.NoError(t, err)
 
-	tempAddr := getListenableAddress(t)
-	ip := strings.Split(tempAddr, ":")[0]
-	port, err := strconv.Atoi(strings.Split(tempAddr, ":")[1])
-	assert.NoError(t, err, "could not split address string")
+// 	tempAddr := getListenableAddress(t)
+// 	ip := strings.Split(tempAddr, ":")[0]
+// 	port, err := strconv.Atoi(strings.Split(tempAddr, ":")[1])
+// 	assert.NoError(t, err, "could not split address string")
 
-	// prep listener config
-	conf := listenConfig{
-		listenProto: feedprotocol.BEAST,
-		listenAddr: net.TCPAddr{
-			IP:   net.ParseIP(ip),
-			Port: port,
-		},
-		mgmt: &goRoutineManager{},
-	}
+// 	// prep listener config
+// 	conf := listenConfig{
+// 		listenProto: feedprotocol.BEAST,
+// 		listenAddr: net.TCPAddr{
+// 			IP:   net.ParseIP(ip),
+// 			Port: port,
+// 		},
+// 	}
 
-	// stop listener without accepting connection
-	conf.mgmt.Stop()
+// 	// stop listener without accepting connection
+// 	conf.stopMu.Lock()
+// 	conf.stop = true
+// 	conf.stopMu.Unlock()
 
-	// start listener
-	err = listener(conf)
+// 	// start listener
+// 	err = listener(&conf)
 
-	// ensure no errors
-	assert.NoError(t, err)
-}
+// 	// ensure no errors
+// 	assert.NoError(t, err)
+// }

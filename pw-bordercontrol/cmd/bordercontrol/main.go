@@ -1,22 +1,23 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
-	"os/signal"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"pw_bordercontrol/lib/containers"
 	"pw_bordercontrol/lib/feedprotocol"
+	"pw_bordercontrol/lib/feedproxy"
 	"pw_bordercontrol/lib/logging"
 	"pw_bordercontrol/lib/stats"
+	"pw_bordercontrol/lib/stunnel"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -27,12 +28,8 @@ import (
 var (
 	feedInImage            string
 	feedInContainerPrefix  string
-	tlsConfig              tls.Config
-	kpr                    *keypairReloader
 	commithash, committime string
-	incomingConnTracker    incomingConnectionTracker
 
-	chanSIGHUP  chan os.Signal
 	chanSIGUSR1 chan os.Signal
 
 	// statsManagerAddr string
@@ -192,15 +189,6 @@ func getRepoInfo() (commitHash, commitTime string) {
 	return commitHash, commitTime
 }
 
-func createSignalChannels() {
-	// prepares global channels to catch specific signals
-
-	// SIGHUP = reload TLS/SSL cert/key
-	chanSIGHUP = make(chan os.Signal, 1)
-	signal.Notify(chanSIGHUP, syscall.SIGHUP)
-
-}
-
 func runServer(ctx *cli.Context) error {
 
 	// Set logging level
@@ -212,16 +200,13 @@ func runServer(ctx *cli.Context) error {
 
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
-	// prep signal channels
-	createSignalChannels()
-
-	// set up TLS
+	// initialise ssl/tls subsystem
+	stunnel.Init(syscall.SIGHUP)
 	// load SSL cert/key
-	kpr, err := NewKeypairReloader(ctx.String("cert"), ctx.String("key"), chanSIGHUP)
+	err := stunnel.LoadCertAndKeyFromFile(ctx.String("cert"), ctx.String("key"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
 
 	// display number active goroutines
 	go func() {
@@ -241,16 +226,14 @@ func runServer(ctx *cli.Context) error {
 		return err
 	}
 
-	// start goroutine to regularly pull feeders from atc
-	go func() {
-		conf := updateFeederDBConfig{
-			updateFreq: time.Second * 60,
-			atcUrl:     ctx.String("atcurl"),
-			atcUser:    ctx.String("atcuser"),
-			atcPass:    ctx.String("atcpass"),
-		}
-		updateFeederDB(&conf)
-	}()
+	// initialise feedproxy
+	feedProxyConf := feedproxy.FeedProxyConfig{
+		UpdateFreqency: time.Second * 60,
+		ATCUrl:         ctx.String("atcurl"),
+		ATCUser:        ctx.String("atcuser"),
+		ATCPass:        ctx.String("atcpass"),
+	}
+	feedproxy.Init(&feedProxyConf)
 
 	// initialise container manager
 	ContainerManager := containers.ContainerManager{
@@ -262,15 +245,6 @@ func runServer(ctx *cli.Context) error {
 		Logger:                             log.Logger,
 	}
 	ContainerManager.Init()
-
-	// prepare incoming connection tracker (to allow dropping too-frequent connections)
-	// start evictor for incoming connection tracker
-	go func() {
-		for {
-			incomingConnTracker.evict()
-			time.Sleep(time.Second * 1)
-		}
-	}()
 
 	// start listening for incoming BEAST connections
 	go func() {
@@ -288,12 +262,12 @@ func runServer(ctx *cli.Context) error {
 				Port: port,
 				Zone: "",
 			},
-			mgmt: &goRoutineManager{},
 		}
 
 		// listen forever
 		for {
-			listener(conf)
+			err := listener(&conf)
+			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
 			time.Sleep(time.Second * 1) // if there's a problem, slow down restarting
 		}
 	}()
@@ -314,13 +288,12 @@ func runServer(ctx *cli.Context) error {
 				Port: port,
 				Zone: "",
 			},
-			mgmt: &goRoutineManager{},
 		}
 
 		// listen forever
 		for {
-			err := listener(conf)
-			log.Err(err).Msg("error with listener")
+			err := listener(&conf)
+			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
 			time.Sleep(time.Second * 1) // if there's a problem, slow down restarting
 		}
 	}()
@@ -334,12 +307,15 @@ func runServer(ctx *cli.Context) error {
 }
 
 type listenConfig struct {
-	listenProto feedprotocol.Protocol // Protocol handled by the listener
-	listenAddr  net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
-	mgmt        *goRoutineManager     // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
+	listenProto           feedprotocol.Protocol // Protocol handled by the listener
+	listenAddr            net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
+	feedInContainerPrefix string
+
+	stop   bool
+	stopMu sync.RWMutex
 }
 
-func listener(conf listenConfig) error {
+func listener(conf *listenConfig) error {
 	// incoming connection listener
 
 	protoName, err := feedprotocol.GetName(conf.listenProto)
@@ -355,42 +331,50 @@ func listener(conf listenConfig) error {
 
 	// start TLS server
 	log.Info().Msg("starting listener")
-	tlsListener, err := tls.Listen(
+	stunnelListener, err := stunnel.NewListener(
 		"tcp",
 		fmt.Sprintf("%s:%d", conf.listenAddr.IP.String(), conf.listenAddr.Port),
-		&tlsConfig,
 	)
 	if err != nil {
-		log.Err(err).Msg("error with tls.Listen")
-		os.Exit(1)
+		log.Err(err).Msg("error staring listener")
+		return err
 	}
-	defer tlsListener.Close()
+	defer stunnelListener.Close()
 
 	// handle incoming connections
 	for {
 
 		// quit if directed
-		if conf.mgmt.CheckForStop() {
-			break
+		conf.stopMu.RLock()
+		if conf.stop {
+			conf.stopMu.RUnlock()
+			return nil
 		}
+		conf.stopMu.RUnlock()
 
 		// accept incoming connection
-		conn, err := tlsListener.Accept()
+		conn, err := stunnelListener.Accept()
 		if err != nil {
-			log.Err(err).Msg("error with tlsListener.Accept")
+			log.Err(err).Msg("error accepting connection")
 			return err
 		}
 
 		// prep proxy config
-		proxyConf := proxyConfig{
-			connIn:    conn,
-			connProto: conf.listenProto,
-			connNum:   incomingConnTracker.getNum(),
-			logger:    log,
+		connNum, err := feedproxy.GetConnectionNumber()
+		if err != nil {
+			log.Err(err).Msg("could not get connection number")
+			return err
+		}
+		proxyConn := feedproxy.ProxyConnection{
+			Connection:            conn,
+			ConnectionProtocol:    conf.listenProto,
+			ConnectionNumber:      connNum,
+			FeedInContainerPrefix: feedInContainerPrefix,
+			Logger:                log,
 		}
 
 		// initiate proxying of the connection
-		go proxyClientConnection(proxyConf)
+		go proxyConn.Start()
 	}
 
 	return nil

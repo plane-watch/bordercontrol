@@ -1,4 +1,4 @@
-package main
+package feedproxy
 
 import (
 	"crypto/tls"
@@ -52,6 +52,18 @@ const (
 	// network send/recv buffer size
 	sendRecvBufferSize = 256 * 1024 // 256kB
 )
+
+var (
+	incomingConnTracker incomingConnectionTracker
+)
+
+func GetConnectionNumber() (num uint, err error) {
+	// return connection number for new connection
+	if !isInitialised() {
+		return 0, ErrNotInitialised
+	}
+	return incomingConnTracker.getNum(), nil
+}
 
 func (t *incomingConnectionTracker) getNum() (num uint) {
 	// return a non-duplicate connection number
@@ -450,22 +462,45 @@ func proxyServerToClient(conf protocolProxyConfig) {
 	}
 }
 
-type proxyConfig struct {
-	connIn    net.Conn              // Incoming connection from feeder out on the internet.
-	connProto feedprotocol.Protocol // Incoming connection protocol.
-	connNum   uint                  // Connection number.
-	logger    zerolog.Logger        // logger context to use
+type ProxyConnection struct {
+	Connection            net.Conn              // Incoming connection from feeder out on the internet
+	ConnectionProtocol    feedprotocol.Protocol // Incoming connection protocol
+	ConnectionNumber      uint                  // Connection number
+	FeedInContainerPrefix string                // feed-in container prefix
+	Logger                zerolog.Logger        // logger context to use
+
+	stop   bool
+	stopMu sync.RWMutex
+
+	protoProxyConf protocolProxyConfig // config for protocol proxy goroutines
 }
 
-func proxyClientConnection(conf proxyConfig) error {
-	// handles incoming connections
+func (c *ProxyConnection) Stop() error {
+	// Stops proxying incoming connection.
 
-	log := conf.logger.With().
+	if !isInitialised() {
+		return ErrNotInitialised
+	}
+
+	c.stopMu.Lock()
+	defer c.stopMu.Unlock()
+	c.stop = true
+	return nil
+}
+
+func (c *ProxyConnection) Start() error {
+	// Starts proxying incoming connection. Will create feed-in container if required.
+
+	if !isInitialised() {
+		return ErrNotInitialised
+	}
+
+	log := c.Logger.With().
 		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).
-		Uint("connNum", conf.connNum).
+		Uint("connNum", c.ConnectionNumber).
 		Logger()
 
-	defer conf.connIn.Close()
+	defer c.Connection.Close()
 
 	var (
 		connOut          *net.TCPConn
@@ -479,11 +514,11 @@ func proxyClientConnection(conf proxyConfig) error {
 	// log.Trace().Msg("started")
 
 	// update log context with client IP
-	remoteIP := net.ParseIP(strings.Split(conf.connIn.RemoteAddr().String(), ":")[0])
+	remoteIP := net.ParseIP(strings.Split(c.Connection.RemoteAddr().String(), ":")[0])
 	log = log.With().IPAddr("src", remoteIP).Logger()
 
 	// check for too-frequent incoming connections
-	err = incomingConnTracker.check(remoteIP, conf.connNum)
+	err = incomingConnTracker.check(remoteIP, c.ConnectionNumber)
 	if err != nil {
 		log.Err(err).Msg("dropping connection")
 		return err
@@ -493,10 +528,10 @@ func proxyClientConnection(conf proxyConfig) error {
 	buf := make([]byte, sendRecvBufferSize)
 
 	// give the unauthenticated client 10 seconds to perform TLS handshake
-	conf.connIn.SetDeadline(time.Now().Add(time.Second * 10))
+	c.Connection.SetDeadline(time.Now().Add(time.Second * 10))
 
 	// read data from client
-	bytesRead, err := readFromClient(conf.connIn, buf)
+	bytesRead, err := readFromClient(c.Connection, buf)
 	if err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			// log.Trace().AnErr("err", err).Msg("error reading from client")
@@ -509,7 +544,7 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	// When the first data is sent, the TLS handshake should take place.
 	// Accordingly, we need to track the state...
-	clientDetails, err = authenticateFeeder(conf.connIn)
+	clientDetails, err = authenticateFeeder(c.Connection)
 	if err != nil {
 		log.Err(err).Msg("error authenticating feeder")
 		return err
@@ -523,7 +558,7 @@ func proxyClientConnection(conf proxyConfig) error {
 		Str("code", clientDetails.feederCode).
 		Logger()
 
-	numConnections, err := stats.GetNumConnections(clientDetails.clientApiKey, conf.connProto)
+	numConnections, err := stats.GetNumConnections(clientDetails.clientApiKey, c.ConnectionProtocol)
 	if err != nil {
 		log.Err(err).Msg("error getting number of connections")
 		return err
@@ -542,13 +577,13 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	// If the client has been authenticated, then we can do stuff with the data
 
-	switch conf.connProto {
+	switch c.ConnectionProtocol {
 	case feedprotocol.BEAST:
 
 		dstContainerName = "feed-in container"
 
 		log = log.With().
-			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
+			Str("dst", fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String())).
 			Logger()
 
 		// start feed-in container
@@ -566,7 +601,7 @@ func proxyClientConnection(conf proxyConfig) error {
 		}
 
 		// connect to feed-in container
-		connOut, err = dialContainerTCP(fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
+		connOut, err = dialContainerTCP(fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
 		if err != nil {
 			// handle connection errors to feed-in container
 			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
@@ -622,11 +657,11 @@ func proxyClientConnection(conf proxyConfig) error {
 	// update stats
 	conn := stats.Connection{
 		ApiKey:     clientDetails.clientApiKey,
-		SrcAddr:    conf.connIn.RemoteAddr(),
+		SrcAddr:    c.Connection.RemoteAddr(),
 		DstAddr:    connOut.RemoteAddr(),
-		Proto:      conf.connProto,
+		Proto:      c.ConnectionProtocol,
 		FeederCode: clientDetails.feederCode,
-		ConnNum:    conf.connNum,
+		ConnNum:    c.ConnectionNumber,
 	}
 	err = conn.RegisterConnection()
 	if err != nil {
@@ -637,9 +672,9 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	// prepare proxy config
 	protoProxyConf := protocolProxyConfig{
-		clientConn:                  conf.connIn,
+		clientConn:                  c.Connection,
 		serverConn:                  connOut,
-		connNum:                     conf.connNum,
+		connNum:                     c.ConnectionNumber,
 		clientApiKey:                clientDetails.clientApiKey,
 		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
@@ -655,10 +690,15 @@ func proxyClientConnection(conf proxyConfig) error {
 
 		// tell other goroutine to exit
 		protoProxyConf.mgmt.Stop()
+
+		// stop proxy
+		c.stopMu.Lock()
+		defer c.stopMu.Unlock()
+		c.stop = true
 	}()
 
 	// handle data from server container to feeder client (if required, no point doing this for BEAST)
-	switch conf.connProto {
+	switch c.ConnectionProtocol {
 	case feedprotocol.MLAT:
 		wg.Add(1)
 		go func() {
@@ -667,7 +707,23 @@ func proxyClientConnection(conf proxyConfig) error {
 
 			// tell other goroutine to exit
 			protoProxyConf.mgmt.Stop()
+
+			// stop proxy
+			c.stopMu.Lock()
+			defer c.stopMu.Unlock()
+			c.stop = true
 		}()
+	}
+
+	// "listen" for .Stop()
+	for {
+		c.stopMu.RLock()
+		if c.stop {
+			c.stopMu.RUnlock()
+			protoProxyConf.mgmt.Stop()
+			break
+		}
+		c.stopMu.RUnlock()
 	}
 
 	// wait for goroutines to finish

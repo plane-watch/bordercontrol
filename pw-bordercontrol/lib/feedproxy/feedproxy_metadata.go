@@ -1,4 +1,4 @@
-package main
+package feedproxy
 
 import (
 	"errors"
@@ -73,17 +73,7 @@ func getFeederInfo(f *feederClient) error {
 	return nil
 }
 
-type updateFeederDBConfig struct {
-	updateFreq time.Duration // how often to refresh feeder DB from ATC
-	atcUrl     string        // ATC API URL
-	atcUser    string        // ATC API Username
-	atcPass    string        // ATC API Password
-
-	stop   bool // set to true to stop goroutine, use mutex below for sync
-	stopMu sync.Mutex
-}
-
-func updateFeederDB(conf *updateFeederDBConfig) {
+func updateFeederDB(conf *FeedProxyConfig) {
 	// updates validFeeders with data from atc
 
 	log := log.With().
@@ -96,7 +86,7 @@ func updateFeederDB(conf *updateFeederDBConfig) {
 
 		// sleep for updateFreq
 		if !firstRun {
-			time.Sleep(conf.updateFreq)
+			time.Sleep(conf.UpdateFreqency)
 		} else {
 			firstRun = false
 		}
@@ -109,15 +99,15 @@ func updateFeederDB(conf *updateFeederDBConfig) {
 		conf.stopMu.Unlock()
 
 		// get data from atc
-		atcUrl, err := url.Parse(conf.atcUrl)
+		atcUrl, err := url.Parse(conf.ATCUrl)
 		if err != nil {
 			log.Error().Msg("--atcurl is invalid")
 			continue
 		}
 		s := atc.Server{
 			Url:      *atcUrl,
-			Username: conf.atcUser,
-			Password: conf.atcPass,
+			Username: conf.ATCUser,
+			Password: conf.ATCPass,
 		}
 		f, err := atc.GetFeeders(&s)
 		if err != nil {
