@@ -148,7 +148,7 @@ func TestStunnel(t *testing.T) {
 
 		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
 		assert.Error(t, err)
-		fmt.Println(err)
+		assert.Contains(t, err.Error(), "no such file or directory")
 	})
 
 	// test cert reload
