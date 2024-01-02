@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/nettest"
 )
 
 var (
@@ -167,6 +168,59 @@ func TestFeedProxy(t *testing.T) {
 	})
 
 	// ---
+
+	t.Run("dialContainerTCP", func(t *testing.T) {
+
+		testData := "Hello World!"
+
+		// create listener
+		listener, err := nettest.NewLocalListener("tcp")
+		assert.NoError(t, err)
+
+		// set up test server
+		go func(t *testing.T) {
+
+			buf := make([]byte, len(testData))
+
+			conn, err := listener.Accept()
+			assert.NoError(t, err)
+
+			n, err := readFromClient(conn, buf)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+
+			// override functions for testing
+			t.Run("authenticateFeeder working", func(t *testing.T) {
+				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
+				handshakeComplete = func(c net.Conn) bool { return true }
+
+				fc, err := authenticateFeeder(conn)
+				assert.NoError(t, err)
+				assert.Equal(t, TestFeederAPIKey, fc.clientApiKey)
+				assert.Equal(t, TestFeederLatitude, fc.refLat)
+				assert.Equal(t, TestFeederLongitude, fc.refLon)
+				assert.Equal(t, TestFeederMux, fc.mux)
+				assert.Equal(t, TestFeederLabel, fc.label)
+				assert.Equal(t, TestFeederCode, fc.feederCode)
+			})
+
+			t.Run("authenticateFeeder getUUIDfromSNI error", func(t *testing.T) {
+				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) {
+					return TestFeederAPIKey, errors.New("injected error for testing")
+				}
+				_, err = authenticateFeeder(conn)
+				assert.Error(t, err)
+			})
+
+			t.Run("authenticateFeeder handshakeComplete error", func(t *testing.T) {
+				handshakeComplete = func(c net.Conn) bool { return false }
+				_, err = authenticateFeeder(conn)
+				assert.Error(t, err)
+			})
+
+		}(t)
+
+	})
 
 	// ---
 
