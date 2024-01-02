@@ -98,6 +98,9 @@ func TestFeedProxy(t *testing.T) {
 		// wait for evictor
 		time.Sleep(time.Second * 30)
 
+		// run evictor
+		i.evict()
+
 		// fourth connection, should now work
 		cn, err = GetConnectionNumber()
 		assert.NoError(t, err)
