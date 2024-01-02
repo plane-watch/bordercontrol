@@ -460,6 +460,10 @@ func proxyServerToClient(conf protocolProxyConfig) {
 	}
 }
 
+// allow override of these functions to simplify testing
+var registerConnectionStats = func(conn stats.Connection) error { return conn.RegisterConnection() }
+var unregisterConnectionStats = func(conn stats.Connection) error { return conn.UnregisterConnection() }
+
 type ProxyConnection struct {
 	Connection            net.Conn              // Incoming connection from feeder out on the internet
 	ConnectionProtocol    feedprotocol.Protocol // Incoming connection protocol
@@ -661,12 +665,12 @@ func (c *ProxyConnection) Start() error {
 		FeederCode: clientDetails.feederCode,
 		ConnNum:    c.ConnectionNumber,
 	}
-	err = conn.RegisterConnection()
+	err = registerConnectionStats(conn)
 	if err != nil {
 		log.Err(err).Msg("error registering connection with stats subsystem")
 		return err
 	}
-	defer conn.UnregisterConnection()
+	defer unregisterConnectionStats(conn)
 
 	// prepare proxy config
 	protoProxyConf := protocolProxyConfig{
