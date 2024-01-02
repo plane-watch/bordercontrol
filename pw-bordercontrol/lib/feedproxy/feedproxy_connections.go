@@ -277,6 +277,7 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 // allow override of these functions to simplify testing
 var getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return uuid.Parse(stunnel.GetSNI(c)) }
 var handshakeComplete = func(c net.Conn) bool { return stunnel.HandshakeComplete(c) }
+var RegisterFeederWithStats = func(f stats.FeederDetails) error { return stats.RegisterFeeder(f) }
 
 func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error) {
 	// authenticates a feeder
@@ -322,7 +323,8 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 	}
 
 	// update stats
-	err = stats.RegisterFeeder(stats.FeederDetails{
+
+	err = RegisterFeederWithStats(stats.FeederDetails{
 		Label:      clientDetails.label,
 		FeederCode: clientDetails.feederCode,
 		ApiKey:     clientDetails.clientApiKey,

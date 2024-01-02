@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
+	"pw_bordercontrol/lib/stats"
 	"strconv"
 	"strings"
 	"sync"
@@ -195,10 +196,11 @@ func TestFeedProxy(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
 
-			// override functions for testing
 			t.Run("authenticateFeeder working", func(t *testing.T) {
+				// override functions for testing
 				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
 				handshakeComplete = func(c net.Conn) bool { return true }
+				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
 
 				fc, err := authenticateFeeder(conn)
 				assert.NoError(t, err)
@@ -211,26 +213,45 @@ func TestFeedProxy(t *testing.T) {
 			})
 
 			t.Run("authenticateFeeder getUUIDfromSNI error", func(t *testing.T) {
+				// override functions for testing
 				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) {
 					return TestFeederAPIKey, errors.New("injected error for testing")
 				}
 				handshakeComplete = func(c net.Conn) bool { return true }
+				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
+
 				_, err = authenticateFeeder(conn)
 				assert.Error(t, err)
 			})
 
 			t.Run("authenticateFeeder handshakeComplete error", func(t *testing.T) {
+				// override functions for testing
 				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
 				handshakeComplete = func(c net.Conn) bool { return false }
+				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
+
 				_, err = authenticateFeeder(conn)
 				assert.Error(t, err)
 			})
 
 			t.Run("authenticateFeeder isValidApiKey error", func(t *testing.T) {
+				// override functions for testing
 				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) {
 					return uuid.New(), nil
 				}
 				handshakeComplete = func(c net.Conn) bool { return true }
+				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
+
+				_, err = authenticateFeeder(conn)
+				assert.Error(t, err)
+			})
+
+			t.Run("authenticateFeeder stats error", func(t *testing.T) {
+				// override functions for testing
+				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
+				handshakeComplete = func(c net.Conn) bool { return true }
+				RegisterFeederWithStats = func(f stats.FeederDetails) error { return errors.New("injected error for testing") }
+
 				_, err = authenticateFeeder(conn)
 				assert.Error(t, err)
 			})
