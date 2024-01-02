@@ -54,15 +54,15 @@ func TestContainers(t *testing.T) {
 
 	// starting test docker daemon
 	t.Log("starting test docker daemon")
-	tmpDir, err := os.MkdirTemp("", "pw-bordercontrol-go-test-*")
+	tmpDir, err := os.MkdirTemp("", "pw-bordercontrol-go-test-*") // get temp path for test docker daemon
 	assert.NoError(t, err)
-	TestDaemon := daemon.New(
-		t,
+	TestDaemon, err := daemon.NewDaemon( // create test docker daemon
+		tmpDir,
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
-		daemon.WithEnvVars("DEST", tmpDir),
 	)
-	TestDaemon.Start(t)
-	t.Cleanup(func() {
+	assert.NoError(t, err)
+	TestDaemon.Start(t) // start test docker daemon
+	t.Cleanup(func() {  // defer cleanup of test docker daemon
 		TestDaemon.Cleanup(t)
 		TestDaemon.Stop(t)
 		TestDaemon.Kill()
