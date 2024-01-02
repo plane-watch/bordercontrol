@@ -430,8 +430,8 @@ func TestContainers(t *testing.T) {
 	})
 
 	t.Run("check prom metrics gauge funcs", func(t *testing.T) {
-		assert.Equal(t, float64(0), promMetricFeederContainersImageCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
-		assert.Equal(t, float64(1), promMetricFeederContainersImageNotCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
+		assert.Equal(t, float64(0), promMetricFeederContainersImageCurrentGaugeFunc(TestFeedInImageNameSecond, TestFeedInContainerPrefix))
+		assert.Equal(t, float64(1), promMetricFeederContainersImageNotCurrentGaugeFunc(TestFeedInImageNameSecond, TestFeedInContainerPrefix))
 	})
 
 	// send SIGUSR1 to prevent checkFeederContainers from sleeping
