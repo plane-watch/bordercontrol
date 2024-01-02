@@ -10,20 +10,18 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
+	"pw_bordercontrol/lib/containers"
+	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/logging"
+	"pw_bordercontrol/lib/stats"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
-)
-
-type (
-	feedProtocol string
 )
 
 var (
@@ -37,12 +35,8 @@ var (
 	chanSIGHUP  chan os.Signal
 	chanSIGUSR1 chan os.Signal
 
-	statsManagerAddr string
-	statsManagerMu   sync.RWMutex
-
-	// standardise the protocol name strings
-	protoMLAT  feedProtocol = "MLAT"
-	protoBEAST feedProtocol = "BEAST"
+	// statsManagerAddr string
+	// statsManagerMu   sync.RWMutex
 )
 
 const (
@@ -129,6 +123,12 @@ func main() {
 				EnvVars: []string{"FEED_IN_CONTAINER_PREFIX"},
 			},
 			&cli.StringFlag{
+				Name:    "feedincontainernetwork",
+				Usage:   "feed-in container network",
+				Value:   "bordercontrol_feeder",
+				EnvVars: []string{"FEED_IN_CONTAINER_NETWORK"},
+			},
+			&cli.StringFlag{
 				Name:     "pwingestpublish",
 				Usage:    "pw_ingest --sink setting in feed-in containers",
 				Required: true,
@@ -199,9 +199,6 @@ func createSignalChannels() {
 	chanSIGHUP = make(chan os.Signal, 1)
 	signal.Notify(chanSIGHUP, syscall.SIGHUP)
 
-	// SIGUSR1 = skip delay for not current feed-in container recreation
-	chanSIGUSR1 = make(chan os.Signal, 1)
-	signal.Notify(chanSIGUSR1, syscall.SIGUSR1)
 }
 
 func runServer(ctx *cli.Context) error {
@@ -213,7 +210,7 @@ func runServer(ctx *cli.Context) error {
 	log.Info().Msg(banner)
 	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
 
-	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("Logging Set")
+	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
 	// prep signal channels
 	createSignalChannels()
@@ -238,7 +235,11 @@ func runServer(ctx *cli.Context) error {
 	}()
 
 	// start statistics manager
-	go statsManager(":8080")
+	err = stats.Init(":8080")
+	if err != nil {
+		log.Err(err).Msg("could not start statistics manager")
+		return err
+	}
 
 	// start goroutine to regularly pull feeders from atc
 	go func() {
@@ -251,50 +252,16 @@ func runServer(ctx *cli.Context) error {
 		updateFeederDB(&conf)
 	}()
 
-	// prepare channel for container start requests
-	containersToStartRequests := make(chan startContainerRequest)
-	defer close(containersToStartRequests)
-
-	// prepare channel for container start responses
-	containersToStartResponses := make(chan startContainerResponse)
-	defer close(containersToStartResponses)
-
-	// start goroutine to start feeder containers
-
-	go func() {
-
-		// prep config
-		conf := startFeederContainersConfig{
-			feedInImageName:            ctx.String("feedinimage"),
-			feedInContainerPrefix:      ctx.String("feedincontainerprefix"),
-			pwIngestPublish:            ctx.String("pwingestpublish"),
-			containersToStartRequests:  containersToStartRequests,
-			containersToStartResponses: containersToStartResponses,
-		}
-
-		// run forever
-		for {
-			_ = startFeederContainers(conf)
-			// no sleep here as this goroutune needs to be relaunched after each container start
-		}
-	}()
-
-	// start goroutine to check feed-in containers
-	go func() {
-
-		// prep config
-		conf := checkFeederContainersConfig{
-			feedInImageName:          ctx.String("feedinimage"),
-			feedInContainerPrefix:    ctx.String("feedincontainerprefix"),
-			checkFeederContainerSigs: chanSIGUSR1,
-		}
-
-		// run forever
-		for {
-			_ = checkFeederContainers(conf)
-			// no sleep here as this goroutune needs to be relaunched after each container kill
-		}
-	}()
+	// initialise container manager
+	ContainerManager := containers.ContainerManager{
+		FeedInImageName:                    ctx.String("feedinimage"),
+		FeedInContainerPrefix:              ctx.String("feedincontainerprefix"),
+		FeedInContainerNetwork:             ctx.String("feedincontainernetwork"),
+		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
+		PWIngestSink:                       ctx.String("pwingestpublish"),
+		Logger:                             log.Logger,
+	}
+	ContainerManager.Init()
 
 	// prepare incoming connection tracker (to allow dropping too-frequent connections)
 	// start evictor for incoming connection tracker
@@ -315,15 +282,13 @@ func runServer(ctx *cli.Context) error {
 			log.Err(err).Str("addr", ctx.String("listenbeast")).Msg("invalid listen port")
 		}
 		conf := listenConfig{
-			listenProto: protoBEAST,
+			listenProto: feedprotocol.BEAST,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
 				Port: port,
 				Zone: "",
 			},
-			containersToStartRequests:  containersToStartRequests,
-			containersToStartResponses: containersToStartResponses,
-			mgmt:                       &goRoutineManager{},
+			mgmt: &goRoutineManager{},
 		}
 
 		// listen forever
@@ -343,15 +308,13 @@ func runServer(ctx *cli.Context) error {
 			log.Err(err).Str("addr", ctx.String("listenmlat")).Msg("invalid listen port")
 		}
 		conf := listenConfig{
-			listenProto: protoMLAT,
+			listenProto: feedprotocol.MLAT,
 			listenAddr: net.TCPAddr{
 				IP:   ip,
 				Port: port,
 				Zone: "",
 			},
-			containersToStartRequests:  containersToStartRequests,
-			containersToStartResponses: containersToStartResponses,
-			mgmt:                       &goRoutineManager{},
+			mgmt: &goRoutineManager{},
 		}
 
 		// listen forever
@@ -371,18 +334,21 @@ func runServer(ctx *cli.Context) error {
 }
 
 type listenConfig struct {
-	listenProto                feedProtocol                // Protocol handled by the listener
-	listenAddr                 net.TCPAddr                 // TCP address to listen on for incoming stunnel'd BEAST connections
-	containersToStartRequests  chan startContainerRequest  // Channel to send container start requests to.
-	containersToStartResponses chan startContainerResponse // Channel to receive container start responses from.
-	mgmt                       *goRoutineManager           // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
+	listenProto feedprotocol.Protocol // Protocol handled by the listener
+	listenAddr  net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
+	mgmt        *goRoutineManager     // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
 }
 
 func listener(conf listenConfig) error {
 	// incoming connection listener
 
+	protoName, err := feedprotocol.GetName(conf.listenProto)
+	if err != nil {
+		return err
+	}
+
 	log := log.With().
-		Str("proto", string(conf.listenProto)).
+		Str("proto", protoName).
 		Str("ip", conf.listenAddr.IP.String()).
 		Int("port", conf.listenAddr.Port).
 		Logger()
@@ -417,11 +383,10 @@ func listener(conf listenConfig) error {
 
 		// prep proxy config
 		proxyConf := proxyConfig{
-			connIn:                     conn,
-			connProto:                  conf.listenProto,
-			connNum:                    incomingConnTracker.getNum(),
-			containersToStartRequests:  conf.containersToStartRequests,
-			containersToStartResponses: conf.containersToStartResponses,
+			connIn:    conn,
+			connProto: conf.listenProto,
+			connNum:   incomingConnTracker.getNum(),
+			logger:    log,
 		}
 
 		// initiate proxying of the connection
