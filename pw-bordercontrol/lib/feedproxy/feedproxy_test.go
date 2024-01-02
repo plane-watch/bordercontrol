@@ -28,7 +28,14 @@ func TestFeedProxy(t *testing.T) {
 	getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
 		f := atc.Feeders{
 			Feeders: []atc.Feeder{
-				{ApiKey: TestFeederAPIKey},
+				{
+					ApiKey:     TestFeederAPIKey,
+					Latitude:   TestFeederLatitude,
+					Longitude:  TestFeederLongitude,
+					Mux:        TestFeederMux,
+					Label:      TestFeederLabel,
+					FeederCode: TestFeederCode,
+				},
 			},
 		}
 		return f, nil
@@ -124,6 +131,16 @@ func TestFeedProxy(t *testing.T) {
 	t.Run("test isValidApiKey", func(t *testing.T) {
 		assert.True(t, isValidApiKey(TestFeederAPIKey))
 		assert.False(t, isValidApiKey(uuid.New()))
+	})
+
+	t.Run("test getFeederInfo", func(t *testing.T) {
+		f := feederClient{clientApiKey: TestFeederAPIKey}
+		err := getFeederInfo(&f)
+		assert.NoError(t, err)
+
+		f = feederClient{clientApiKey: uuid.New()}
+		err = getFeederInfo(&f)
+		assert.Error(t, err)
 	})
 
 }
