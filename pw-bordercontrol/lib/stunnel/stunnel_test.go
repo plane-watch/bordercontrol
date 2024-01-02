@@ -96,6 +96,35 @@ func TestStunnel(t *testing.T) {
 		assert.True(t, initialised)
 	})
 
+	t.Run("test handling of invalid cert/key", func(t *testing.T) {
+		tName := t.Name()
+
+		// make temp file for cert
+		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
+		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
+		assert.NoError(t, err)
+		t.Cleanup(func() {
+			tmpCertFile.Close()
+			os.Remove(tmpCertFile.Name())
+		})
+		t.Logf("created temp certificate file: %s", tmpCertFile.Name())
+
+		// make temp file for key
+		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
+		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
+		assert.NoError(t, err)
+		t.Cleanup(func() {
+			tmpKeyFile.Close()
+			os.Remove(tmpKeyFile.Name())
+		})
+		t.Logf("created temp key file: %s", tmpKeyFile.Name())
+
+		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
+		assert.Error(t, err)
+		fmt.Println(err)
+
+	})
+
 	// test cert reload
 	t.Run("test reload via signal", func(t *testing.T) {
 
