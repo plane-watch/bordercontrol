@@ -2,6 +2,7 @@ package feedproxy
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
@@ -145,6 +146,15 @@ func TestFeedProxy(t *testing.T) {
 		f = feederClient{clientApiKey: uuid.New()}
 		err = getFeederInfo(&f)
 		assert.Error(t, err)
+	})
+
+	// ---
+
+	t.Run("lookupContainerTCP", func(t *testing.T) {
+		n, err := lookupContainerTCP("localhost", 8080)
+		assert.NoError(t, err)
+		fmt.Println(n)
+
 	})
 
 	// ---
