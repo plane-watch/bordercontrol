@@ -216,18 +216,18 @@ func TestStunnel(t *testing.T) {
 			conn, err := listener.Accept()
 			assert.NoError(t, err)
 
+			// read some data
+			n, err := conn.Read(buf)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			assert.Equal(t, testData, string(buf))
+
 			// check TLS handshake completed
 			assert.True(t, conn.(*tls.Conn).ConnectionState().HandshakeComplete, "TLS handshake")
 
 			// check SNI
 			sni := conn.(*tls.Conn).ConnectionState().ServerName
 			assert.Equal(t, TestSNI.String(), sni)
-
-			// read some data
-			n, err := conn.Read(buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
-			assert.Equal(t, testData, string(buf))
 
 			// write some data
 			n, err = conn.Write(buf)
