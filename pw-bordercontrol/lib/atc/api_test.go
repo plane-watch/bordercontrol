@@ -36,7 +36,130 @@ const (
 	MockServerTestScenarioBadResponseCodeFeeders
 	MockServerTestScenarioNoResponse
 	MockServerTestScenarioBadCredentials
+	MockServerTestScenarioInvalidJSON
 )
+
+func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
+
+	// Thanks to: https://medium.com/zus-health/mocking-outbound-http-requests-in-go-youre-probably-doing-it-wrong-60373a38d2aa
+
+	// prep test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		switch r.URL.Path {
+
+		case "/api/user/sign_in":
+
+			// check request
+			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+			assert.Equal(t, http.MethodPost, r.Method)
+			body, err := io.ReadAll(r.Body)
+			assert.NoError(t, err)
+
+			if testScenario != MockServerTestScenarioBadCredentials {
+				assert.Equal(
+					t,
+					fmt.Sprintf(`{"user":{"email":"%s","password":"%s"}}`, TestUser, TestPassword),
+					string(body),
+				)
+			}
+
+			// mock response
+
+			// Auth token
+			if testScenario != MockServerTestScenarioNoAuthToken {
+				w.Header().Add("Authorization", TestAuthToken)
+			}
+
+			// Response code
+			switch testScenario {
+			case MockServerTestScenarioBadResponseCodeSignIn:
+				w.WriteHeader(http.StatusBadRequest)
+			case MockServerTestScenarioBadCredentials:
+				w.WriteHeader(http.StatusUnauthorized)
+			default:
+				w.WriteHeader(http.StatusOK)
+			}
+
+		case fmt.Sprintf("/api/v1/feeders/%s.json", strings.ToLower(TestFeederAPIKeyWorking)):
+
+			// check request
+			assert.Equal(t, TestAuthToken, r.Header.Get("Authorization"))
+			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+			assert.Equal(t, http.MethodGet, r.Method)
+
+			// mock response
+
+			resp := fmt.Sprintf(
+				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s","FeederCode:"%s"}}`,
+				TestFeederAPIKeyWorking,
+				TestFeederLabel,
+				TestFeederLatitude,
+				TestFeederLongitude,
+				TestFeederMux,
+				TestFeederCode,
+			)
+
+			// response code
+			switch testScenario {
+			case MockServerTestScenarioBadResponseCodeSignIn:
+			case MockServerTestScenarioBadResponseCodeFeeder:
+				w.WriteHeader(http.StatusBadRequest)
+			default:
+				w.WriteHeader(http.StatusOK)
+			}
+
+			// response body
+			switch testScenario {
+			case MockServerTestScenarioInvalidJSON:
+				w.Write([]byte(resp)[2:])
+			default:
+				w.Write([]byte(resp))
+			}
+
+		case fmt.Sprintf("/api/v1/feeders.json"):
+
+			// check request
+			assert.Equal(t, TestAuthToken, r.Header.Get("Authorization"))
+			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+			assert.Equal(t, http.MethodGet, r.Method)
+
+			// mock response
+			resp := fmt.Sprintf(
+				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s", "FeederCode":"%s"}]}`,
+				TestFeederAPIKeyWorking,
+				TestFeederLabel,
+				TestFeederLatitude,
+				TestFeederLongitude,
+				TestFeederMux,
+				TestFeederCode,
+			)
+
+			// response code
+			switch testScenario {
+			case MockServerTestScenarioBadResponseCodeSignIn:
+			case MockServerTestScenarioBadResponseCodeFeeders:
+				w.WriteHeader(http.StatusBadRequest)
+			default:
+				w.WriteHeader(http.StatusOK)
+			}
+
+			// response body
+			w.Write([]byte(resp))
+
+		default:
+			t.Log("invalid request URL:", r.URL.Path)
+			t.FailNow()
+		}
+
+	}))
+
+	if testScenario == MockServerTestScenarioNoResponse {
+		server.Close()
+	}
+
+	return server
+}
 
 func TestAuthenticate_Working(t *testing.T) {
 	// test proper functionality
@@ -229,119 +352,22 @@ func TestGetFeeders_NoResponse(t *testing.T) {
 
 }
 
-func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
-
-	// Thanks to: https://medium.com/zus-health/mocking-outbound-http-requests-in-go-youre-probably-doing-it-wrong-60373a38d2aa
+func TestGetFeeders_InvalidJSON(t *testing.T) {
 
 	// prep test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := PrepMockATCServer(t, MockServerTestScenarioInvalidJSON)
 
-		switch r.URL.Path {
+	// prep url
+	u, err := url.Parse(server.URL)
+	assert.NoError(t, err)
 
-		case "/api/user/sign_in":
-
-			// check request
-			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-			assert.Equal(t, http.MethodPost, r.Method)
-			body, err := io.ReadAll(r.Body)
-			assert.NoError(t, err)
-
-			if testScenario != MockServerTestScenarioBadCredentials {
-				assert.Equal(
-					t,
-					fmt.Sprintf(`{"user":{"email":"%s","password":"%s"}}`, TestUser, TestPassword),
-					string(body),
-				)
-			}
-
-			// mock response
-
-			// Auth token
-			if testScenario != MockServerTestScenarioNoAuthToken {
-				w.Header().Add("Authorization", TestAuthToken)
-			}
-
-			// Response code
-			switch testScenario {
-			case MockServerTestScenarioBadResponseCodeSignIn:
-				w.WriteHeader(http.StatusBadRequest)
-			case MockServerTestScenarioBadCredentials:
-				w.WriteHeader(http.StatusUnauthorized)
-			default:
-				w.WriteHeader(http.StatusOK)
-			}
-
-		case fmt.Sprintf("/api/v1/feeders/%s.json", strings.ToLower(TestFeederAPIKeyWorking)):
-
-			// check request
-			assert.Equal(t, TestAuthToken, r.Header.Get("Authorization"))
-			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-			assert.Equal(t, http.MethodGet, r.Method)
-
-			// mock response
-
-			resp := fmt.Sprintf(
-				`{"feeder":{"api_key":"%s","label":"%s","latitude":"%f","longitude":"%f","mux":"%s","FeederCode:"%s"}}`,
-				TestFeederAPIKeyWorking,
-				TestFeederLabel,
-				TestFeederLatitude,
-				TestFeederLongitude,
-				TestFeederMux,
-				TestFeederCode,
-			)
-
-			// response code
-			switch testScenario {
-			case MockServerTestScenarioBadResponseCodeSignIn:
-			case MockServerTestScenarioBadResponseCodeFeeder:
-				w.WriteHeader(http.StatusBadRequest)
-			default:
-				w.WriteHeader(http.StatusOK)
-			}
-
-			// response body
-			w.Write([]byte(resp))
-
-		case fmt.Sprintf("/api/v1/feeders.json"):
-
-			// check request
-			assert.Equal(t, TestAuthToken, r.Header.Get("Authorization"))
-			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-			assert.Equal(t, http.MethodGet, r.Method)
-
-			// mock response
-			resp := fmt.Sprintf(
-				`{"Feeders":[{"ApiKey":"%s","Label":"%s","Latitude":"%f","Longitude":"%f","Mux":"%s", "FeederCode":"%s"}]}`,
-				TestFeederAPIKeyWorking,
-				TestFeederLabel,
-				TestFeederLatitude,
-				TestFeederLongitude,
-				TestFeederMux,
-				TestFeederCode,
-			)
-
-			// response code
-			switch testScenario {
-			case MockServerTestScenarioBadResponseCodeSignIn:
-			case MockServerTestScenarioBadResponseCodeFeeders:
-				w.WriteHeader(http.StatusBadRequest)
-			default:
-				w.WriteHeader(http.StatusOK)
-			}
-
-			// response body
-			w.Write([]byte(resp))
-
-		default:
-			t.Log("invalid request URL:", r.URL.Path)
-			t.FailNow()
-		}
-
-	}))
-
-	if testScenario == MockServerTestScenarioNoResponse {
-		server.Close()
+	// function argument
+	s := Server{
+		Url:      (*u),
+		Username: TestUser,
+		Password: TestPassword,
 	}
 
-	return server
+	_, err = GetFeeders(&s)
+	assert.Error(t, err)
 }
