@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"pw_bordercontrol/lib/containers"
+	"pw_bordercontrol/lib/feedprotocol"
+	"pw_bordercontrol/lib/stats"
 	"strings"
 	"sync"
 	"time"
@@ -306,9 +309,19 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 
 	// get feeder info (lat/lon/mux/label) from atc cache
 	err = getFeederInfo(&clientDetails)
+	if err != nil {
+		return clientDetails, err
+	}
 
 	// update stats
-	stats.setFeederDetails(clientDetails)
+	err = stats.RegisterFeeder(stats.FeederDetails{
+		Label:      clientDetails.label,
+		FeederCode: clientDetails.feederCode,
+		ApiKey:     clientDetails.clientApiKey,
+	})
+	if err != nil {
+		return clientDetails, err
+	}
 
 	return clientDetails, err
 }
@@ -372,7 +385,7 @@ func proxyClientToServer(conf protocolProxyConfig) {
 			}
 
 			// update stats
-			stats.incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
+			stats.IncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
 		}
 
 		// check feeder is still valid (every 60 secs)
@@ -423,7 +436,7 @@ func proxyServerToClient(conf protocolProxyConfig) {
 			}
 
 			// update stats
-			stats.incrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
+			stats.IncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
 		}
 
 		// check feeder is still valid (every 60 secs)
@@ -438,19 +451,17 @@ func proxyServerToClient(conf protocolProxyConfig) {
 }
 
 type proxyConfig struct {
-	connIn                     net.Conn                    // Incoming connection from feeder out on the internet.
-	connProto                  feedProtocol                // Incoming connection protocol.
-	connNum                    uint                        // Connection number.
-	containersToStartRequests  chan startContainerRequest  // Channel to send container start requests.
-	containersToStartResponses chan startContainerResponse // Channel to receive container start responses.
+	connIn    net.Conn              // Incoming connection from feeder out on the internet.
+	connProto feedprotocol.Protocol // Incoming connection protocol.
+	connNum   uint                  // Connection number.
+	logger    zerolog.Logger        // logger context to use
 }
 
 func proxyClientConnection(conf proxyConfig) error {
 	// handles incoming connections
 
-	log := log.With().
+	log := conf.logger.With().
 		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).
-		Str("proto", string(conf.connProto)).
 		Uint("connNum", conf.connNum).
 		Logger()
 
@@ -512,13 +523,18 @@ func proxyClientConnection(conf proxyConfig) error {
 		Str("code", clientDetails.feederCode).
 		Logger()
 
+	numConnections, err := stats.GetNumConnections(clientDetails.clientApiKey, conf.connProto)
+	if err != nil {
+		log.Err(err).Msg("error getting number of connections")
+		return err
+	}
+
+	log = log.With().Str("connections", fmt.Sprintf("%d/%d", numConnections+1, maxConnectionsPerProto)).Logger()
+
 	// check number of connections, and drop connection if limit exceeded
-	if stats.getNumConnections(clientDetails.clientApiKey, conf.connProto) > maxConnectionsPerProto {
+	if numConnections >= maxConnectionsPerProto {
 		err := errors.New("connection limit exceeded")
-		log.Err(err).
-			Int("connections", stats.Feeders[clientDetails.clientApiKey].Connections[protoMLAT].ConnectionCount).
-			Int("max", maxConnectionsPerProto).
-			Msg("dropping connection")
+		log.Err(err).Msg("dropping connection")
 		return err
 	}
 
@@ -527,7 +543,7 @@ func proxyClientConnection(conf proxyConfig) error {
 	// If the client has been authenticated, then we can do stuff with the data
 
 	switch conf.connProto {
-	case protoBEAST:
+	case feedprotocol.BEAST:
 
 		dstContainerName = "feed-in container"
 
@@ -535,37 +551,18 @@ func proxyClientConnection(conf proxyConfig) error {
 			Str("dst", fmt.Sprintf("%s%s", feedInContainerPrefix, clientDetails.clientApiKey.String())).
 			Logger()
 
-		// request start of the feed-in container with submission timeout
-		select {
-		case conf.containersToStartRequests <- startContainerRequest{
-			clientDetails: clientDetails,
-			srcIP:         remoteIP,
-		}:
-		case <-time.After(5 * time.Second):
-			err := errors.New("5s timeout waiting to submit container start request")
+		// start feed-in container
+		feedInContainer := containers.FeedInContainer{
+			Lat:        clientDetails.refLat,
+			Lon:        clientDetails.refLon,
+			Label:      clientDetails.label,
+			ApiKey:     clientDetails.clientApiKey,
+			FeederCode: clientDetails.feederCode,
+			Addr:       remoteIP,
+		}
+		_, err := feedInContainer.Start()
+		if err != nil {
 			log.Err(err).Msg(fmt.Sprintf("could not start %s", dstContainerName))
-			return err
-		}
-
-		// wait for request to be actioned
-		var startedContainer startContainerResponse
-		select {
-		case startedContainer = <-conf.containersToStartResponses:
-		case <-time.After(30 * time.Second):
-			err := errors.New("30s timeout waiting for container start request to be fulfilled")
-			log.Err(err).Msg(fmt.Sprintf("timeout waiting for %s", dstContainerName))
-			return err
-		}
-
-		// check for start errors
-		if startedContainer.err != nil {
-			log.Err(startedContainer.err).Msg(fmt.Sprintf("error starting %s", dstContainerName))
-		}
-
-		// wait for container start if needed
-		if startedContainer.containerStartDelay {
-			log.Debug().Msg(fmt.Sprintf("waiting for %s to start", dstContainerName))
-			time.Sleep(5 * time.Second)
 		}
 
 		// connect to feed-in container
@@ -576,7 +573,7 @@ func proxyClientConnection(conf proxyConfig) error {
 			return err
 		}
 
-	case protoMLAT:
+	case feedprotocol.MLAT:
 
 		dstContainerName = "mlat-server"
 
@@ -618,13 +615,25 @@ func proxyClientConnection(conf proxyConfig) error {
 	// write any outstanding data
 	_, err = connOut.Write(buf[:bytesRead])
 	if err != nil {
-		log.Err(err).Msg(fmt.Sprintf("error writing to %s", dstContainerName))
+		log.Err(err).Msgf("error writing to %s", dstContainerName)
 		return err
 	}
 
 	// update stats
-	stats.addConnection(clientDetails.clientApiKey, conf.connIn.RemoteAddr(), connOut.RemoteAddr(), conf.connProto, clientDetails.feederCode, conf.connNum)
-	defer stats.delConnection(clientDetails.clientApiKey, conf.connProto, conf.connNum)
+	conn := stats.Connection{
+		ApiKey:     clientDetails.clientApiKey,
+		SrcAddr:    conf.connIn.RemoteAddr(),
+		DstAddr:    connOut.RemoteAddr(),
+		Proto:      conf.connProto,
+		FeederCode: clientDetails.feederCode,
+		ConnNum:    conf.connNum,
+	}
+	err = conn.RegisterConnection()
+	if err != nil {
+		log.Err(err).Msg("error registering connection with stats subsystem")
+		return err
+	}
+	defer conn.UnregisterConnection()
 
 	// prepare proxy config
 	protoProxyConf := protocolProxyConfig{
@@ -650,7 +659,7 @@ func proxyClientConnection(conf proxyConfig) error {
 
 	// handle data from server container to feeder client (if required, no point doing this for BEAST)
 	switch conf.connProto {
-	case protoMLAT:
+	case feedprotocol.MLAT:
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
