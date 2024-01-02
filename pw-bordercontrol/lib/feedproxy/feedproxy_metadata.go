@@ -78,17 +78,7 @@ func getFeederInfo(f *feederClient) error {
 // to allow overriding for testing
 var getDataFromATCMu sync.RWMutex
 var getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
-	// get data from atc
-	s := atc.Server{
-		Url:      *atcurl,
-		Username: atcuser,
-		Password: atcpass,
-	}
-	f, err := atc.GetFeeders(&s)
-	if err != nil {
-		log.Err(err).Msg("error updating feeder cache from atc")
-	}
-	return f, err
+	return atc.GetFeeders(&atc.Server{Url: *atcurl, Username: atcuser, Password: atcpass})
 }
 
 func updateFeederDB(conf *FeedProxyConfig) {
