@@ -407,6 +407,11 @@ func TestContainers(t *testing.T) {
 		assert.True(t, ContainerNetworkOK)
 	})
 
+	t.Run("check prom metrics gauge funcs", func(t *testing.T) {
+		assert.Equal(t, float64(1), promMetricFeederContainersImageCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
+		assert.Equal(t, float64(0), promMetricFeederContainersImageNotCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
+	})
+
 	t.Run("running ContainerManager.Close()", func(t *testing.T) {
 		cm.Close()
 	})

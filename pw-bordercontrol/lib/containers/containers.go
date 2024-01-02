@@ -51,6 +51,70 @@ var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	return &cctx, cli, err
 }
 
+func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContainerPrefix string) float64 {
+	n := float64(0)
+
+	// set up docker client
+	dockerCtx, cli, err := GetDockerClient()
+	if err != nil {
+		panic(err)
+	}
+	defer cli.Close()
+
+	// prepare filter to find feed-in containers
+	filters := filters.NewArgs()
+	filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
+
+	// find containers
+	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
+	if err != nil {
+		panic(err)
+	}
+
+	// for each container...
+	for _, container := range containers {
+
+		// check containers are running latest feed-in image
+		if container.Image == feedInImage {
+			n++
+		}
+
+	}
+	return n
+}
+
+func promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInContainerPrefix string) float64 {
+	n := float64(0)
+
+	// set up docker client
+	dockerCtx, cli, err := GetDockerClient()
+	if err != nil {
+		panic(err)
+	}
+	defer cli.Close()
+
+	// prepare filter to find feed-in containers
+	filters := filters.NewArgs()
+	filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
+
+	// find containers
+	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
+	if err != nil {
+		panic(err)
+	}
+
+	// for each container...
+	for _, container := range containers {
+
+		// check containers are running latest feed-in image
+		if container.Image != feedInImage {
+			n++
+		}
+
+	}
+	return n
+}
+
 func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 
 	promMetricFeederContainersImageCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
@@ -60,36 +124,7 @@ func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 		Help:      "The number of feed-in-* containers running on this host that are using the latest feed-in image.",
 	},
 		func() float64 {
-			n := float64(0)
-
-			// TODO: move container count to containers.go
-			// set up docker client
-			dockerCtx, cli, err := GetDockerClient()
-			if err != nil {
-				panic(err)
-			}
-			defer cli.Close()
-
-			// prepare filter to find feed-in containers
-			filters := filters.NewArgs()
-			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
-
-			// find containers
-			containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
-			if err != nil {
-				panic(err)
-			}
-
-			// for each container...
-			for _, container := range containers {
-
-				// check containers are running latest feed-in image
-				if container.Image == feedInImage {
-					n++
-				}
-
-			}
-			return n
+			return promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContainerPrefix)
 		})
 
 	promMetricFeederContainersImageNotCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{
@@ -99,38 +134,8 @@ func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 		Help:      "The number of feed-in-* containers running on this host that are using an out of date feed-in image and require upgrading.",
 	},
 		func() float64 {
-			n := float64(0)
-
-			// TODO: move container count to containers.go
-			// set up docker client
-			dockerCtx, cli, err := GetDockerClient()
-			if err != nil {
-				panic(err)
-			}
-			defer cli.Close()
-
-			// prepare filter to find feed-in containers
-			filters := filters.NewArgs()
-			filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
-
-			// find containers
-			containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
-			if err != nil {
-				panic(err)
-			}
-
-			// for each container...
-			for _, container := range containers {
-
-				// check containers are running latest feed-in image
-				if container.Image != feedInImage {
-					n++
-				}
-
-			}
-			return n
+			return promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInContainerPrefix)
 		})
-
 }
 
 type ContainerManager struct {
