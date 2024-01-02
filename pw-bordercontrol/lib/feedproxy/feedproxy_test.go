@@ -119,11 +119,13 @@ func TestFeedProxy(t *testing.T) {
 		time.Sleep(time.Second * 15)
 
 		// add connection to evict
+		incomingConnTracker.mu.Lock()
 		c := incomingConnection{
 			connNum:  10,
 			connTime: time.Now().Add(-time.Minute),
 		}
 		incomingConnTracker.connections = append(incomingConnTracker.connections, c)
+		incomingConnTracker.mu.Unlock()
 
 		// run evictor
 		i.evict()
@@ -174,12 +176,14 @@ func TestFeedProxy(t *testing.T) {
 			assert.NoError(t, err)
 		}
 
+		incomingConnTracker.mu.Lock()
 		c := incomingConnection{
 			connNum:  20,
 			connTime: time.Now().Add(-time.Minute),
 		}
 		incomingConnTracker.connections = append(incomingConnTracker.connections, c)
 		incomingConnTracker.connectionNumber = MaxUint - 50
+		incomingConnTracker.mu.Unlock()
 
 		for n := 0; n <= 100; n++ {
 			_, err := GetConnectionNumber()
