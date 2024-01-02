@@ -129,7 +129,7 @@ func TestStunnel(t *testing.T) {
 
 		// initialise keypair reloader
 		t.Log("load TLS cert & key")
-		kpr, err := NewKeypairReloader(tmpCertFile.Name(), tmpKeyFile.Name())
+		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
 		assert.NoError(t, err)
 
 		// get copy of original cert
