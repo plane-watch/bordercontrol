@@ -73,6 +73,21 @@ func getFeederInfo(f *feederClient) error {
 	return nil
 }
 
+// to allow overriding for testing
+var getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+	// get data from atc
+	s := atc.Server{
+		Url:      *atcurl,
+		Username: atcuser,
+		Password: atcpass,
+	}
+	f, err := atc.GetFeeders(&s)
+	if err != nil {
+		log.Err(err).Msg("error updating feeder cache from atc")
+	}
+	return f, err
+}
+
 func updateFeederDB(conf *FeedProxyConfig) {
 	// updates validFeeders with data from atc
 
@@ -91,6 +106,7 @@ func updateFeederDB(conf *FeedProxyConfig) {
 			firstRun = false
 		}
 
+		// check to stop
 		conf.stopMu.Lock()
 		if conf.stop {
 			conf.stopMu.Unlock()
@@ -99,26 +115,20 @@ func updateFeederDB(conf *FeedProxyConfig) {
 		conf.stopMu.Unlock()
 
 		// get data from atc
-		atcUrl, err := url.Parse(conf.ATCUrl)
-		if err != nil {
-			log.Error().Msg("--atcurl is invalid")
-			continue
-		}
-		s := atc.Server{
-			Url:      *atcUrl,
-			Username: conf.ATCUser,
-			Password: conf.ATCPass,
-		}
-		f, err := atc.GetFeeders(&s)
+		f, err := getDataFromATC(
+			conf.atcUrl,
+			conf.ATCUser,
+			conf.ATCPass,
+		)
 		if err != nil {
 			log.Err(err).Msg("error updating feeder cache from atc")
-			continue
 		}
+
+		// get uuids
 		var newValidFeeders []uuid.UUID
 		count := 0
 		for _, v := range f.Feeders {
 			newValidFeeders = append(newValidFeeders, v.ApiKey)
-			// log.Debug().Str("ApiKey", v.ApiKey.String()).Msg("added feeder")
 			count += 1
 		}
 

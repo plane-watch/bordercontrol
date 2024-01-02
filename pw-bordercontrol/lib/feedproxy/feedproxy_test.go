@@ -2,12 +2,37 @@ package feedproxy
 
 import (
 	"net"
+	"net/url"
+	"pw_bordercontrol/lib/atc"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	// mock feeder details
+	TestFeederAPIKey    = uuid.MustParse("6261B9C8-25C1-4B67-A5A2-51FC688E8A25") // not a real feeder api key, generated with uuidgen
+	TestFeederLabel     = "Test Feeder 123"
+	TestFeederLatitude  = 123.456789
+	TestFeederLongitude = 98.765432
+	TestFeederMux       = "test-mux"
+	TestFeederCode      = "ABCD-1234"
+	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
+	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
+)
+
 func TestFeedProxy(t *testing.T) {
+
+	getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+		f := atc.Feeders{
+			Feeders: []atc.Feeder{
+				{ApiKey: TestFeederAPIKey},
+			},
+		}
+		return f, nil
+	}
 
 	t.Run("test not initialised", func(t *testing.T) {
 
@@ -33,6 +58,38 @@ func TestFeedProxy(t *testing.T) {
 
 	})
 
+	t.Run("initialise feedproxy subsystem", func(t *testing.T) {
+		c := FeedProxyConfig{
+			UpdateFreqency: time.Second * 30,
+		}
+		err := Init(&c)
+		assert.NoError(t, err)
+	})
+
+	t.Run("test connection tracker", func(t *testing.T) {
+		srcIP := net.IPv4(1, 1, 1, 1)
+
+		i := incomingConnectionTracker{}
+
+		// first connection, should work
+		cn, err := GetConnectionNumber()
+		assert.NoError(t, err)
+		err = i.check(srcIP, cn)
+		assert.NoError(t, err)
+
+		// second connection, should work
+		cn, err = GetConnectionNumber()
+		assert.NoError(t, err)
+		err = i.check(srcIP, cn)
+		assert.NoError(t, err)
+
+		// third connection, should fail
+		cn, err = GetConnectionNumber()
+		assert.NoError(t, err)
+		err = i.check(srcIP, cn)
+		assert.Error(t, err)
+	})
+
 }
 
 func TestGoRoutineManager(t *testing.T) {
@@ -50,30 +107,4 @@ func TestGoRoutineManager(t *testing.T) {
 	g.mu.Unlock()
 
 	assert.Equal(t, true, g.CheckForStop())
-}
-
-func TestConnectionTracking(t *testing.T) {
-
-	srcIP := net.IPv4(127, 0, 0, 1)
-
-	i := incomingConnectionTracker{}
-
-	// first connection, should work
-	cn, err := GetConnectionNumber()
-	assert.NoError(t, err)
-	err = i.check(srcIP, cn)
-	assert.NoError(t, err)
-
-	// second connection, should work
-	cn, err = GetConnectionNumber()
-	assert.NoError(t, err)
-	err = i.check(srcIP, cn)
-	assert.NoError(t, err)
-
-	// third connection, should fail
-	cn, err = GetConnectionNumber()
-	assert.NoError(t, err)
-	err = i.check(srcIP, cn)
-	assert.Error(t, err)
-
 }

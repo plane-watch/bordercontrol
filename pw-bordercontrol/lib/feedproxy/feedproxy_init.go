@@ -1,8 +1,11 @@
 package feedproxy
 
 import (
+	"net/url"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -18,9 +21,19 @@ type FeedProxyConfig struct {
 
 	stop   bool // set to true to stop goroutine, use mutex below for sync
 	stopMu sync.Mutex
+
+	atcUrl *url.URL
 }
 
 func Init(c *FeedProxyConfig) error {
+
+	// parse atc url
+	var err error
+	c.atcUrl, err = url.Parse(c.ATCUrl)
+	if err != nil {
+		log.Error().Msg("--atcurl is invalid")
+		return err
+	}
 
 	// start updateFeederDB
 	go updateFeederDB(c)
