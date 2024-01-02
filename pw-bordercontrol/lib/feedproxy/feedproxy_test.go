@@ -276,6 +276,11 @@ func TestFeedProxy(t *testing.T) {
 
 		wg.Wait()
 
+		t.Run("lookupContainerTCP error", func(t *testing.T) {
+			_, err := dialContainerTCP("invalid.invalid", 8080)
+			assert.Error(t, err)
+		})
+
 	})
 
 	// ---
