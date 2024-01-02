@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -90,6 +91,39 @@ func TestStunnel(t *testing.T) {
 		initialisedMu.RLock()
 		t.Cleanup(func() { initialisedMu.RUnlock() })
 		assert.True(t, initialised)
+	})
+
+	// test cert reload
+	t.Run("test reload via signal", func(t *testing.T) {
+
+		// generate test environment TLS Cert/Key
+		err := PrepTestEnvironmentTLSCertAndKey()
+		assert.NoError(t, err)
+
+		// send signal
+		signalChan <- syscall.SIGHUP
+
+		// wait for the channel to be read
+		time.Sleep(time.Second)
+
+		// get copy of original cert
+		c1 := *kpr.cert
+
+		// generate test environment TLS Cert/Key
+		err = PrepTestEnvironmentTLSCertAndKey()
+		assert.NoError(t, err)
+
+		// send signal
+		signalChan <- syscall.SIGHUP
+
+		// wait for the channel to be read
+		time.Sleep(time.Second)
+
+		// get copy of new cert
+		c2 := *kpr.cert
+
+		// ensure certs different
+		assert.NotEqual(t, c1, c2)
 	})
 
 }
