@@ -140,13 +140,34 @@ func TestStunnel(t *testing.T) {
 		// wait for the channel to be read
 		time.Sleep(time.Second)
 
-		// get copy of original cert
+		// get copy of new cert
 		kpr.certMu.RLock()
 		c2 := *kpr.cert
 		kpr.certMu.RUnlock()
 
 		// ensure certs different
 		assert.NotEqual(t, c1, c2)
+
+		// remove cert & key files
+		tmpCertFile.Close()
+		os.Remove(tmpCertFile.Name())
+		tmpKeyFile.Close()
+		os.Remove(tmpKeyFile.Name())
+
+		// send signal
+		signalChan <- syscall.SIGHUP
+
+		// wait for the channel to be read
+		time.Sleep(time.Second)
+
+		// get copy of new new cert
+		kpr.certMu.RLock()
+		c3 := *kpr.cert
+		kpr.certMu.RUnlock()
+
+		// ensure new cert matches previous cert
+		assert.Equal(t, c2, c3)
+
 	})
 
 }
