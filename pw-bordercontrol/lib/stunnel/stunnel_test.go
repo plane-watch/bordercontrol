@@ -3,6 +3,7 @@ package stunnel
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -32,28 +33,33 @@ func TestStunnel(t *testing.T) {
 			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("GenerateSelfSignedTLSCertAndKey", func(t *testing.T) {
-			tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile", t.Name())
+
+			// get test name & remove path separator chars
+			tName := strings.ReplaceAll(t.Name(), "/", "_")
+
+			// make temp file for cert
+			tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile", tName)
 			t.Cleanup(func() {
 				os.Remove(tmpCertFileName)
 			})
-
 			tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
 			assert.NoError(t, err)
 			t.Cleanup(func() {
 				tmpCertFile.Close()
 			})
 
-			tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile", t.Name())
+			// make temp file for key
+			tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile", tName)
 			t.Cleanup(func() {
 				os.Remove(tmpKeyFileName)
 			})
-
 			tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
 			assert.NoError(t, err)
 			t.Cleanup(func() {
 				tmpKeyFile.Close()
 			})
 
+			// finally, test
 			err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
 			assert.Error(t, err)
 			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
