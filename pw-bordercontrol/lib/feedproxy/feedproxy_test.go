@@ -208,12 +208,23 @@ func TestFeedProxy(t *testing.T) {
 				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) {
 					return TestFeederAPIKey, errors.New("injected error for testing")
 				}
+				handshakeComplete = func(c net.Conn) bool { return true }
 				_, err = authenticateFeeder(conn)
 				assert.Error(t, err)
 			})
 
 			t.Run("authenticateFeeder handshakeComplete error", func(t *testing.T) {
+				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
 				handshakeComplete = func(c net.Conn) bool { return false }
+				_, err = authenticateFeeder(conn)
+				assert.Error(t, err)
+			})
+
+			t.Run("authenticateFeeder isValidApiKey error", func(t *testing.T) {
+				getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) {
+					return uuid.New(), nil
+				}
+				handshakeComplete = func(c net.Conn) bool { return true }
 				_, err = authenticateFeeder(conn)
 				assert.Error(t, err)
 			})
