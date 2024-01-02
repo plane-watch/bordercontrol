@@ -177,11 +177,16 @@ func TestFeedProxy(t *testing.T) {
 		}
 
 		incomingConnTracker.mu.Lock()
-		c := incomingConnection{
+		c1 := incomingConnection{
 			connNum:  20,
 			connTime: time.Now().Add(-time.Minute),
 		}
-		incomingConnTracker.connections = append(incomingConnTracker.connections, c)
+		c2 := incomingConnection{
+			connNum:  25,
+			connTime: time.Now().Add(time.Minute),
+		}
+		incomingConnTracker.connections = append(incomingConnTracker.connections, c1)
+		incomingConnTracker.connections = append(incomingConnTracker.connections, c2)
 		incomingConnTracker.connectionNumber = MaxUint - 50
 		incomingConnTracker.mu.Unlock()
 
