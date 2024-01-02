@@ -429,6 +429,11 @@ func TestContainers(t *testing.T) {
 		cm.Init()
 	})
 
+	t.Run("check prom metrics gauge funcs", func(t *testing.T) {
+		assert.Equal(t, float64(0), promMetricFeederContainersImageCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
+		assert.Equal(t, float64(1), promMetricFeederContainersImageNotCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
+	})
+
 	// send SIGUSR1 to prevent checkFeederContainers from sleeping
 	t.Log("send SIGUSR1 to prevent checkFeederContainers from sleeping")
 	chanSkipDelay <- syscall.SIGUSR1
