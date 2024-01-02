@@ -24,7 +24,7 @@ var (
 	TestFeederLabel     = "Test Feeder 123"
 	TestFeederLatitude  = 123.456789
 	TestFeederLongitude = 98.765432
-	TestFeederMux       = "test-mux"
+	TestFeederMux       = "127.0.0.1"
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
