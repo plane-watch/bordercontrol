@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
+	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/stats"
 	"strconv"
 	"strings"
@@ -285,6 +286,101 @@ func TestFeedProxy(t *testing.T) {
 			_, err := dialContainerTCP("invalid.invalid", 8080)
 			assert.Error(t, err)
 		})
+
+	})
+
+	// ---
+
+	t.Run("ProxyConnection MLAT", func(t *testing.T) {
+
+		stopListener := make(chan bool)
+		stopServer := make(chan bool)
+
+		testData := "Hello World!"
+
+		wg := sync.WaitGroup{}
+
+		// override functions for testing
+		getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
+		handshakeComplete = func(c net.Conn) bool { return true }
+		RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
+
+		// create server
+		server, err := nettest.NewLocalListener("tcp")
+		assert.NoError(t, err)
+
+		// start server
+		wg.Add(1)
+		go func(t *testing.T) {
+
+			buf := make([]byte, len(testData))
+
+			conn, err := server.Accept()
+			assert.NoError(t, err)
+
+			n, err := readFromClient(conn, buf)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+
+			n, err = conn.Write(buf)
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+
+			_ = <-stopServer
+
+			conn.Close()
+
+			wg.Done()
+
+		}(t)
+
+		// create listener
+		listener, err := nettest.NewLocalListener("tcp")
+		assert.NoError(t, err)
+
+		// start listener
+		wg.Add(1)
+		go func(t *testing.T) {
+
+			conn, err := listener.Accept()
+			assert.NoError(t, err)
+
+			connNum, err := GetConnectionNumber()
+			assert.NoError(t, err)
+
+			c := ProxyConnection{
+				Connection:            conn,
+				ConnectionProtocol:    feedprotocol.MLAT,
+				ConnectionNumber:      connNum,
+				FeedInContainerPrefix: "test-feed-in-",
+			}
+			go c.Start()
+
+			_ = <-stopListener
+
+			c.Stop()
+
+			wg.Done()
+
+		}(t)
+
+		// start client
+		conn, err := net.Dial("tcp", listener.Addr().String())
+		assert.NoError(t, err)
+
+		n, err := conn.Write([]byte(testData))
+		assert.NoError(t, err)
+		assert.Equal(t, len(testData), n)
+
+		buf := make([]byte, len(testData))
+		n, err = conn.Read(buf)
+		assert.NoError(t, err)
+		assert.Equal(t, len(testData), n)
+
+		stopServer <- true
+		stopListener <- true
+
+		wg.Wait()
 
 	})
 
