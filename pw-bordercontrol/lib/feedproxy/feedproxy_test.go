@@ -240,8 +240,8 @@ func TestFeedProxy(t *testing.T) {
 			wg.Done()
 		}(t)
 
-		ip := strings.Split(listener.Addr().Network(), ":")[0]
-		port, err := strconv.Atoi(strings.Split(listener.Addr().Network(), ":")[1])
+		ip := strings.Split(listener.Addr().String(), ":")[0]
+		port, err := strconv.Atoi(strings.Split(listener.Addr().String(), ":")[1])
 		assert.NoError(t, err)
 
 		conn, err := dialContainerTCP(ip, port)
