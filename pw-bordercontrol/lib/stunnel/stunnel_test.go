@@ -107,7 +107,7 @@ func TestStunnel(t *testing.T) {
 		time.Sleep(time.Second)
 
 		// get copy of original cert
-		c1 := kpr.cert.Certificate
+		c1 := &tlsConfig.Certificates
 
 		// generate test environment TLS Cert/Key
 		err = PrepTestEnvironmentTLSCertAndKey()
@@ -120,7 +120,7 @@ func TestStunnel(t *testing.T) {
 		time.Sleep(time.Second)
 
 		// get copy of new cert
-		c2 := kpr.cert.Certificate
+		c2 := &tlsConfig.Certificates
 
 		// ensure certs different
 		assert.NotEqual(t, c1, c2)
