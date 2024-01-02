@@ -123,8 +123,32 @@ func TestStunnel(t *testing.T) {
 
 		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
 		assert.Error(t, err)
-		fmt.Println(err)
+		assert.Equal(t, "tls: failed to find any PEM data in certificate input", err.Error())
 
+	})
+
+	t.Run("test handling of nonexistant cert/key files", func(t *testing.T) {
+
+		// get test name & remove path separator chars
+		tName := strings.ReplaceAll(t.Name(), "/", "_")
+
+		// make temp file for cert
+		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
+		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
+		assert.NoError(t, err)
+		tmpCertFile.Close()
+		os.Remove(tmpCertFile.Name())
+
+		// make temp file for key
+		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
+		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
+		assert.NoError(t, err)
+		tmpKeyFile.Close()
+		os.Remove(tmpKeyFile.Name())
+
+		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
+		assert.Error(t, err)
+		fmt.Println(err)
 	})
 
 	// test cert reload
