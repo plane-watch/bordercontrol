@@ -1,7 +1,6 @@
 package stunnel
 
 import (
-	"crypto/tls"
 	"fmt"
 	"os"
 	"strings"
@@ -96,11 +95,6 @@ func TestStunnel(t *testing.T) {
 
 	// test cert reload
 	t.Run("test reload via signal", func(t *testing.T) {
-
-		// fake client hello
-		clientHello := &tls.ClientHelloInfo{
-			ServerName: TestSNI.String(),
-		}
 
 		// get test name & remove path separator chars
 		tName := strings.ReplaceAll(t.Name(), "/", "_")
