@@ -117,6 +117,10 @@ func TestFeedProxy(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("test feedersGaugeFunc", func(t *testing.T) {
+		assert.Equal(t, float64(1), feedersGaugeFunc())
+	})
+
 }
 
 func TestGoRoutineManager(t *testing.T) {

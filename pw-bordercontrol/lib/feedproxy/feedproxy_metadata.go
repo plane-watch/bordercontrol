@@ -31,12 +31,14 @@ var (
 		Name:      "feeders",
 		Help:      "The total number of feeders configured in ATC (active and inactive).",
 	},
-		func() float64 {
-			validFeeders.mu.RLock()
-			defer validFeeders.mu.RUnlock()
-			return float64(len(validFeeders.Feeders))
-		})
+		feedersGaugeFunc)
 )
+
+func feedersGaugeFunc() float64 {
+	validFeeders.mu.RLock()
+	defer validFeeders.mu.RUnlock()
+	return float64(len(validFeeders.Feeders))
+}
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
 	// return true of api key clientApiKey is a valid feeder in atc
