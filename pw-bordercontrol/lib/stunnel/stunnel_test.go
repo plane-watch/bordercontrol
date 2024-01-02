@@ -97,26 +97,41 @@ func TestStunnel(t *testing.T) {
 	// test cert reload
 	t.Run("test reload via signal", func(t *testing.T) {
 
+		// fake client hello
 		clientHello := &tls.ClientHelloInfo{
 			ServerName: TestSNI.String(),
 		}
 
+		// get test name & remove path separator chars
+		tName := strings.ReplaceAll(t.Name(), "/", "_")
+
+		// make temp file for cert
+		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
+		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
+		assert.NoError(t, err)
+		t.Cleanup(func() {
+			tmpCertFile.Close()
+			os.Remove(tmpCertFile.Name())
+		})
+
+		// make temp file for key
+		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
+		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
+		assert.NoError(t, err)
+		t.Cleanup(func() {
+			tmpKeyFile.Close()
+			os.Remove(tmpKeyFile.Name())
+		})
+
 		// generate test environment TLS Cert/Key
-		err := PrepTestEnvironmentTLSCertAndKey()
+		err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
 		assert.NoError(t, err)
 
-		// send signal
-		signalChan <- syscall.SIGHUP
-
-		// wait for the channel to be read
-		time.Sleep(time.Second)
+		kpr, err := NewKeypairReloader(tmpCertFile.Name(), tmpKeyFileName)
+		assert.NoError(t, err)
 
 		// get copy of original cert
 		c1, err := kpr.GetCertificateFunc()(clientHello)
-		assert.NoError(t, err)
-
-		// generate test environment TLS Cert/Key
-		err = PrepTestEnvironmentTLSCertAndKey()
 		assert.NoError(t, err)
 
 		// send signal
