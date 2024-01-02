@@ -5,6 +5,9 @@ import (
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -173,11 +176,14 @@ func TestFeedProxy(t *testing.T) {
 
 		testData := "Hello World!"
 
+		wg := sync.WaitGroup{}
+
 		// create listener
 		listener, err := nettest.NewLocalListener("tcp")
 		assert.NoError(t, err)
 
 		// set up test server
+		wg.Add(1)
 		go func(t *testing.T) {
 
 			buf := make([]byte, len(testData))
@@ -229,7 +235,25 @@ func TestFeedProxy(t *testing.T) {
 				assert.Error(t, err)
 			})
 
+			conn.Close()
+
+			wg.Done()
 		}(t)
+
+		ip := strings.Split(listener.Addr().Network(), ":")[0]
+		port, err := strconv.Atoi(strings.Split(listener.Addr().Network(), ":")[1])
+		assert.NoError(t, err)
+
+		conn, err := dialContainerTCP(ip, port)
+		assert.NoError(t, err)
+
+		n, err := conn.Write([]byte(testData))
+		assert.NoError(t, err)
+		assert.Equal(t, len(testData), n)
+
+		conn.Close()
+
+		wg.Wait()
 
 	})
 
