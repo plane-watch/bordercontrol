@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
 )
@@ -31,6 +32,9 @@ var (
 )
 
 func TestFeedProxy(t *testing.T) {
+
+	// set logging to trace level
+	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	getDataFromATCMu.Lock()
 	getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
@@ -381,7 +385,7 @@ func TestFeedProxy(t *testing.T) {
 		time.Sleep(time.Second)
 
 		// start client
-		t.Log("client diaks listener")
+		t.Log("client dials listener")
 		conn, err := net.Dial("tcp", listener.Addr().String())
 		assert.NoError(t, err)
 
