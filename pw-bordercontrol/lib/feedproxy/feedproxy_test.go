@@ -149,6 +149,16 @@ func TestFeedProxy(t *testing.T) {
 
 	// ---
 
+	t.Run("GetConnectionNumber all values", func(t *testing.T) {
+		const MaxUint = ^uint(0)
+		for n := 0; n <= 2; n++ {
+			for m := uint(0); m <= MaxUint; m++ {
+				_, err := GetConnectionNumber()
+				assert.NoError(t, err)
+			}
+		}
+	})
+
 	t.Run("getDataFromATC error", func(t *testing.T) {
 		getDataFromATCMu.Lock()
 		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
