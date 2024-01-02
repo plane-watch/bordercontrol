@@ -58,6 +58,15 @@ func TestFeedProxy(t *testing.T) {
 
 	})
 
+	t.Run("initialise feedproxy subsystem error", func(t *testing.T) {
+		c := FeedProxyConfig{
+			UpdateFreqency: time.Second * 10,
+			ATCUrl:         "httpp://invalid url.tld/",
+		}
+		err := Init(&c)
+		assert.NoError(t, err)
+	})
+
 	t.Run("initialise feedproxy subsystem", func(t *testing.T) {
 		c := FeedProxyConfig{
 			UpdateFreqency: time.Second * 10,
