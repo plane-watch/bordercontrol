@@ -1,7 +1,6 @@
 package feedproxy
 
 import (
-	"fmt"
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
@@ -62,10 +61,10 @@ func TestFeedProxy(t *testing.T) {
 	t.Run("initialise feedproxy subsystem error", func(t *testing.T) {
 		c := FeedProxyConfig{
 			UpdateFreqency: time.Second * 10,
-			ATCUrl:         fmt.Sprint(0x7f),
+			ATCUrl:         "\n",
 		}
 		err := Init(&c)
-		assert.NoError(t, err)
+		assert.Error(t, err)
 	})
 
 	t.Run("initialise feedproxy subsystem", func(t *testing.T) {
