@@ -315,22 +315,27 @@ func TestFeedProxy(t *testing.T) {
 
 			buf := make([]byte, len(testData))
 
-			conn, err := server.Accept()
+			sconn, err := server.Accept()
+			assert.NoError(t, err)
+			t.Log("server accepts connection")
+
+			t.Log("server sets deadline")
+			err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
 			assert.NoError(t, err)
 
-			conn.SetDeadline(time.Now().Add(time.Second * 30))
-
-			n, err := readFromClient(conn, buf)
+			t.Log("server read from client")
+			n, err := readFromClient(sconn, buf)
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
 
-			n, err = conn.Write(buf)
+			t.Log("server write to client")
+			n, err = sconn.Write(buf)
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
 
 			_ = <-stopServer
 
-			conn.Close()
+			sconn.Close()
 
 			wg.Done()
 
@@ -344,20 +349,25 @@ func TestFeedProxy(t *testing.T) {
 		wg.Add(1)
 		go func(t *testing.T) {
 
-			conn, err := listener.Accept()
+			lconn, err := listener.Accept()
 			assert.NoError(t, err)
+			t.Log("listener accepts connection")
 
-			conn.SetDeadline(time.Now().Add(time.Second * 30))
+			err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
+			assert.NoError(t, err)
+			t.Log("listener sets deadline")
 
+			t.Log("listener GetConnectionNumber")
 			connNum, err := GetConnectionNumber()
 			assert.NoError(t, err)
 
 			c := ProxyConnection{
-				Connection:            conn,
+				Connection:            lconn,
 				ConnectionProtocol:    feedprotocol.MLAT,
 				ConnectionNumber:      connNum,
 				FeedInContainerPrefix: "test-feed-in-",
 			}
+			t.Log("listener starts proxy")
 			go c.Start()
 
 			_ = <-stopListener
@@ -371,15 +381,19 @@ func TestFeedProxy(t *testing.T) {
 		time.Sleep(time.Second)
 
 		// start client
+		t.Log("client diaks listener")
 		conn, err := net.Dial("tcp", listener.Addr().String())
 		assert.NoError(t, err)
 
-		conn.SetDeadline(time.Now().Add(time.Second * 30))
+		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
+		assert.NoError(t, err)
 
+		t.Log("client writes data")
 		n, err := conn.Write([]byte(testData))
 		assert.NoError(t, err)
 		assert.Equal(t, len(testData), n)
 
+		t.Log("client reads data")
 		buf := make([]byte, len(testData))
 		n, err = conn.Read(buf)
 		assert.NoError(t, err)
