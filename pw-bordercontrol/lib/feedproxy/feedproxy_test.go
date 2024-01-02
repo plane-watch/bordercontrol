@@ -161,6 +161,9 @@ func TestFeedProxy(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "127.0.0.1", n.IP.String())
 		assert.Equal(t, 8080, n.Port)
+
+		_, err = lookupContainerTCP("invalid.invalid", 8080)
+		assert.Error(t, err)
 	})
 
 	// ---
