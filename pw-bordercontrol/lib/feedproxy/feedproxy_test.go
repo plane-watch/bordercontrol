@@ -149,7 +149,7 @@ func TestFeedProxy(t *testing.T) {
 
 	// ---
 
-	t.Run("GetConnectionNumber all values", func(t *testing.T) {
+	t.Run("GetConnectionNumber", func(t *testing.T) {
 
 		const MaxUint = ^uint(0)
 
