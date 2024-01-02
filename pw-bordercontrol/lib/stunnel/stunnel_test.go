@@ -107,6 +107,7 @@ func TestStunnel(t *testing.T) {
 			tmpCertFile.Close()
 			os.Remove(tmpCertFile.Name())
 		})
+		t.Logf("created temp certificate file: %s", tmpCertFile.Name())
 
 		// make temp file for key
 		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
@@ -116,12 +117,15 @@ func TestStunnel(t *testing.T) {
 			tmpKeyFile.Close()
 			os.Remove(tmpKeyFile.Name())
 		})
+		t.Logf("created temp key file: %s", tmpKeyFile.Name())
 
 		// generate test environment TLS Cert/Key
+		t.Log("generating self signed TLS cert & key")
 		err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
 		assert.NoError(t, err)
 
 		// initialise keypair reloader
+		t.Log("load TLS cert & key")
 		kpr, err := NewKeypairReloader(tmpCertFile.Name(), tmpKeyFile.Name())
 		assert.NoError(t, err)
 
@@ -131,10 +135,12 @@ func TestStunnel(t *testing.T) {
 		kpr.certMu.RUnlock()
 
 		// generate new test environment TLS Cert/Key
+		t.Log("generating new self signed TLS cert & key")
 		err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
 		assert.NoError(t, err)
 
 		// send signal
+		t.Log("trigger cert/key reload")
 		signalChan <- syscall.SIGHUP
 
 		// wait for the channel to be read
@@ -145,16 +151,15 @@ func TestStunnel(t *testing.T) {
 		c2 := *kpr.cert
 		kpr.certMu.RUnlock()
 
-		// ensure certs different
-		assert.NotEqual(t, c1, c2)
-
 		// remove cert & key files
+		t.Log("delete cert/key files")
 		tmpCertFile.Close()
 		os.Remove(tmpCertFile.Name())
 		tmpKeyFile.Close()
 		os.Remove(tmpKeyFile.Name())
 
 		// send signal
+		t.Log("trigger cert/key reload")
 		signalChan <- syscall.SIGHUP
 
 		// wait for the channel to be read
@@ -165,7 +170,10 @@ func TestStunnel(t *testing.T) {
 		c3 := *kpr.cert
 		kpr.certMu.RUnlock()
 
-		// ensure new cert matches previous cert
+		t.Log("check in-memory certificates are as-expected")
+		// ensure c1 & c2 different
+		assert.NotEqual(t, c1, c2)
+		// ensure c2 & c3 are the same (as no files to reload, they were deleted)
 		assert.Equal(t, c2, c3)
 
 	})
