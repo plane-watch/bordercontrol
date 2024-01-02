@@ -1,6 +1,7 @@
 package feedproxy
 
 import (
+	"errors"
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
@@ -74,11 +75,12 @@ func TestFeedProxy(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	feedProxyConf := FeedProxyConfig{
+		UpdateFreqency: time.Second * 10,
+	}
+
 	t.Run("initialise feedproxy subsystem", func(t *testing.T) {
-		c := FeedProxyConfig{
-			UpdateFreqency: time.Second * 10,
-		}
-		err := Init(&c)
+		err := Init(&feedProxyConf)
 		assert.NoError(t, err)
 	})
 
@@ -141,6 +143,24 @@ func TestFeedProxy(t *testing.T) {
 		f = feederClient{clientApiKey: uuid.New()}
 		err = getFeederInfo(&f)
 		assert.Error(t, err)
+	})
+
+	// ---
+
+	t.Run("getDataFromATC error", func(t *testing.T) {
+		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+			return atc.Feeders{}, errors.New("injected error for testing")
+		}
+		// wait for error
+		time.Sleep(time.Second * 15)
+	})
+
+	t.Run("stop feedproxy subsystem", func(t *testing.T) {
+		feedProxyConf.stopMu.Lock()
+		feedProxyConf.stop = true
+		feedProxyConf.stopMu.Unlock()
+		// wait for stop
+		time.Sleep(time.Second * 15)
 	})
 
 }
