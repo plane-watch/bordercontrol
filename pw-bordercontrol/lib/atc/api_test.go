@@ -208,6 +208,7 @@ func TestAuthenticate_BadCreds(t *testing.T) {
 	// test
 	_, err = authenticate(&s)
 	assert.Error(t, err)
+	fmt.Println(err.Error())
 
 }
 
@@ -232,6 +233,7 @@ func TestAuthenticate_NoAuthToken(t *testing.T) {
 	// test
 	_, err = authenticate(&s)
 	assert.Error(t, err)
+	fmt.Println(err.Error())
 }
 
 func TestAuthenticate_BadResponse(t *testing.T) {
@@ -255,6 +257,7 @@ func TestAuthenticate_BadResponse(t *testing.T) {
 	// test
 	_, err = authenticate(&s)
 	assert.Error(t, err)
+	fmt.Println(err.Error())
 }
 
 func TestAuthenticate_NoResponse(t *testing.T) {
@@ -277,6 +280,7 @@ func TestAuthenticate_NoResponse(t *testing.T) {
 	// test
 	_, err = authenticate(&s)
 	assert.Error(t, err)
+	fmt.Println(err.Error())
 }
 
 func TestGetFeeders_Working(t *testing.T) {
@@ -331,6 +335,7 @@ func TestGetFeeders_BadResponse(t *testing.T) {
 
 	_, err = GetFeeders(&s)
 	assert.Error(t, err)
+	fmt.Println(err.Error())
 
 }
 
@@ -352,6 +357,7 @@ func TestGetFeeders_NoResponse(t *testing.T) {
 
 	_, err = GetFeeders(&s)
 	assert.Error(t, err)
+	fmt.Println(err.Error())
 
 }
 
@@ -373,4 +379,5 @@ func TestGetFeeders_InvalidJSON(t *testing.T) {
 
 	_, err = GetFeeders(&s)
 	assert.Error(t, err)
+	fmt.Println(err.Error())
 }
