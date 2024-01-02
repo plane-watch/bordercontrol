@@ -58,10 +58,10 @@ func TestContainers(t *testing.T) {
 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
 	)
 	TestDaemon.Start(t)
-	defer func(t *testing.T) {
-		TestDaemon.Stop(t)
+	t.Cleanup(func() {
 		TestDaemon.Cleanup(t)
-	}(t)
+		TestDaemon.Stop(t)
+	})
 
 	// prep broken docker client
 	t.Log("prep broken testing docker client")
@@ -176,13 +176,13 @@ func TestContainers(t *testing.T) {
 	t.Logf("pull test image: %s", TestFeedInImageNameFirst)
 	imageircFirst, err := cli.ImagePull(*ctx, TestFeedInImageNameFirst, types.ImagePullOptions{})
 	assert.NoError(t, err)
-	defer imageircFirst.Close()
+	t.Cleanup(func() { imageircFirst.Close() })
 
 	// pull test image
 	t.Logf("pull test image: %s", TestFeedInImageNameSecond)
 	imageircSecond, err := cli.ImagePull(*ctx, TestFeedInImageNameSecond, types.ImagePullOptions{})
 	assert.NoError(t, err)
-	defer imageircSecond.Close()
+	t.Cleanup(func() { imageircSecond.Close() })
 
 	// load test image
 	t.Logf("load test image: %s", TestFeedInImageNameFirst)
@@ -329,7 +329,6 @@ func TestContainers(t *testing.T) {
 	t.Run("running ContainerManager.Init()", func(t *testing.T) {
 		cm.Init()
 	})
-	defer cm.Close() // ensure we clean up
 
 	var cid string
 
@@ -428,6 +427,7 @@ func TestContainers(t *testing.T) {
 	t.Run("running ContainerManager.Init() with new feed-in image", func(t *testing.T) {
 		cm.Init()
 	})
+	t.Cleanup(func() { cm.Close() })
 
 	t.Run("check prom metrics gauge funcs", func(t *testing.T) {
 		assert.Equal(t, float64(0), promMetricFeederContainersImageCurrentGaugeFunc(TestFeedInImageNameSecond, TestFeedInContainerPrefix))
@@ -450,191 +450,3 @@ func TestContainers(t *testing.T) {
 		}
 	})
 }
-
-// func TestContainersWithKill(t *testing.T) {
-
-// 	// start statsManager testing server
-// 	statsManagerMu.RLock()
-// 	if statsManagerAddr == "" {
-// 		statsManagerMu.RUnlock()
-// 		// get address for testing
-// 		nl, err := nettest.NewLocalListener("tcp4")
-// 		assert.NoError(t, err)
-// 		nl.Close()
-// 		go statsManager(nl.Addr().String())
-
-// 		// wait for server to come up
-// 		time.Sleep(1 * time.Second)
-// 	} else {
-// 		statsManagerMu.RUnlock()
-// 	}
-
-// 	// check prom metrics
-// 	t.Log("check prom container metrics with current image")
-// 	feedInContainerPrefix = TestfeedInContainerPrefix
-// 	feedInImage = TestFeedInImageName
-// 	statsManagerMu.RLock()
-// 	promMetrics := getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
-// 	statsManagerMu.RUnlock()
-// 	expectedMetrics := []string{
-// 		`pw_bordercontrol_feedercontainers_image_current 1`,
-// 		`pw_bordercontrol_feedercontainers_image_not_current 0`,
-// 	}
-// 	checkPromMetricsExist(t, promMetrics, expectedMetrics)
-
-// 	//
-// 	// check prom metrics
-// 	t.Log("check prom container metrics with not current image")
-// 	feedInContainerPrefix = TestfeedInContainerPrefix
-// 	feedInImage = "foo"
-// 	statsManagerMu.RLock()
-// 	promMetrics = getMetricsFromTestServer(t, fmt.Sprintf("http://%s/metrics", statsManagerAddr))
-// 	statsManagerMu.RUnlock()
-// 	expectedMetrics = []string{
-// 		`pw_bordercontrol_feedercontainers_image_current 0`,
-// 		`pw_bordercontrol_feedercontainers_image_not_current 1`,
-// 	}
-// 	checkPromMetricsExist(t, promMetrics, expectedMetrics)
-
-// 	// test checkFeederContainers
-// 	// by passing "foo" as the feedInImageName, it should kill the previously created container
-// 	t.Log("running checkFeederContainers")
-// 	conf := &checkFeederContainersConfig{
-// 		feedInImageName:          "foo",
-// 		feedInContainerPrefix:    TestfeedInContainerPrefix,
-// 		checkFeederContainerSigs: testChan,
-// 	}
-// 	err = checkFeederContainers(*conf)
-// 	assert.NoError(t, err)
-
-// 	// wait for container to be removed
-// 	t.Log("wait for container to be removed")
-// 	time.Sleep(time.Second * 15)
-
-// 	// ensure container has been killed
-// 	t.Log("ensure container has been killed")
-// 	_, err = cli.ContainerInspect(*ctx, startedContainer.containerID)
-// 	assert.Error(t, err)
-
-// 	// clean up
-// 	t.Log("cleaning up")
-// 	TestDaemon.Stop(t)
-// 	TestDaemon.Cleanup(t)
-// }
-
-// func TestContainersWithoutKill(t *testing.T) {
-
-// 	// set logging to trace level
-// 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
-
-// 	// starting test docker daemon
-// 	t.Log("starting test docker daemon")
-// 	TestDaemon := daemon.New(
-// 		t,
-// 		daemon.WithContainerdSocket(TestDaemonDockerSocket),
-// 	)
-// 	TestDaemon.Start(t)
-
-// 	// prep testing client
-// 	t.Log("prep testing client")
-// 	getDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-// 		log.Debug().Msg("using test docker client")
-// 		cctx := context.Background()
-// 		cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-// 		return &cctx, cli, nil
-// 	}
-
-// 	// get docker client
-// 	t.Log("get docker client to inspect container")
-// 	ctx, cli, err := getDockerClient()
-// 	assert.NoError(t, err)
-
-// 	// ensure test image is downloaded
-// 	t.Log("pull test image")
-// 	imageirc, err := cli.ImagePull(*ctx, TestFeedInImageName, types.ImagePullOptions{})
-// 	assert.NoError(t, err)
-// 	defer imageirc.Close()
-
-// 	t.Log("load test image")
-// 	_, err = cli.ImageLoad(*ctx, imageirc, false)
-// 	assert.NoError(t, err)
-
-// 	// // ensure test network is created
-// 	// t.Log("ensure test network is created")
-// 	// feedInContainerNetwork = "test-feed-in-net"
-// 	// _, err = cli.NetworkCreate(*ctx, feedInContainerNetwork, types.NetworkCreate{
-// 	// 	Driver: "null",
-// 	// })
-// 	// assert.NoError(t, err)
-// 	feedInContainerNetwork = "bridge"
-
-// 	// continually send sighup1 to prevent checkFeederContainers from sleeping
-// 	testChan := make(chan os.Signal)
-// 	go func() {
-// 		for {
-// 			testChan <- syscall.SIGUSR1
-// 			time.Sleep(time.Second)
-// 		}
-// 	}()
-
-// 	// prepare channel for container start requests
-// 	containersToStartRequests := make(chan startContainerRequest)
-// 	defer close(containersToStartRequests)
-
-// 	// prepare channel for container start responses
-// 	containersToStartResponses := make(chan startContainerResponse)
-// 	defer close(containersToStartResponses)
-
-// 	// start process to test
-// 	t.Log("starting startFeederContainers")
-// 	confA := &startFeederContainersConfig{
-// 		feedInImageName:            TestFeedInImageName,
-// 		feedInContainerPrefix:      TestfeedInContainerPrefix,
-// 		pwIngestPublish:            TestPWIngestSink,
-// 		containersToStartRequests:  containersToStartRequests,
-// 		containersToStartResponses: containersToStartResponses,
-// 	}
-// 	go startFeederContainers(*confA)
-
-// 	// start container
-// 	t.Log("requesting container start")
-// 	containersToStartRequests <- startContainerRequest{
-// 		clientDetails: feederClient{
-// 			clientApiKey: uuid.MustParse(TestFeederAPIKey),
-// 			refLat:       TestFeederLatitude,
-// 			refLon:       TestFeederLongitude,
-// 			mux:          TestFeederMux,
-// 			label:        TestFeederMux,
-// 		},
-// 		srcIP: net.IPv4(127, 0, 0, 1),
-// 	}
-
-// 	// wait for container to start
-// 	t.Log("waiting for container start")
-// 	startedContainer := <-containersToStartResponses
-
-// 	// ensure container started without error
-// 	t.Log("ensure container started without error")
-// 	assert.NoError(t, startedContainer.err)
-
-// 	// test checkFeederContainers
-// 	t.Log("running checkFeederContainers")
-// 	confB := &checkFeederContainersConfig{
-// 		feedInImageName:          TestFeedInImageName,
-// 		feedInContainerPrefix:    TestfeedInContainerPrefix,
-// 		checkFeederContainerSigs: testChan,
-// 	}
-// 	err = checkFeederContainers(*confB)
-// 	assert.NoError(t, err)
-
-// 	// ensure container has been killed
-// 	t.Log("ensure container has not been killed")
-// 	_, err = cli.ContainerInspect(*ctx, startedContainer.containerID)
-// 	assert.NoError(t, err)
-
-// 	// clean up
-// 	t.Log("cleaning up")
-// 	TestDaemon.Stop(t)
-// 	TestDaemon.Cleanup(t)
-
-// }
