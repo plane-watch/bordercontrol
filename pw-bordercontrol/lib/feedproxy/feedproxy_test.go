@@ -60,7 +60,7 @@ func TestFeedProxy(t *testing.T) {
 
 	t.Run("initialise feedproxy subsystem", func(t *testing.T) {
 		c := FeedProxyConfig{
-			UpdateFreqency: time.Second * 30,
+			UpdateFreqency: time.Second * 10,
 		}
 		err := Init(&c)
 		assert.NoError(t, err)
@@ -94,6 +94,15 @@ func TestFeedProxy(t *testing.T) {
 		assert.NoError(t, err)
 		err = i.check(srcIP, cn)
 		assert.Error(t, err)
+
+		// wait for evictor
+		time.Sleep(time.Second * 11)
+
+		// fourth connection, should now work
+		cn, err = GetConnectionNumber()
+		assert.NoError(t, err)
+		err = i.check(srcIP, cn)
+		assert.NoError(t, err)
 	})
 
 }
