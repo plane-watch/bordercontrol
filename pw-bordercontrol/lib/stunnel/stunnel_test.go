@@ -60,6 +60,21 @@ func TestStunnel(t *testing.T) {
 			assert.Error(t, err)
 			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
+		t.Run("PrepTestEnvironmentTLSCertAndKey", func(t *testing.T) {
+			err := PrepTestEnvironmentTLSCertAndKey()
+			assert.Error(t, err)
+			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+		})
+		t.Run("PrepTestEnvironmentTLSListener", func(t *testing.T) {
+			_, err := PrepTestEnvironmentTLSListener()
+			assert.Error(t, err)
+			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+		})
+		t.Run("PrepTestEnvironmentTLSClientConfig", func(t *testing.T) {
+			_, err := PrepTestEnvironmentTLSClientConfig("")
+			assert.Error(t, err)
+			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+		})
 	})
 
 }
