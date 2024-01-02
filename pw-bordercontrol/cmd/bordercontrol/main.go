@@ -25,17 +25,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var (
-	feedInImage            string
-	feedInContainerPrefix  string
-	commithash, committime string
-
-	chanSIGUSR1 chan os.Signal
-
-	// statsManagerAddr string
-	// statsManagerMu   sync.RWMutex
-)
-
 const (
 
 	// banner to display when started
@@ -139,18 +128,8 @@ func main() {
 	logging.IncludeVerbosityFlags(app)
 	logging.ConfigureForCli()
 
-	// get commit hash and commit time from git info
-	commithash, committime = getRepoInfo()
-
 	// runs before runServer() is called
 	app.Before = func(ctx *cli.Context) error {
-
-		// set global var containing feed-in image name
-		feedInImage = ctx.String("feedinimage")
-
-		// set global var containing feed-in container prefix
-		feedInContainerPrefix = ctx.String("feedincontainerprefix")
-
 		return nil
 	}
 
@@ -194,10 +173,12 @@ func runServer(ctx *cli.Context) error {
 	// Set logging level
 	logging.SetLoggingLevel(ctx)
 
-	// show banner
-	log.Info().Msg(banner)
-	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
+	// get commit hash and commit time from git info
+	commithash, committime := getRepoInfo()
 
+	// initial logging
+	log.Info().Msg(banner) // show awesome banner
+	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
 	// initialise ssl/tls subsystem
@@ -369,7 +350,7 @@ func listener(conf *listenConfig) error {
 			Connection:            conn,
 			ConnectionProtocol:    conf.listenProto,
 			ConnectionNumber:      connNum,
-			FeedInContainerPrefix: feedInContainerPrefix,
+			FeedInContainerPrefix: conf.feedInContainerPrefix,
 			Logger:                log,
 		}
 
