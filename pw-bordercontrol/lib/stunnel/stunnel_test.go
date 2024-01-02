@@ -1,6 +1,7 @@
 package stunnel
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strings"
@@ -96,6 +97,10 @@ func TestStunnel(t *testing.T) {
 	// test cert reload
 	t.Run("test reload via signal", func(t *testing.T) {
 
+		clientHello := &tls.ClientHelloInfo{
+			ServerName: TestSNI.String(),
+		}
+
 		// generate test environment TLS Cert/Key
 		err := PrepTestEnvironmentTLSCertAndKey()
 		assert.NoError(t, err)
@@ -107,9 +112,8 @@ func TestStunnel(t *testing.T) {
 		time.Sleep(time.Second)
 
 		// get copy of original cert
-		kpr.certMu.RLock()
-		c1 := kpr.cert
-		kpr.certMu.RUnlock()
+		c1, err := kpr.GetCertificateFunc()(clientHello)
+		assert.NoError(t, err)
 
 		// generate test environment TLS Cert/Key
 		err = PrepTestEnvironmentTLSCertAndKey()
@@ -122,9 +126,8 @@ func TestStunnel(t *testing.T) {
 		time.Sleep(time.Second)
 
 		// get copy of new cert
-		kpr.certMu.RLock()
-		c2 := kpr.cert
-		kpr.certMu.RUnlock()
+		c2, err := kpr.GetCertificateFunc()(clientHello)
+		assert.NoError(t, err)
 
 		// ensure certs different
 		assert.NotEqual(t, c1, c2)
