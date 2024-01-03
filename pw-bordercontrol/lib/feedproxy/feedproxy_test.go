@@ -379,6 +379,7 @@ func TestFeedProxy(t *testing.T) {
 			}
 			t.Log("listener starts proxy")
 			err = c.Start()
+			t.Log("proxy returns")
 			assert.NoError(t, err)
 
 			_ = <-stopListener
@@ -433,6 +434,7 @@ func TestFeedProxy(t *testing.T) {
 		_, err = conn.Write([]byte(testData))
 		assert.Error(t, err)
 		fmt.Println(err)
+		fmt.Println(conn.Close().Error())
 
 		// clean up
 		stopServer <- true
