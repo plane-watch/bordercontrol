@@ -48,8 +48,8 @@ var (
 	// main app settings
 	app = cli.App{
 		Version: "0.0.1",
-		Name:    "Plane Watch Feeder Endpoint",
-		Usage:   "Server for multiple stunnel-based endpoints",
+		Name:    "plane.watch bordercontrol",
+		Usage:   "Proxy for multiple stunnel-based BEAST & MLAT endpoints",
 		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
 			`authenticates the feeder based on API key (UUID) check against atc.plane.watch, ` +
 			`routes data to feed-in containers.`,
