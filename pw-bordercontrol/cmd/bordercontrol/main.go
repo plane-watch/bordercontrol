@@ -149,6 +149,7 @@ var (
 				Category: "NATS",
 				Name:     "natsurl",
 				Usage:    "NATS URL for stats/control",
+				Value:    "",
 				EnvVars:  []string{"NATS_URL"},
 			},
 		},
@@ -258,6 +259,13 @@ func runServer(ctx *cli.Context) error {
 	log.Info().Str("version", ctx.App.Version).Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
+	// if debug then show some extra goodies
+	if zerolog.GlobalLevel() == zerolog.DebugLevel {
+		// display number active goroutines
+		logNumGoroutinesStopChan := make(chan bool)
+		go logNumGoroutines(time.Minute*5, logNumGoroutinesStopChan)
+	}
+
 	// initialise ssl/tls subsystem
 	stunnel.Init(syscall.SIGHUP)
 
@@ -267,12 +275,8 @@ func runServer(ctx *cli.Context) error {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
 
-	// display number active goroutines
-	logNumGoroutinesStopChan := make(chan bool)
-	go logNumGoroutines(time.Minute*5, logNumGoroutinesStopChan)
-
 	// start statistics manager
-	err = stats.Init(ctx.String("listenapi"), "")
+	err = stats.Init(ctx.String("listenapi"), ctx.String("natsurl"))
 	if err != nil {
 		log.Err(err).Msg("could not start statistics manager")
 		return err
