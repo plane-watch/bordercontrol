@@ -40,6 +40,7 @@ services:
       - BC_CERT_FILE=${BC_CERT_FILE}
       - BC_KEY_FILE=${BC_KEY_FILE}
       - PW_INGEST_SINK=${PW_INGEST_SINK}
+      - NATS_URL=${NATS_URL}
       - DEBUG=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
