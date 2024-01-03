@@ -79,7 +79,7 @@ func TestListener(t *testing.T) {
 	// start listener
 	wg.Add(1)
 	go func(t *testing.T) {
-		err = listener(&conf)
+		err := listener(&conf)
 		assert.NoError(t, err)
 		_ = <-stopListener
 		wg.Done()
