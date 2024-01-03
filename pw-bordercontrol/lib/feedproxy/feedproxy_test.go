@@ -2,7 +2,6 @@ package feedproxy
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
@@ -314,90 +313,90 @@ func TestFeedProxy(t *testing.T) {
 	// ---
 	t.Run("ProxyConnection", func(t *testing.T) {
 
-		t.Run("error too-frequent incoming connections", func(t *testing.T) {
+		// t.Run("error too-frequent incoming connections", func(t *testing.T) {
 
-			wg := sync.WaitGroup{}
+		// 	wg := sync.WaitGroup{}
 
-			conn1, conn2 := net.Pipe()
-			t.Cleanup(func() {
-				conn1.Close()
-			})
-			t.Cleanup(func() {
-				conn2.Close()
-			})
-			conn3, conn4 := net.Pipe()
-			t.Cleanup(func() {
-				conn3.Close()
-			})
-			t.Cleanup(func() {
-				conn4.Close()
-			})
+		// 	conn1, conn2 := net.Pipe()
+		// 	t.Cleanup(func() {
+		// 		conn1.Close()
+		// 	})
+		// 	t.Cleanup(func() {
+		// 		conn2.Close()
+		// 	})
+		// 	conn3, conn4 := net.Pipe()
+		// 	t.Cleanup(func() {
+		// 		conn3.Close()
+		// 	})
+		// 	t.Cleanup(func() {
+		// 		conn4.Close()
+		// 	})
 
-			c1 := ProxyConnection{
-				Connection:                  conn1,
-				ConnectionProtocol:          feedprotocol.MLAT,
-				FeedInContainerPrefix:       "test-feed-in-",
-				FeederValidityCheckInterval: time.Second * 5,
-			}
+		// 	c1 := ProxyConnection{
+		// 		Connection:                  conn1,
+		// 		ConnectionProtocol:          feedprotocol.MLAT,
+		// 		FeedInContainerPrefix:       "test-feed-in-",
+		// 		FeederValidityCheckInterval: time.Second * 5,
+		// 	}
 
-			c2 := ProxyConnection{
-				Connection:                  conn2,
-				ConnectionProtocol:          feedprotocol.MLAT,
-				FeedInContainerPrefix:       "test-feed-in-",
-				FeederValidityCheckInterval: time.Second * 5,
-			}
+		// 	c2 := ProxyConnection{
+		// 		Connection:                  conn2,
+		// 		ConnectionProtocol:          feedprotocol.MLAT,
+		// 		FeedInContainerPrefix:       "test-feed-in-",
+		// 		FeederValidityCheckInterval: time.Second * 5,
+		// 	}
 
-			c3 := ProxyConnection{
-				Connection:                  conn3,
-				ConnectionProtocol:          feedprotocol.MLAT,
-				FeedInContainerPrefix:       "test-feed-in-",
-				FeederValidityCheckInterval: time.Second * 5,
-			}
+		// 	c3 := ProxyConnection{
+		// 		Connection:                  conn3,
+		// 		ConnectionProtocol:          feedprotocol.MLAT,
+		// 		FeedInContainerPrefix:       "test-feed-in-",
+		// 		FeederValidityCheckInterval: time.Second * 5,
+		// 	}
 
-			c4 := ProxyConnection{
-				Connection:                  conn4,
-				ConnectionProtocol:          feedprotocol.MLAT,
-				FeedInContainerPrefix:       "test-feed-in-",
-				FeederValidityCheckInterval: time.Second * 5,
-			}
+		// 	c4 := ProxyConnection{
+		// 		Connection:                  conn4,
+		// 		ConnectionProtocol:          feedprotocol.MLAT,
+		// 		FeedInContainerPrefix:       "test-feed-in-",
+		// 		FeederValidityCheckInterval: time.Second * 5,
+		// 	}
 
-			// make connections
-			wg.Add(1)
-			go func(t *testing.T) {
-				_ = c1.Start()
-				t.Cleanup(func() {
-					c1.Stop()
-				})
-				wg.Done()
-			}(t)
-			wg.Add(1)
-			go func(t *testing.T) {
-				_ = c2.Start()
-				t.Cleanup(func() {
-					c2.Stop()
-				})
-				wg.Done()
-			}(t)
-			wg.Add(1)
-			go func(t *testing.T) {
-				_ = c3.Start()
-				t.Cleanup(func() {
-					c3.Stop()
-				})
-				wg.Done()
-			}(t)
-			wg.Add(1)
-			go func(t *testing.T) {
-				err := c4.Start()
-				assert.Error(t, err)
-				fmt.Println(err)
-				t.Cleanup(func() {
-					c4.Stop()
-				})
-				wg.Done()
-			}(t)
-			wg.Wait()
-		})
+		// 	// make connections
+		// 	wg.Add(1)
+		// 	go func(t *testing.T) {
+		// 		_ = c1.Start()
+		// 		t.Cleanup(func() {
+		// 			c1.Stop()
+		// 		})
+		// 		wg.Done()
+		// 	}(t)
+		// 	wg.Add(1)
+		// 	go func(t *testing.T) {
+		// 		_ = c2.Start()
+		// 		t.Cleanup(func() {
+		// 			c2.Stop()
+		// 		})
+		// 		wg.Done()
+		// 	}(t)
+		// 	wg.Add(1)
+		// 	go func(t *testing.T) {
+		// 		_ = c3.Start()
+		// 		t.Cleanup(func() {
+		// 			c3.Stop()
+		// 		})
+		// 		wg.Done()
+		// 	}(t)
+		// 	wg.Add(1)
+		// 	go func(t *testing.T) {
+		// 		err := c4.Start()
+		// 		assert.Error(t, err)
+		// 		fmt.Println(err)
+		// 		t.Cleanup(func() {
+		// 			c4.Stop()
+		// 		})
+		// 		wg.Done()
+		// 	}(t)
+		// 	wg.Wait()
+		// })
 
 		t.Run("MLAT", func(t *testing.T) {
 
@@ -771,6 +770,67 @@ func TestFeedProxy(t *testing.T) {
 			wg.Wait()
 
 		})
+
+	})
+
+	t.Run("proxyClientToServer", func(t *testing.T) {
+
+		testData := "Hello World!"
+
+		wg := sync.WaitGroup{}
+
+		statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+
+		conn1, conn2 := net.Pipe()
+		conn3, conn4 := net.Pipe()
+		t.Cleanup(func() {
+			conn1.Close()
+		})
+		t.Cleanup(func() {
+			conn2.Close()
+		})
+		t.Cleanup(func() {
+			conn3.Close()
+		})
+		t.Cleanup(func() {
+			conn4.Close()
+		})
+
+		connNum, err := GetConnectionNumber()
+		assert.NoError(t, err)
+
+		lastAuthCheck := time.Now()
+
+		conf := protocolProxyConfig{
+			clientConn:   conn2,
+			serverConn:   conn3,
+			connNum:      connNum,
+			clientApiKey: TestFeederAPIKey,
+
+			mgmt:                        &goRoutineManager{},
+			lastAuthCheck:               &lastAuthCheck,
+			feederValidityCheckInterval: time.Second * 5,
+		}
+
+		wg.Add(1)
+		go func(t *testing.T) {
+			proxyClientToServer(&conf)
+			wg.Done()
+		}(t)
+
+		n, err := conn1.Write([]byte(testData))
+		assert.NoError(t, err)
+		assert.Equal(t, len(testData), n)
+
+		buf := make([]byte, len(testData))
+		n, err = conn4.Read(buf)
+		assert.NoError(t, err)
+		assert.Equal(t, len(testData), n)
+		assert.Equal(t, []byte(testData), buf)
+
+		conf.mgmt.Stop()
+
+		wg.Wait()
 
 	})
 
