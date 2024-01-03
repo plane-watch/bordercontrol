@@ -186,6 +186,9 @@ func TestFeedProxy(t *testing.T) {
 
 		// create listener
 		listener, err := nettest.NewLocalListener("tcp")
+		t.Cleanup(func() {
+			listener.Close()
+		})
 		assert.NoError(t, err)
 
 		// set up test server
@@ -196,6 +199,9 @@ func TestFeedProxy(t *testing.T) {
 
 			conn, err := listener.Accept()
 			assert.NoError(t, err)
+			t.Cleanup(func() {
+				conn.Close()
+			})
 
 			n, err := readFromClient(conn, buf)
 			assert.NoError(t, err)
@@ -277,12 +283,13 @@ func TestFeedProxy(t *testing.T) {
 
 		conn, err := dialContainerTCP(ip, port)
 		assert.NoError(t, err)
+		t.Cleanup(func() {
+			conn.Close()
+		})
 
 		n, err := conn.Write([]byte(testData))
 		assert.NoError(t, err)
 		assert.Equal(t, len(testData), n)
-
-		conn.Close()
 
 		wg.Wait()
 
@@ -317,6 +324,9 @@ func TestFeedProxy(t *testing.T) {
 		// create server
 		server, err := net.Listen("tcp4", "127.0.0.1:12346")
 		assert.NoError(t, err)
+		t.Cleanup(func() {
+			server.Close()
+		})
 
 		// start server
 		wg.Add(1)
@@ -327,6 +337,9 @@ func TestFeedProxy(t *testing.T) {
 			sconn, err := server.Accept()
 			assert.NoError(t, err)
 			t.Log("server accepts connection")
+			t.Cleanup(func() {
+				sconn.Close()
+			})
 
 			t.Log("server sets deadline")
 			err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
@@ -354,6 +367,9 @@ func TestFeedProxy(t *testing.T) {
 		// create listener
 		listener, err := nettest.NewLocalListener("tcp")
 		assert.NoError(t, err)
+		t.Cleanup(func() {
+			listener.Close()
+		})
 
 		// start listener
 		wg.Add(1)
@@ -362,6 +378,9 @@ func TestFeedProxy(t *testing.T) {
 			lconn, err := listener.Accept()
 			assert.NoError(t, err)
 			t.Log("listener accepts connection")
+			t.Cleanup(func() {
+				lconn.Close()
+			})
 
 			err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
 			assert.NoError(t, err)
@@ -398,6 +417,9 @@ func TestFeedProxy(t *testing.T) {
 		t.Log("client dials listener")
 		conn, err := net.Dial("tcp", listener.Addr().String())
 		assert.NoError(t, err)
+		t.Cleanup(func() {
+			conn.Close()
+		})
 
 		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
 		assert.NoError(t, err)
@@ -484,6 +506,9 @@ func TestFeedProxy(t *testing.T) {
 		// create server
 		server, err := nettest.NewLocalListener("tcp4")
 		assert.NoError(t, err)
+		t.Cleanup(func() {
+			server.Close()
+		})
 
 		// start server
 		wg.Add(1)
@@ -494,6 +519,9 @@ func TestFeedProxy(t *testing.T) {
 			sconn, err := server.Accept()
 			assert.NoError(t, err)
 			t.Log("server accepts connection")
+			t.Cleanup(func() {
+				sconn.Close()
+			})
 
 			t.Log("server sets deadline")
 			err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
@@ -516,6 +544,9 @@ func TestFeedProxy(t *testing.T) {
 		// create listener
 		listener, err := nettest.NewLocalListener("tcp")
 		assert.NoError(t, err)
+		t.Cleanup(func() {
+			listener.Close()
+		})
 
 		// start listener
 		wg.Add(1)
@@ -524,6 +555,9 @@ func TestFeedProxy(t *testing.T) {
 			lconn, err := listener.Accept()
 			assert.NoError(t, err)
 			t.Log("listener accepts connection")
+			t.Cleanup(func() {
+				lconn.Close()
+			})
 
 			err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
 			assert.NoError(t, err)
@@ -570,6 +604,9 @@ func TestFeedProxy(t *testing.T) {
 		t.Log("client dials listener")
 		conn, err := net.Dial("tcp", listener.Addr().String())
 		assert.NoError(t, err)
+		t.Cleanup(func() {
+			conn.Close()
+		})
 
 		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
 		assert.NoError(t, err)
@@ -586,7 +623,6 @@ func TestFeedProxy(t *testing.T) {
 		// make feeder invalid
 		t.Log("making feeder invalid")
 		getDataFromATCMu.Lock()
-		getDataFromATCOrig := getDataFromATC
 		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
 			f := atc.Feeders{
 				Feeders: []atc.Feeder{},
@@ -610,10 +646,6 @@ func TestFeedProxy(t *testing.T) {
 		stopListener <- true
 		wg.Wait()
 
-		// revert original func
-		getDataFromATCMu.Lock()
-		getDataFromATC = getDataFromATCOrig
-		getDataFromATCMu.Unlock()
 	})
 
 	// ---
