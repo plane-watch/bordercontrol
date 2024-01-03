@@ -51,23 +51,23 @@ func TestPrepListenerConfig(t *testing.T) {
 		assert.Equal(t, "tcp", conf.listenAddr.Network())
 		assert.Equal(t, testListenAddr, conf.listenAddr.String())
 	})
+}
 
-	t.Run("error invalid addr", func(t *testing.T) {
+func TestPrepListenerConfig_Invalid_Addr(t *testing.T) {
 
-		if os.Getenv("BE_CRASHER") == "1" {
-			testListenAddr := "" // invalid
-			_ = prepListenerConfig(testListenAddr, feedprotocol.MLAT, "")
-		}
+	if os.Getenv("BE_CRASHER") == "1" {
+		testListenAddr := "" // invalid
+		_ = prepListenerConfig(testListenAddr, feedprotocol.MLAT, "")
+	}
 
-		cmd := exec.Command(os.Args[0], "-test.run=TestCrasher")
-		cmd.Env = append(os.Environ(), "BE_CRASHER=1")
-		err := cmd.Run()
-		if e, ok := err.(*exec.ExitError); ok && !e.Success() {
-			return
-		}
-		t.Fatalf("process ran with err %v, want exit status 1", err)
+	cmd := exec.Command(os.Args[0], "-test.run=TestCrasher")
+	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		return
+	}
+	t.Fatalf("process ran with err %v, want exit status 1", err)
 
-	})
 }
 
 func TestLogNumGoroutines(t *testing.T) {
