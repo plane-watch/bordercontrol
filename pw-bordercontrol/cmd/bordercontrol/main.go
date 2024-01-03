@@ -138,6 +138,19 @@ var (
 	}
 )
 
+func prepCLIApp(action cli.ActionFunc) *cli.App {
+	app := &cli.App{
+		Name:  "Plane Watch Feeder Endpoint",
+		Usage: "Server for multiple stunnel-based endpoints",
+		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
+			`authenticates the feeder based on API key (UUID) check against atc.plane.watch, ` +
+			`routes data to feed-in containers.`,
+		Flags:  CLIFlags,
+		Action: action,
+	}
+	return app
+}
+
 func main() {
 
 	app := prepCLIApp(runServer)
@@ -157,19 +170,6 @@ func main() {
 		os.Exit(1)
 	}
 
-}
-
-func prepCLIApp(action cli.ActionFunc) *cli.App {
-	app := &cli.App{
-		Name:  "Plane Watch Feeder Endpoint",
-		Usage: "Server for multiple stunnel-based endpoints",
-		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
-			`authenticates the feeder based on UUID check against atc.plane.watch, ` +
-			`routes data to feed-in containers.`,
-		Flags:  CLIFlags,
-		Action: action,
-	}
-	return app
 }
 
 func getRepoInfo() (commitHash, commitTime string) {
