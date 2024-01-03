@@ -463,6 +463,9 @@ func proxyServerToClient(conf protocolProxyConfig) {
 // allow override of these functions to simplify testing
 var registerConnectionStats = func(conn stats.Connection) error { return conn.RegisterConnection() }
 var unregisterConnectionStats = func(conn stats.Connection) error { return conn.UnregisterConnection() }
+var statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) {
+	return stats.GetNumConnections(uuid, proto)
+}
 
 type ProxyConnection struct {
 	Connection            net.Conn              // Incoming connection from feeder out on the internet
@@ -560,7 +563,7 @@ func (c *ProxyConnection) Start() error {
 		Str("code", clientDetails.feederCode).
 		Logger()
 
-	numConnections, err := stats.GetNumConnections(clientDetails.clientApiKey, c.ConnectionProtocol)
+	numConnections, err := statsGetNumConnections(clientDetails.clientApiKey, c.ConnectionProtocol)
 	if err != nil {
 		log.Err(err).Msg("error getting number of connections")
 		return err
