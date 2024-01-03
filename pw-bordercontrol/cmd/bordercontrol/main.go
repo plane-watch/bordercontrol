@@ -45,6 +45,96 @@ const (
 )
 
 var (
+	// main app settings
+	app = cli.App{
+		Version: "0.0.1",
+		Name:    "Plane Watch Feeder Endpoint",
+		Usage:   "Server for multiple stunnel-based endpoints",
+		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
+			`authenticates the feeder based on API key (UUID) check against atc.plane.watch, ` +
+			`routes data to feed-in containers.`,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "listenbeast",
+				Usage:   "Address and TCP port server will listen on for BEAST connections",
+				Value:   "0.0.0.0:12345", // insert Spaceballs joke here
+				EnvVars: []string{"BC_LISTEN_BEAST"},
+			},
+			&cli.StringFlag{
+				Name:    "listenmlat",
+				Usage:   "Address and TCP port server will listen on for MLAT connections",
+				Value:   "0.0.0.0:12346",
+				EnvVars: []string{"BC_LISTEN_MLAT"},
+			},
+			&cli.StringFlag{
+				Name:    "listenapi",
+				Usage:   "Address and TCP port server will listen on for API, stats & Prometheus metrics",
+				Value:   "0.0.0.0:8080",
+				EnvVars: []string{"BC_LISTEN_API"},
+			},
+			&cli.StringFlag{
+				Name:     "cert",
+				Usage:    "Server certificate PEM file name (x509)",
+				Required: true,
+				EnvVars:  []string{"BC_CERT_FILE"},
+			},
+			&cli.StringFlag{
+				Name:     "key",
+				Usage:    "Server certificate private key PEM file name (x509)",
+				Required: true,
+				EnvVars:  []string{"BC_KEY_FILE"},
+			},
+			&cli.StringFlag{
+				Name:     "atcurl",
+				Usage:    "URL to ATC API",
+				Required: true,
+				EnvVars:  []string{"ATC_URL"},
+			},
+			&cli.StringFlag{
+				Name:     "atcuser",
+				Usage:    "email username for ATC API",
+				Required: true,
+				EnvVars:  []string{"ATC_USER"},
+			},
+			&cli.StringFlag{
+				Name:     "atcpass",
+				Usage:    "password for ATC API",
+				Required: true,
+				EnvVars:  []string{"ATC_PASS"},
+			},
+			&cli.IntFlag{
+				Name:    "atcupdatefreq",
+				Usage:   "frequency (in minutes) for valid feeder updates from ATC",
+				Value:   1,
+				EnvVars: []string{"ATC_UPDATE_FREQ"},
+			},
+			&cli.StringFlag{
+				Name:    "feedinimage",
+				Usage:   "feed-in image name",
+				Value:   "feed-in",
+				EnvVars: []string{"FEED_IN_IMAGE"},
+			},
+			&cli.StringFlag{
+				Name:    "feedincontainerprefix",
+				Usage:   "feed-in container prefix",
+				Value:   "feed-in-",
+				EnvVars: []string{"FEED_IN_CONTAINER_PREFIX"},
+			},
+			&cli.StringFlag{
+				Name:    "feedincontainernetwork",
+				Usage:   "feed-in container network",
+				Value:   "bordercontrol_feeder",
+				EnvVars: []string{"FEED_IN_CONTAINER_NETWORK"},
+			},
+			&cli.StringFlag{
+				Name:     "pwingestpublish",
+				Usage:    "pw_ingest --sink setting in feed-in containers",
+				Required: true,
+				EnvVars:  []string{"PW_INGEST_SINK"},
+			},
+		},
+	}
+
 	// allow override of these functions to simplify testing
 	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
 		return stunnel.NewListener(network, laddr)
@@ -55,121 +145,22 @@ var (
 	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
 		return feedproxy.GetConnectionNumber()
 	}
-
-	CLIFlags = []cli.Flag{
-		&cli.StringFlag{
-			Name:    "listenbeast",
-			Usage:   "Address and TCP port server will listen on for BEAST connections",
-			Value:   "0.0.0.0:12345", // insert Spaceballs joke here
-			EnvVars: []string{"BC_LISTEN_BEAST"},
-		},
-		&cli.StringFlag{
-			Name:    "listenmlat",
-			Usage:   "Address and TCP port server will listen on for MLAT connections",
-			Value:   "0.0.0.0:12346",
-			EnvVars: []string{"BC_LISTEN_MLAT"},
-		},
-		&cli.StringFlag{
-			Name:    "listenapi",
-			Usage:   "Address and TCP port server will listen on for API, stats & Prometheus metrics",
-			Value:   "0.0.0.0:8080",
-			EnvVars: []string{"BC_LISTEN_API"},
-		},
-		&cli.StringFlag{
-			Name:     "cert",
-			Usage:    "Server certificate PEM file name (x509)",
-			Required: true,
-			EnvVars:  []string{"BC_CERT_FILE"},
-		},
-		&cli.StringFlag{
-			Name:     "key",
-			Usage:    "Server certificate private key PEM file name (x509)",
-			Required: true,
-			EnvVars:  []string{"BC_KEY_FILE"},
-		},
-		&cli.StringFlag{
-			Name:     "atcurl",
-			Usage:    "URL to ATC API",
-			Required: true,
-			EnvVars:  []string{"ATC_URL"},
-		},
-		&cli.StringFlag{
-			Name:     "atcuser",
-			Usage:    "email username for ATC API",
-			Required: true,
-			EnvVars:  []string{"ATC_USER"},
-		},
-		&cli.StringFlag{
-			Name:     "atcpass",
-			Usage:    "password for ATC API",
-			Required: true,
-			EnvVars:  []string{"ATC_PASS"},
-		},
-		&cli.IntFlag{
-			Name:    "atcupdatefreq",
-			Usage:   "frequency (in minutes) for valid feeder updates from ATC",
-			Value:   1,
-			EnvVars: []string{"ATC_UPDATE_FREQ"},
-		},
-		&cli.StringFlag{
-			Name:    "feedinimage",
-			Usage:   "feed-in image name",
-			Value:   "feed-in",
-			EnvVars: []string{"FEED_IN_IMAGE"},
-		},
-		&cli.StringFlag{
-			Name:    "feedincontainerprefix",
-			Usage:   "feed-in container prefix",
-			Value:   "feed-in-",
-			EnvVars: []string{"FEED_IN_CONTAINER_PREFIX"},
-		},
-		&cli.StringFlag{
-			Name:    "feedincontainernetwork",
-			Usage:   "feed-in container network",
-			Value:   "bordercontrol_feeder",
-			EnvVars: []string{"FEED_IN_CONTAINER_NETWORK"},
-		},
-		&cli.StringFlag{
-			Name:     "pwingestpublish",
-			Usage:    "pw_ingest --sink setting in feed-in containers",
-			Required: true,
-			EnvVars:  []string{"PW_INGEST_SINK"},
-		},
-	}
 )
-
-func prepCLIApp(action cli.ActionFunc) *cli.App {
-	app := &cli.App{
-		Name:  "Plane Watch Feeder Endpoint",
-		Usage: "Server for multiple stunnel-based endpoints",
-		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
-			`authenticates the feeder based on API key (UUID) check against atc.plane.watch, ` +
-			`routes data to feed-in containers.`,
-		Flags:  CLIFlags,
-		Action: action,
-	}
-	return app
-}
 
 func main() {
 
-	app := prepCLIApp(runServer)
+	// set action when run
+	app.Action = runServer
 
 	// set up logging
-	logging.IncludeVerbosityFlags(app)
+	logging.IncludeVerbosityFlags(&app)
 	logging.ConfigureForCli()
 
-	// runs before runServer() is called
-	// app.Before = func(ctx *cli.Context) error {
-	// 	return nil
-	// }
-
-	// Final exit
+	// run & final exit
 	if err := app.Run(os.Args); nil != err {
 		log.Err(err).Msg("Finishing with an error")
 		os.Exit(1)
 	}
-
 }
 
 func getRepoInfo() (commitHash, commitTime string) {
@@ -245,7 +236,7 @@ func runServer(ctx *cli.Context) error {
 
 	// initial logging
 	log.Info().Msg(banner) // show awesome banner
-	log.Info().Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
+	log.Info().Str("version", ctx.App.Version).Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
 	// initialise ssl/tls subsystem
