@@ -14,10 +14,10 @@ var (
 )
 
 type FeedProxyConfig struct {
-	UpdateFreqency time.Duration // how often to refresh allowed feeder DB from ATC
-	ATCUrl         string        // ATC API URL
-	ATCUser        string        // ATC API Username
-	ATCPass        string        // ATC API Password
+	UpdateFrequency time.Duration // how often to refresh allowed feeder DB from ATC
+	ATCUrl          string        // ATC API URL
+	ATCUser         string        // ATC API Username
+	ATCPass         string        // ATC API Password
 
 	stop   bool // set to true to stop goroutine, use mutex below for sync
 	stopMu sync.Mutex

@@ -181,6 +181,21 @@ func getRepoInfo() (commitHash, commitTime string) {
 	return commitHash, commitTime
 }
 
+func logNumGoroutines(freq time.Duration, stopChan chan bool) {
+	last := runtime.NumGoroutine()
+	for {
+		select {
+		case <-time.After(freq):
+			time.Sleep(freq)
+			now := runtime.NumGoroutine()
+			log.Debug().Int("goroutines", now).Int("delta", now-last).Msg("number of goroutines")
+			last = now
+		case <-stopChan:
+			return
+		}
+	}
+}
+
 func runServer(ctx *cli.Context) error {
 
 	// Set logging level
@@ -203,15 +218,8 @@ func runServer(ctx *cli.Context) error {
 	}
 
 	// display number active goroutines
-	go func() {
-		last := runtime.NumGoroutine()
-		for {
-			time.Sleep(5 * time.Minute)
-			now := runtime.NumGoroutine()
-			log.Debug().Int("goroutines", now).Int("delta", now-last).Msg("number of goroutines")
-			last = now
-		}
-	}()
+	logNumGoroutinesStopChan := make(chan bool)
+	go logNumGoroutines(time.Minute*5, logNumGoroutinesStopChan)
 
 	// start statistics manager
 	err = stats.Init(":8080")
@@ -222,10 +230,10 @@ func runServer(ctx *cli.Context) error {
 
 	// initialise feedproxy
 	feedProxyConf := feedproxy.FeedProxyConfig{
-		UpdateFreqency: time.Second * 60,
-		ATCUrl:         ctx.String("atcurl"),
-		ATCUser:        ctx.String("atcuser"),
-		ATCPass:        ctx.String("atcpass"),
+		UpdateFrequency: time.Second * 60,
+		ATCUrl:          ctx.String("atcurl"),
+		ATCUser:         ctx.String("atcuser"),
+		ATCPass:         ctx.String("atcpass"),
 	}
 	feedproxy.Init(&feedProxyConf)
 

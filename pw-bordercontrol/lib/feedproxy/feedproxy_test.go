@@ -80,15 +80,15 @@ func TestFeedProxy(t *testing.T) {
 
 	t.Run("initialise feedproxy subsystem error", func(t *testing.T) {
 		c := FeedProxyConfig{
-			UpdateFreqency: time.Second * 10,
-			ATCUrl:         "\n", // ASCII control character in URL is invalid
+			UpdateFrequency: time.Second * 10,
+			ATCUrl:          "\n", // ASCII control character in URL is invalid
 		}
 		err := Init(&c)
 		assert.Error(t, err)
 	})
 
 	feedProxyConf := FeedProxyConfig{
-		UpdateFreqency: time.Second * 10,
+		UpdateFrequency: time.Second * 10,
 	}
 
 	t.Run("initialise feedproxy subsystem", func(t *testing.T) {

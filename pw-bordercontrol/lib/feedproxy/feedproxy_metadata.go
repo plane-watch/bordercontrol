@@ -94,7 +94,7 @@ func updateFeederDB(conf *FeedProxyConfig) {
 
 		// sleep for updateFreq
 		if !firstRun {
-			time.Sleep(conf.UpdateFreqency)
+			time.Sleep(conf.UpdateFrequency)
 		} else {
 			firstRun = false
 		}

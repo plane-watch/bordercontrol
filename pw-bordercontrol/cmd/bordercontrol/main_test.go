@@ -15,16 +15,6 @@ import (
 	"golang.org/x/net/nettest"
 )
 
-func getListenableAddress(t *testing.T) (tempTcpAddr string) {
-	// get testing host/port
-	n, err := nettest.NewLocalListener("tcp")
-	assert.NoError(t, err, "could not generate new local listener for test")
-	tempTcpAddr = n.Addr().String()
-	err = n.Close()
-	assert.NoError(t, err, "could not close temp local listener for test")
-	return tempTcpAddr
-}
-
 func TestDFWTB(t *testing.T) {
 	// don't mess with the banner!
 	bannerCheckSum := sha256.Sum256([]byte(banner))
@@ -38,6 +28,19 @@ func TestGetRepoInfo(t *testing.T) {
 	// return unknown during testing
 	assert.Equal(t, "unknown", ch)
 	assert.Equal(t, "unknown", ct)
+}
+
+func TestLogNumGoroutines(t *testing.T) {
+	sc := make(chan bool)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		logNumGoroutines(time.Second, sc)
+		wg.Done()
+	}()
+	time.Sleep(time.Second * 2)
+	sc <- true
+	wg.Wait()
 }
 
 func TestListener(t *testing.T) {
