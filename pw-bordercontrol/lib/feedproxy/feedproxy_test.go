@@ -477,6 +477,25 @@ func TestFeedProxy(t *testing.T) {
 
 	})
 
+	// restore original function
+	getDataFromATCMu.Lock()
+	getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+		f := atc.Feeders{
+			Feeders: []atc.Feeder{
+				{
+					ApiKey:     TestFeederAPIKey,
+					Latitude:   TestFeederLatitude,
+					Longitude:  TestFeederLongitude,
+					Mux:        TestFeederMux,
+					Label:      TestFeederLabel,
+					FeederCode: TestFeederCode,
+				},
+			},
+		}
+		return f, nil
+	}
+	getDataFromATCMu.Unlock()
+
 	t.Run("ProxyConnection BEAST", func(t *testing.T) {
 
 		stopListener := make(chan bool)
