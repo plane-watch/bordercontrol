@@ -44,6 +44,16 @@ const (
 `
 )
 
+var (
+	// allow override of these functions to simplify testing
+	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
+		return stunnel.NewListener(network, laddr)
+	}
+	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection) error {
+		return f.Start()
+	}
+)
+
 func main() {
 
 	// set up cli context
@@ -312,7 +322,7 @@ func listener(conf *listenConfig) error {
 
 	// start TLS server
 	log.Info().Msg("starting listener")
-	stunnelListener, err := stunnel.NewListener(
+	stunnelListener, err := stunnelNewListenerWrapper(
 		"tcp",
 		fmt.Sprintf("%s:%d", conf.listenAddr.IP.String(), conf.listenAddr.Port),
 	)
@@ -356,7 +366,7 @@ func listener(conf *listenConfig) error {
 		}
 
 		// initiate proxying of the connection
-		go proxyConn.Start()
+		go proxyConnStartWrapper(&proxyConn)
 	}
 
 	return nil

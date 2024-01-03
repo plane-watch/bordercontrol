@@ -2,7 +2,14 @@ package main
 
 import (
 	"crypto/sha256"
+	"net"
+	"pw_bordercontrol/lib/feedprotocol"
+	"pw_bordercontrol/lib/feedproxy"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
@@ -33,33 +40,66 @@ func TestGetRepoInfo(t *testing.T) {
 	assert.Equal(t, "unknown", ct)
 }
 
-// func TestListener(t *testing.T) {
+func TestListener(t *testing.T) {
 
-// 	err := PrepTestEnvironmentTLSCertAndKey()
-// 	assert.NoError(t, err)
+	// bypass stunnel stuff as tested elsewhere
+	stunnelNewListenerWrapper = func(network, laddr string) (l net.Listener, err error) {
+		return net.Listen(network, laddr)
+	}
 
-// 	tempAddr := getListenableAddress(t)
-// 	ip := strings.Split(tempAddr, ":")[0]
-// 	port, err := strconv.Atoi(strings.Split(tempAddr, ":")[1])
-// 	assert.NoError(t, err, "could not split address string")
+	// bypass proxying as tested elsewhere
+	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection) error {
+		return nil
+	}
 
-// 	// prep listener config
-// 	conf := listenConfig{
-// 		listenProto: feedprotocol.BEAST,
-// 		listenAddr: net.TCPAddr{
-// 			IP:   net.ParseIP(ip),
-// 			Port: port,
-// 		},
-// 	}
+	wg := sync.WaitGroup{}
 
-// 	// stop listener without accepting connection
-// 	conf.stopMu.Lock()
-// 	conf.stop = true
-// 	conf.stopMu.Unlock()
+	stopListener := make(chan bool)
 
-// 	// start listener
-// 	err = listener(&conf)
+	l, err := nettest.NewLocalListener("tcp")
+	assert.NoError(t, err)
 
-// 	// ensure no errors
-// 	assert.NoError(t, err)
-// }
+	ip := strings.Split(l.Addr().Network(), ":")[0]
+	port, err := strconv.Atoi(strings.Split(l.Addr().Network(), ":")[1])
+	assert.NoError(t, err)
+
+	l.Close()
+
+	addr := net.TCPAddr{
+		IP:   net.ParseIP(ip),
+		Port: port,
+	}
+
+	conf := listenConfig{
+		listenProto:           feedprotocol.MLAT,
+		listenAddr:            addr,
+		feedInContainerPrefix: "test-feed-in-",
+	}
+
+	// start listener
+	wg.Add(1)
+	go func(t *testing.T) {
+		err = listener(&conf)
+		assert.NoError(t, err)
+		_ = <-stopListener
+		wg.Done()
+	}(t)
+
+	time.Sleep(time.Second)
+
+	// stop after this connection
+	conf.stopMu.Lock()
+	conf.stop = true
+	conf.stopMu.Unlock()
+
+	// connect
+	clientConn, err := net.Dial("tcp", l.Addr().String())
+	assert.NoError(t, err)
+	time.Sleep(time.Second)
+
+	// close connection
+	err = clientConn.Close()
+	stopListener <- true
+
+	wg.Wait()
+}
