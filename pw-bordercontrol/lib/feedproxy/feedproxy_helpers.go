@@ -1,4 +1,4 @@
-package main
+package feedproxy
 
 import "sync"
 
@@ -19,4 +19,10 @@ func (g *goRoutineManager) CheckForStop() bool {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.stop
+}
+
+func isInitialised() bool {
+	initialisedMu.RLock()
+	defer initialisedMu.RUnlock()
+	return initialised
 }

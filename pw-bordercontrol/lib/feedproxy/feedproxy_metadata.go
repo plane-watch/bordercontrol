@@ -1,4 +1,4 @@
-package main
+package feedproxy
 
 import (
 	"errors"
@@ -31,12 +31,14 @@ var (
 		Name:      "feeders",
 		Help:      "The total number of feeders configured in ATC (active and inactive).",
 	},
-		func() float64 {
-			validFeeders.mu.RLock()
-			defer validFeeders.mu.RUnlock()
-			return float64(len(validFeeders.Feeders))
-		})
+		feedersGaugeFunc)
 )
+
+func feedersGaugeFunc() float64 {
+	validFeeders.mu.RLock()
+	defer validFeeders.mu.RUnlock()
+	return float64(len(validFeeders.Feeders))
+}
 
 func isValidApiKey(clientApiKey uuid.UUID) bool {
 	// return true of api key clientApiKey is a valid feeder in atc
@@ -73,17 +75,13 @@ func getFeederInfo(f *feederClient) error {
 	return nil
 }
 
-type updateFeederDBConfig struct {
-	updateFreq time.Duration // how often to refresh feeder DB from ATC
-	atcUrl     string        // ATC API URL
-	atcUser    string        // ATC API Username
-	atcPass    string        // ATC API Password
-
-	stop   bool // set to true to stop goroutine, use mutex below for sync
-	stopMu sync.Mutex
+// to allow overriding for testing
+var getDataFromATCMu sync.RWMutex
+var getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+	return atc.GetFeeders(&atc.Server{Url: *atcurl, Username: atcuser, Password: atcpass})
 }
 
-func updateFeederDB(conf *updateFeederDBConfig) {
+func updateFeederDB(conf *FeedProxyConfig) {
 	// updates validFeeders with data from atc
 
 	log := log.With().
@@ -96,11 +94,12 @@ func updateFeederDB(conf *updateFeederDBConfig) {
 
 		// sleep for updateFreq
 		if !firstRun {
-			time.Sleep(conf.updateFreq)
+			time.Sleep(conf.UpdateFrequency)
 		} else {
 			firstRun = false
 		}
 
+		// check to stop
 		conf.stopMu.Lock()
 		if conf.stop {
 			conf.stopMu.Unlock()
@@ -109,26 +108,22 @@ func updateFeederDB(conf *updateFeederDBConfig) {
 		conf.stopMu.Unlock()
 
 		// get data from atc
-		atcUrl, err := url.Parse(conf.atcUrl)
-		if err != nil {
-			log.Error().Msg("--atcurl is invalid")
-			continue
-		}
-		s := atc.Server{
-			Url:      *atcUrl,
-			Username: conf.atcUser,
-			Password: conf.atcPass,
-		}
-		f, err := atc.GetFeeders(&s)
+		getDataFromATCMu.RLock()
+		f, err := getDataFromATC(
+			conf.atcUrl,
+			conf.ATCUser,
+			conf.ATCPass,
+		)
 		if err != nil {
 			log.Err(err).Msg("error updating feeder cache from atc")
-			continue
 		}
+		getDataFromATCMu.RUnlock()
+
+		// get uuids
 		var newValidFeeders []uuid.UUID
 		count := 0
 		for _, v := range f.Feeders {
 			newValidFeeders = append(newValidFeeders, v.ApiKey)
-			// log.Debug().Str("ApiKey", v.ApiKey.String()).Msg("added feeder")
 			count += 1
 		}
 
