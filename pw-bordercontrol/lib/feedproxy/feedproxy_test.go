@@ -311,377 +311,447 @@ func TestFeedProxy(t *testing.T) {
 	})
 
 	// ---
+	t.Run("ProxyConnection", func(t *testing.T) {
 
-	t.Run("ProxyConnection MLAT", func(t *testing.T) {
+		t.Run("error too-frequent incoming connections", func(t *testing.T) {
 
-		stopListener := make(chan bool)
-		stopServer := make(chan bool)
-		testsFinished := make(chan bool)
-
-		testData := "Hello World!"
-
-		wg := sync.WaitGroup{}
-
-		// override functions for testing
-		getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
-		handshakeComplete = func(c net.Conn) bool { return true }
-		RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
-		registerConnectionStats = func(conn stats.Connection) error { return nil }
-		unregisterConnectionStats = func(conn stats.Connection) error { return nil }
-		statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
-		statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
-		authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
-			return feederClient{
-				clientApiKey: TestFeederAPIKey,
-				refLat:       TestFeederLatitude,
-				refLon:       TestFeederLongitude,
-				mux:          TestFeederMux,
-				label:        TestFeederLabel,
-				feederCode:   TestFeederCode,
-			}, nil
-		}
-
-		// create server
-		server, err := net.Listen("tcp4", "127.0.0.1:12346")
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			server.Close()
-		})
-
-		// start server
-		wg.Add(1)
-		go func(t *testing.T) {
-
-			buf := make([]byte, len(testData))
-
-			sconn, err := server.Accept()
-			assert.NoError(t, err)
-			t.Log("server accepts connection")
+			conn1, conn2 := net.Pipe()
 			t.Cleanup(func() {
-				sconn.Close()
+				conn1.Close()
+			})
+			t.Cleanup(func() {
+				conn2.Close()
+			})
+			conn3, conn4 := net.Pipe()
+			t.Cleanup(func() {
+				conn3.Close()
+			})
+			t.Cleanup(func() {
+				conn4.Close()
 			})
 
-			t.Log("server sets deadline")
-			err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
-			assert.NoError(t, err)
-
-			n, err := readFromClient(sconn, buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
-			t.Logf("server read from client: %s", string(buf[:n]))
-
-			n, err = sconn.Write(buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
-			t.Logf("server write to client: %s", string(buf[:n]))
-
-			testsFinished <- true
-			_ = <-stopServer
-
-			sconn.Close()
-
-			wg.Done()
-
-		}(t)
-
-		// create listener
-		listener, err := nettest.NewLocalListener("tcp")
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			listener.Close()
-		})
-
-		// start listener
-		wg.Add(1)
-		go func(t *testing.T) {
-
-			lconn, err := listener.Accept()
-			assert.NoError(t, err)
-			t.Log("listener accepts connection")
-			t.Cleanup(func() {
-				lconn.Close()
-			})
-
-			err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
-			assert.NoError(t, err)
-			t.Log("listener sets deadline")
-
-			t.Log("listener GetConnectionNumber")
-			connNum, err := GetConnectionNumber()
-			assert.NoError(t, err)
-
-			c := ProxyConnection{
-				Connection:                  lconn,
+			c1 := ProxyConnection{
+				Connection:                  conn1,
 				ConnectionProtocol:          feedprotocol.MLAT,
-				ConnectionNumber:            connNum,
 				FeedInContainerPrefix:       "test-feed-in-",
 				FeederValidityCheckInterval: time.Second * 5,
 			}
-			t.Log("listener starts proxy")
-			err = c.Start()
-			t.Log("proxy returns")
+			err := c1.Start()
 			assert.NoError(t, err)
-
-			testsFinished <- true
-			_ = <-stopListener
-
-			c.Stop()
-
-			wg.Done()
-
-		}(t)
-
-		time.Sleep(time.Second)
-
-		// start client
-		t.Log("client dials listener")
-		conn, err := net.Dial("tcp", listener.Addr().String())
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			conn.Close()
-		})
-		time.Sleep(time.Second)
-
-		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
-		assert.NoError(t, err)
-
-		n, err := conn.Write([]byte(testData))
-		assert.NoError(t, err)
-		assert.Equal(t, len(testData), n)
-		t.Logf("client writes data: %s", testData)
-		time.Sleep(time.Second)
-
-		buf := make([]byte, len(testData))
-		n, err = conn.Read(buf)
-		assert.NoError(t, err)
-		assert.Equal(t, len(testData), n)
-		t.Logf("client reads data: %s", string(buf[:n]))
-		time.Sleep(time.Second)
-
-		// allow feeder validity check to happen
-		t.Log("waiting for feeder validity check")
-		time.Sleep(time.Second * 10)
-
-		// make feeder invalid
-		t.Log("making feeder invalid")
-		getDataFromATCMu.Lock()
-		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
-			f := atc.Feeders{
-				Feeders: []atc.Feeder{},
-			}
-			return f, nil
-		}
-		getDataFromATCMu.Unlock()
-
-		// allow feeder validity check to happen
-		t.Log("waiting for feeder validity check")
-		time.Sleep(time.Second * 10)
-
-		// todo - check feeder connection no longer working / valid
-
-		// wait for all tests
-		_ = <-testsFinished
-		_ = <-testsFinished
-
-		// clean up
-		stopServer <- true
-		stopListener <- true
-		wg.Wait()
-
-	})
-
-	// restore original function
-	getDataFromATCMu.Lock()
-	getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
-		f := atc.Feeders{
-			Feeders: []atc.Feeder{
-				{
-					ApiKey:     TestFeederAPIKey,
-					Latitude:   TestFeederLatitude,
-					Longitude:  TestFeederLongitude,
-					Mux:        TestFeederMux,
-					Label:      TestFeederLabel,
-					FeederCode: TestFeederCode,
-				},
-			},
-		}
-		return f, nil
-	}
-	getDataFromATCMu.Unlock()
-
-	t.Run("ProxyConnection BEAST", func(t *testing.T) {
-
-		stopListener := make(chan bool)
-		stopServer := make(chan bool)
-		testsFinished := make(chan bool)
-
-		testData := "Hello World!"
-
-		wg := sync.WaitGroup{}
-
-		// override functions for testing
-		getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
-		handshakeComplete = func(c net.Conn) bool { return true }
-		RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
-		registerConnectionStats = func(conn stats.Connection) error { return nil }
-		unregisterConnectionStats = func(conn stats.Connection) error { return nil }
-		statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
-		statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
-		authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
-			return feederClient{
-				clientApiKey: TestFeederAPIKey,
-				refLat:       TestFeederLatitude,
-				refLon:       TestFeederLongitude,
-				mux:          TestFeederMux,
-				label:        TestFeederLabel,
-				feederCode:   TestFeederCode,
-			}, nil
-		}
-
-		// create server
-		server, err := nettest.NewLocalListener("tcp4")
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			server.Close()
-		})
-
-		// start server
-		wg.Add(1)
-		go func(t *testing.T) {
-
-			buf := make([]byte, len(testData))
-
-			sconn, err := server.Accept()
-			assert.NoError(t, err)
-			t.Log("server accepts connection")
 			t.Cleanup(func() {
-				sconn.Close()
+				c1.Stop()
 			})
 
-			t.Log("server sets deadline")
-			err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
+			c2 := ProxyConnection{
+				Connection:                  conn2,
+				ConnectionProtocol:          feedprotocol.MLAT,
+				FeedInContainerPrefix:       "test-feed-in-",
+				FeederValidityCheckInterval: time.Second * 5,
+			}
+			err = c2.Start()
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				c2.Stop()
+			})
+
+			c3 := ProxyConnection{
+				Connection:                  conn3,
+				ConnectionProtocol:          feedprotocol.MLAT,
+				FeedInContainerPrefix:       "test-feed-in-",
+				FeederValidityCheckInterval: time.Second * 5,
+			}
+			err = c3.Start()
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				c3.Stop()
+			})
+
+			c4 := ProxyConnection{
+				Connection:                  conn4,
+				ConnectionProtocol:          feedprotocol.MLAT,
+				FeedInContainerPrefix:       "test-feed-in-",
+				FeederValidityCheckInterval: time.Second * 5,
+			}
+			err = c4.Start()
+			assert.Error(t, err)
+			t.Cleanup(func() {
+				c4.Stop()
+			})
+
+		})
+
+		t.Run("MLAT", func(t *testing.T) {
+
+			stopListener := make(chan bool)
+			stopServer := make(chan bool)
+			testsFinished := make(chan bool)
+
+			testData := "Hello World!"
+
+			wg := sync.WaitGroup{}
+
+			// override functions for testing
+			getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
+			handshakeComplete = func(c net.Conn) bool { return true }
+			RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
+			registerConnectionStats = func(conn stats.Connection) error { return nil }
+			unregisterConnectionStats = func(conn stats.Connection) error { return nil }
+			statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
+			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+			authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
+				return feederClient{
+					clientApiKey: TestFeederAPIKey,
+					refLat:       TestFeederLatitude,
+					refLon:       TestFeederLongitude,
+					mux:          TestFeederMux,
+					label:        TestFeederLabel,
+					feederCode:   TestFeederCode,
+				}, nil
+			}
+
+			// create server
+			server, err := net.Listen("tcp4", "127.0.0.1:12346")
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				server.Close()
+			})
+
+			// start server
+			wg.Add(1)
+			go func(t *testing.T) {
+
+				buf := make([]byte, len(testData))
+
+				sconn, err := server.Accept()
+				assert.NoError(t, err)
+				t.Log("server accepts connection")
+				t.Cleanup(func() {
+					sconn.Close()
+				})
+
+				t.Log("server sets deadline")
+				err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
+				assert.NoError(t, err)
+
+				n, err := readFromClient(sconn, buf)
+				assert.NoError(t, err)
+				assert.Equal(t, len(testData), n)
+				t.Logf("server read from client: %s", string(buf[:n]))
+
+				n, err = sconn.Write(buf)
+				assert.NoError(t, err)
+				assert.Equal(t, len(testData), n)
+				t.Logf("server write to client: %s", string(buf[:n]))
+
+				testsFinished <- true
+				_ = <-stopServer
+
+				sconn.Close()
+
+				wg.Done()
+
+			}(t)
+
+			// create listener
+			listener, err := nettest.NewLocalListener("tcp")
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				listener.Close()
+			})
+
+			// start listener
+			wg.Add(1)
+			go func(t *testing.T) {
+
+				lconn, err := listener.Accept()
+				assert.NoError(t, err)
+				t.Log("listener accepts connection")
+				t.Cleanup(func() {
+					lconn.Close()
+				})
+
+				err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
+				assert.NoError(t, err)
+				t.Log("listener sets deadline")
+
+				t.Log("listener GetConnectionNumber")
+				connNum, err := GetConnectionNumber()
+				assert.NoError(t, err)
+
+				c := ProxyConnection{
+					Connection:                  lconn,
+					ConnectionProtocol:          feedprotocol.MLAT,
+					ConnectionNumber:            connNum,
+					FeedInContainerPrefix:       "test-feed-in-",
+					FeederValidityCheckInterval: time.Second * 5,
+				}
+				t.Log("listener starts proxy")
+				err = c.Start()
+				t.Log("proxy returns")
+				assert.NoError(t, err)
+
+				testsFinished <- true
+				_ = <-stopListener
+
+				c.Stop()
+
+				wg.Done()
+
+			}(t)
+
+			time.Sleep(time.Second)
+
+			// start client
+			t.Log("client dials listener")
+			conn, err := net.Dial("tcp", listener.Addr().String())
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				conn.Close()
+			})
+			time.Sleep(time.Second)
+
+			err = conn.SetDeadline(time.Now().Add(time.Second * 30))
 			assert.NoError(t, err)
 
-			n, err := readFromClient(sconn, buf)
+			n, err := conn.Write([]byte(testData))
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
-			t.Logf("server read from client: %s", string(buf[:n]))
+			t.Logf("client writes data: %s", testData)
+			time.Sleep(time.Second)
 
-			testsFinished <- true
-			_ = <-stopServer
-
-			sconn.Close()
-
-			wg.Done()
-
-		}(t)
-
-		// create listener
-		listener, err := nettest.NewLocalListener("tcp")
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			listener.Close()
-		})
-
-		// start listener
-		wg.Add(1)
-		go func(t *testing.T) {
-
-			lconn, err := listener.Accept()
+			buf := make([]byte, len(testData))
+			n, err = conn.Read(buf)
 			assert.NoError(t, err)
-			t.Log("listener accepts connection")
-			t.Cleanup(func() {
-				lconn.Close()
-			})
+			assert.Equal(t, len(testData), n)
+			t.Logf("client reads data: %s", string(buf[:n]))
+			time.Sleep(time.Second)
 
-			err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
-			assert.NoError(t, err)
-			t.Log("listener sets deadline")
+			// allow feeder validity check to happen
+			t.Log("waiting for feeder validity check")
+			time.Sleep(time.Second * 10)
 
-			t.Log("listener GetConnectionNumber")
-			connNum, err := GetConnectionNumber()
-			assert.NoError(t, err)
-
-			// redirect connection to feed-in container to test server
-			dialContainerTCPWrapper = func(addr string, port int) (c *net.TCPConn, err error) {
-				addr = strings.Split(server.Addr().String(), ":")[0]
-				port, err = strconv.Atoi(strings.Split(server.Addr().String(), ":")[1])
-				if err != nil {
-					return c, err
+			// make feeder invalid
+			t.Log("making feeder invalid")
+			getDataFromATCMu.Lock()
+			getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+				f := atc.Feeders{
+					Feeders: []atc.Feeder{},
 				}
-				return dialContainerTCP(addr, port)
+				return f, nil
 			}
+			getDataFromATCMu.Unlock()
 
-			c := ProxyConnection{
-				Connection:                  lconn,
-				ConnectionProtocol:          feedprotocol.BEAST,
-				ConnectionNumber:            connNum,
-				FeedInContainerPrefix:       "test-feed-in-",
-				FeederValidityCheckInterval: time.Second * 5,
-			}
-			t.Log("listener starts proxy")
-			err = c.Start()
-			t.Log("proxy returns")
-			assert.NoError(t, err)
+			// allow feeder validity check to happen
+			t.Log("waiting for feeder validity check")
+			time.Sleep(time.Second * 10)
 
-			testsFinished <- true
-			_ = <-stopListener
+			// todo - check feeder connection no longer working / valid
 
-			c.Stop()
+			// wait for all tests
+			_ = <-testsFinished
+			_ = <-testsFinished
 
-			wg.Done()
+			// clean up
+			stopServer <- true
+			stopListener <- true
+			wg.Wait()
 
-		}(t)
-
-		time.Sleep(time.Second)
-
-		// start client
-		t.Log("client dials listener")
-		conn, err := net.Dial("tcp", listener.Addr().String())
-		assert.NoError(t, err)
-		t.Cleanup(func() {
-			conn.Close()
 		})
-		time.Sleep(time.Second)
 
-		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
-		assert.NoError(t, err)
-
-		n, err := conn.Write([]byte(testData))
-		assert.NoError(t, err)
-		assert.Equal(t, len(testData), n)
-		t.Logf("client writes data: %s", testData)
-		time.Sleep(time.Second)
-
-		// allow feeder validity check to happen
-		t.Log("waiting for feeder validity check")
-		time.Sleep(time.Second * 10)
-
-		// make feeder invalid
-		t.Log("making feeder invalid")
+		// restore original function
 		getDataFromATCMu.Lock()
 		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
 			f := atc.Feeders{
-				Feeders: []atc.Feeder{},
+				Feeders: []atc.Feeder{
+					{
+						ApiKey:     TestFeederAPIKey,
+						Latitude:   TestFeederLatitude,
+						Longitude:  TestFeederLongitude,
+						Mux:        TestFeederMux,
+						Label:      TestFeederLabel,
+						FeederCode: TestFeederCode,
+					},
+				},
 			}
 			return f, nil
 		}
 		getDataFromATCMu.Unlock()
 
-		// allow feeder validity check to happen
-		t.Log("waiting for feeder validity check")
-		time.Sleep(time.Second * 10)
+		t.Run("BEAST", func(t *testing.T) {
 
-		// todo - check feeder connection no longer working / valid
+			stopListener := make(chan bool)
+			stopServer := make(chan bool)
+			testsFinished := make(chan bool)
 
-		// wait for all tests
-		_ = <-testsFinished
-		_ = <-testsFinished
+			testData := "Hello World!"
 
-		// clean up
-		stopServer <- true
-		stopListener <- true
-		wg.Wait()
+			wg := sync.WaitGroup{}
+
+			// override functions for testing
+			getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
+			handshakeComplete = func(c net.Conn) bool { return true }
+			RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
+			registerConnectionStats = func(conn stats.Connection) error { return nil }
+			unregisterConnectionStats = func(conn stats.Connection) error { return nil }
+			statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
+			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+			authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
+				return feederClient{
+					clientApiKey: TestFeederAPIKey,
+					refLat:       TestFeederLatitude,
+					refLon:       TestFeederLongitude,
+					mux:          TestFeederMux,
+					label:        TestFeederLabel,
+					feederCode:   TestFeederCode,
+				}, nil
+			}
+
+			// create server
+			server, err := nettest.NewLocalListener("tcp4")
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				server.Close()
+			})
+
+			// start server
+			wg.Add(1)
+			go func(t *testing.T) {
+
+				buf := make([]byte, len(testData))
+
+				sconn, err := server.Accept()
+				assert.NoError(t, err)
+				t.Log("server accepts connection")
+				t.Cleanup(func() {
+					sconn.Close()
+				})
+
+				t.Log("server sets deadline")
+				err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
+				assert.NoError(t, err)
+
+				n, err := readFromClient(sconn, buf)
+				assert.NoError(t, err)
+				assert.Equal(t, len(testData), n)
+				t.Logf("server read from client: %s", string(buf[:n]))
+
+				testsFinished <- true
+				_ = <-stopServer
+
+				sconn.Close()
+
+				wg.Done()
+
+			}(t)
+
+			// create listener
+			listener, err := nettest.NewLocalListener("tcp")
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				listener.Close()
+			})
+
+			// start listener
+			wg.Add(1)
+			go func(t *testing.T) {
+
+				lconn, err := listener.Accept()
+				assert.NoError(t, err)
+				t.Log("listener accepts connection")
+				t.Cleanup(func() {
+					lconn.Close()
+				})
+
+				err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
+				assert.NoError(t, err)
+				t.Log("listener sets deadline")
+
+				t.Log("listener GetConnectionNumber")
+				connNum, err := GetConnectionNumber()
+				assert.NoError(t, err)
+
+				// redirect connection to feed-in container to test server
+				dialContainerTCPWrapper = func(addr string, port int) (c *net.TCPConn, err error) {
+					addr = strings.Split(server.Addr().String(), ":")[0]
+					port, err = strconv.Atoi(strings.Split(server.Addr().String(), ":")[1])
+					if err != nil {
+						return c, err
+					}
+					return dialContainerTCP(addr, port)
+				}
+
+				c := ProxyConnection{
+					Connection:                  lconn,
+					ConnectionProtocol:          feedprotocol.BEAST,
+					ConnectionNumber:            connNum,
+					FeedInContainerPrefix:       "test-feed-in-",
+					FeederValidityCheckInterval: time.Second * 5,
+				}
+				t.Log("listener starts proxy")
+				err = c.Start()
+				t.Log("proxy returns")
+				assert.NoError(t, err)
+
+				testsFinished <- true
+				_ = <-stopListener
+
+				c.Stop()
+
+				wg.Done()
+
+			}(t)
+
+			time.Sleep(time.Second)
+
+			// start client
+			t.Log("client dials listener")
+			conn, err := net.Dial("tcp", listener.Addr().String())
+			assert.NoError(t, err)
+			t.Cleanup(func() {
+				conn.Close()
+			})
+			time.Sleep(time.Second)
+
+			err = conn.SetDeadline(time.Now().Add(time.Second * 30))
+			assert.NoError(t, err)
+
+			n, err := conn.Write([]byte(testData))
+			assert.NoError(t, err)
+			assert.Equal(t, len(testData), n)
+			t.Logf("client writes data: %s", testData)
+			time.Sleep(time.Second)
+
+			// allow feeder validity check to happen
+			t.Log("waiting for feeder validity check")
+			time.Sleep(time.Second * 10)
+
+			// make feeder invalid
+			t.Log("making feeder invalid")
+			getDataFromATCMu.Lock()
+			getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+				f := atc.Feeders{
+					Feeders: []atc.Feeder{},
+				}
+				return f, nil
+			}
+			getDataFromATCMu.Unlock()
+
+			// allow feeder validity check to happen
+			t.Log("waiting for feeder validity check")
+			time.Sleep(time.Second * 10)
+
+			// todo - check feeder connection no longer working / valid
+
+			// wait for all tests
+			_ = <-testsFinished
+			_ = <-testsFinished
+
+			// clean up
+			stopServer <- true
+			stopListener <- true
+			wg.Wait()
+
+		})
 
 	})
 
