@@ -54,9 +54,25 @@ func TestPrepListenerConfig(t *testing.T) {
 }
 
 func TestPrepListenerConfig_Invalid_Addr(t *testing.T) {
-
+	// https://stackoverflow.com/questions/36938520/use-go-test-to-list-all-tests-case
 	if os.Getenv("BE_CRASHER") == "1" {
-		testListenAddr := "" // invalid
+		testListenAddr := "" // invalid addr
+		_ = prepListenerConfig(testListenAddr, feedprotocol.MLAT, "")
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestPrepListenerConfig_Invalid_Addr")
+	cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+	err := cmd.Run()
+	if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+		return
+	}
+	t.Fatalf("process ran with err %v, want exit status 1", err)
+}
+
+func TestPrepListenerConfig_Invalid_Port(t *testing.T) {
+	// https://stackoverflow.com/questions/36938520/use-go-test-to-list-all-tests-case
+	if os.Getenv("BE_CRASHER") == "1" {
+		testListenAddr := "1.2.3.4:66000" // invalid port
 		_ = prepListenerConfig(testListenAddr, feedprotocol.MLAT, "")
 	}
 
