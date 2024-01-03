@@ -68,6 +68,10 @@ var (
 	statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error {
 		return stats.IncrementByteCounters(uuid, connNum, bytesIn, bytesOut)
 	}
+	startFeedInContainer    = func(c *containers.FeedInContainer) (containerID string, err error) { return c.Start() }
+	dialContainerTCPWrapper = func(addr string, port int) (c *net.TCPConn, err error) {
+		return dialContainerTCP(addr, port)
+	}
 )
 
 func GetConnectionNumber() (num uint, err error) {
@@ -616,13 +620,13 @@ func (c *ProxyConnection) Start() error {
 			FeederCode: clientDetails.feederCode,
 			Addr:       remoteIP,
 		}
-		_, err := feedInContainer.Start()
+		_, err := startFeedInContainer(&feedInContainer)
 		if err != nil {
 			log.Err(err).Msg(fmt.Sprintf("could not start %s", dstContainerName))
 		}
 
 		// connect to feed-in container
-		connOut, err = dialContainerTCP(fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
+		connOut, err = dialContainerTCPWrapper(fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
 		if err != nil {
 			// handle connection errors to feed-in container
 			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
