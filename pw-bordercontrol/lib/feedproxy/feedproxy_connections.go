@@ -219,11 +219,11 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 
 func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) {
 
-	log := log.With().
-		Strs("func", []string{"feeder_conn.go", "lookupContainerTCP"}).
-		Str("container", container).
-		Int("port", port).
-		Logger()
+	// log := log.With().
+	// 	Strs("func", []string{"feeder_conn.go", "lookupContainerTCP"}).
+	// 	Str("container", container).
+	// 	Int("port", port).
+	// 	Logger()
 
 	// log.Trace().Msg("started")
 
