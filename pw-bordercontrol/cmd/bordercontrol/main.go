@@ -145,6 +145,13 @@ var (
 				Required: true,
 				EnvVars:  []string{"PW_INGEST_SINK"},
 			},
+			&cli.StringFlag{
+				Category: "NATS",
+				Name:     "natsurl",
+				Usage:    "NATS URL for stats/control",
+				Value:    "",
+				EnvVars:  []string{"NATS_URL"},
+			},
 		},
 	}
 
@@ -266,7 +273,7 @@ func runServer(ctx *cli.Context) error {
 	go logNumGoroutines(time.Minute*5, logNumGoroutinesStopChan)
 
 	// start statistics manager
-	err = stats.Init(ctx.String("listenapi"))
+	err = stats.Init(ctx.String("listenapi"), "")
 	if err != nil {
 		log.Err(err).Msg("could not start statistics manager")
 		return err

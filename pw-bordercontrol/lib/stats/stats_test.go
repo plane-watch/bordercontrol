@@ -168,7 +168,7 @@ func TestStats(t *testing.T) {
 	})
 
 	// initialising stats subsystem
-	Init(testAddr)
+	Init(testAddr, "")
 
 	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST

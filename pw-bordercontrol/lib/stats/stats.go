@@ -612,7 +612,7 @@ func registerPerFeederCounterVecs() error {
 	return nil
 }
 
-func Init(addr string) error {
+func Init(addr, natsUrl string) error {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
@@ -629,6 +629,11 @@ func Init(addr string) error {
 	err := registerPerFeederCounterVecs()
 	if err != nil {
 		return err
+	}
+
+	// init NATS
+	if natsUrl != "" {
+		initNats(natsUrl)
 	}
 
 	// set initialised
