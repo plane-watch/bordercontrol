@@ -59,8 +59,8 @@ func TestListener(t *testing.T) {
 	l, err := nettest.NewLocalListener("tcp")
 	assert.NoError(t, err)
 
-	ip := strings.Split(l.Addr().Network(), ":")[0]
-	port, err := strconv.Atoi(strings.Split(l.Addr().Network(), ":")[1])
+	ip := strings.Split(l.Addr().String(), ":")[0]
+	port, err := strconv.Atoi(strings.Split(l.Addr().String(), ":")[1])
 	assert.NoError(t, err)
 
 	l.Close()
