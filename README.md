@@ -27,64 +27,73 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
   * bordercontrol expects the SSL SNI sent from the client to be the feeder's "API key" (a UUID)
   * SNIs in incoming connections are checked against a list of valid UUIDs pulled from ATC.
   * Connections with invalid SNIs are rejected.
-* Builds and starts regional BEAST multiplexers / MLAT servers
-* Builds "feed-in" container image
+* Builds and starts regional MLAT servers (muxes)
+* Builds and manages "feed-in" container image
 * When feeders connect:
   * A "feed-in" container is automatically created and started for the specific feeder, which:
-    * Runs `readsb`
-    * Runs `pw_ingest` which connects to `readsb` and puts the position data into NATS
-    * For the old environment, forwards BEAST data into the regional mux
+    * Runs `pw_ingest` which receives and decodes `BEAST` and puts the position data into NATS
   * BEAST data is sent to the "feed-in" container
-  * MLAT connections are proxied to `mlat-server` running on the regional mux
+  * MLAT connections are proxied to `mlat-server` instances
 
 ## Operations
 
 ### Statistics
 
+Bordercontrol listens on TCP port `8080` for http requests
+
 #### Human Readable
 
-Bordercontrol listens on TCP port `8080` for http requests, and will display a simple HTML table of feeders with statistics.
+Bordercontrol will display a simple HTML table of feeders with statistics at `http://dockerhost:8080`
 
 #### API
 
-Bordercontrol supports the following API calls:
+Bordercontrol supports the following API calls to `http://dockerhost:8080`:
 
-| Query Type | URL Path | Returns |
-| ---------- | -------- | ------- |
-| `GET` | `/api/v1/feeder/<UUID>` | Statistics for single feeder by UUID |
-| `GET` | `/api/v1/feeders/` | Statistics for all feeders |
+| Query Type | URL Path                | Returns                              |
+|------------|-------------------------|--------------------------------------|
+| `GET`      | `/api/v1/feeder/<UUID>` | Statistics for single feeder by UUID |
+| `GET`      | `/api/v1/feeders/`      | Statistics for all feeders           |
 
 These queries return a JSON object with keys `Data` and `Error`. If `Error == ""`, then the `Data` key should contain the requested data. If `Error != ""`, then the error details are contained within `Error` and any data in `Data` should be discarded.
 
 #### Prometheus Metrics
 
-Prometheus metrics are published at `/metrics`.
+Prometheus metrics are published at `http://dockerhost:8080/metrics`.
 
 ### Configuring the environment
 
 In the root of the repository, create a `.env` file containing the following:
 
-| Environment Variable | Description | Example |
-| -------------------- | ----------- | ------- |
-| `ATC_URL` | URL to ATC API | `http://10.0.6.2:3000` |
-| `ATC_USER` | Username/email for ATC API | `controltower@plane.watch` |
-| `ATC_PASS` | Password for ATC API | REDACTED |
-| `BC_CERT_FILE` | Path (within the bordercontrol container) of the X509 cert | `/etc/ssl/private/push.plane.watch/fullchain.pem` |
-| `BC_KEY_FILE` | Path (within the bordercontrol container) of the X509 key | `/etc/ssl/private/push.plane.watch/privkey.pem` |
-| `PW_INGEST_SINK` | URL passed through to `pw_ingest` in feed-in containers | `nats://nats-ingest.plane.watch:4222` |
+| Environment Variable        | CLI Flag Equiv.            | R/O | Description                                                                    | Example                                           |
+|-----------------------------|----------------------------|--------------------------------------------------------------------------------|---------------------------------------------------|
+| `ATC_UPDATE_FREQ`           | `--atcupdatefreq`          | O | Frequency (in minutes) for valid feeder updates from ATC                       | 1                                                 |
+| `ATC_URL`                   | `--atcurl`                 | R |URL to ATC API                                                                 | `http://10.0.6.2:3000`                            |
+| `ATC_USER`                  | `--atcuser`                | R |Username/email for ATC API                                                     | `controltower@plane.watch`                        |
+| `ATC_PASS`                  | `--atcpass`                | R |Password for ATC API                                                           | REDACTED                                          |
+| `BC_CERT_FILE`              | `--cert`                   | O |Path (within the bordercontrol container) of the X509 cert                     | `/etc/ssl/private/push.plane.watch/fullchain.pem` |
+| `BC_KEY_FILE`               | `--key`                    | O |Path (within the bordercontrol container) of the X509 key                      | `/etc/ssl/private/push.plane.watch/privkey.pem`   |
+| `BC_LISTEN_API`             | `--listenapi`              | O |Address and TCP port server will listen on for API, stats & Prometheus metrics | `0.0.0.0:8080`                                    |
+| `BC_LISTEN_BEAST`           | `--listenbeast`            | O |Address and TCP port to listen on for BEAST connections                        | `0.0.0.0:12345`                                   |
+| `BC_LISTEN_MLAT`            | `--listenmlat`             | O |Address and TCP port to listen on for MLAT connections                         | `0.0.0.0:12346`                                   |
+| `FEED_IN_CONTAINER_PREFIX`  | `--feedincontainerprefix`  | O |Feed-in container prefix                                                       | `feed-in-`                                        |
+| `FEED_IN_CONTAINER_NETWORK` | `--feedincontainernetwork` |O | Feed-in container network                                                      | `bordercontrol_feeder`                            |
+| `FEED_IN_IMAGE`             | `--feedinimage`            |O | Feed-in image name                                                             | `feed-in`                                         |
+| `PW_INGEST_SINK`            | `--pwingestpublish`        | R | URL passed through to `pw_ingest` in feed-in containers                        | `nats://nats-ingest.plane.watch:4222`             |
+
+*O = **O**ptional, R = **R**equired*
 
 Example:
 
 ```bash
 # ATC API connection details
-ATC_URL=http://10.0.6.2:3000
-ATC_USER=controltower@plane.watch
+ATC_URL=http://atc.yourdomain.tld:3000
+ATC_USER=REDACTED
 ATC_PASS=REDACTED
 # SSL Key/Cert
-BC_CERT_FILE=/etc/ssl/private/push.plane.watch/fullchain.pem
-BC_KEY_FILE=/etc/ssl/private/push.plane.watch/privkey.pem
+BC_CERT_FILE=/path/to/fullchain.pem
+BC_KEY_FILE=/path/to/privkey.pem
 # pw_ingest
-PW_INGEST_SINK=nats://nats-ingest.plane.watch:4222
+PW_INGEST_SINK=nats://nats-ingest.youdomain.tld:4222
 ```
 
 Create a the `docker-compose-local.yml` file (see the example), under `services:` -> `bordercontrol:`, ensure the path holding SSL certs/keys is mapped as a volume.
@@ -93,9 +102,9 @@ Create a the `docker-compose-local.yml` file (see the example), under `services:
 
 Bordercontrol supports receiving some signals:
 
-| Signal    | What it Does |
-| --------- | ------------ |
-| `SIGHUP`  | Reload SSL certificate(s) |
+| Signal    | What it Does                        |
+|-----------|-------------------------------------|
+| `SIGHUP`  | Reload SSL certificate(s)           |
 | `SIGUSR1` | Skip feed-in container update delay |
 
 ### Starting the environment
@@ -136,7 +145,6 @@ Healthchecks are run within the feed-in containers.
 The healthcheck will check the following:
 
 * Checks BEAST connection inbound from bordercontrol
-* Checks BEAST connection outbound to mux
 * Checks NATS connection outbound
 
 If any of the above checks fail, the container is marked as unhealthy.

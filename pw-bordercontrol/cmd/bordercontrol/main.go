@@ -56,13 +56,13 @@ var (
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "listenbeast",
-				Usage:   "Address and TCP port server will listen on for BEAST connections",
+				Usage:   "Address and TCP port to listen on for BEAST connections",
 				Value:   "0.0.0.0:12345", // insert Spaceballs joke here
 				EnvVars: []string{"BC_LISTEN_BEAST"},
 			},
 			&cli.StringFlag{
 				Name:    "listenmlat",
-				Usage:   "Address and TCP port server will listen on for MLAT connections",
+				Usage:   "Address and TCP port to listen on for MLAT connections",
 				Value:   "0.0.0.0:12346",
 				EnvVars: []string{"BC_LISTEN_MLAT"},
 			},
