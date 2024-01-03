@@ -250,9 +250,6 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 			err = errors.New("container DNS lookup returned no IPv4 addresses")
 		}
 
-		// update logger with IP address
-		log = log.With().IPAddr("ip", dstIP).Logger()
-
 		// prep address to connect to
 		n = &net.TCPAddr{
 			IP:   dstIP,
