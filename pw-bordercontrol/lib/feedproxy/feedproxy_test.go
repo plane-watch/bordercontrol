@@ -430,6 +430,7 @@ func TestFeedProxy(t *testing.T) {
 		t.Cleanup(func() {
 			conn.Close()
 		})
+		time.Sleep(time.Second)
 
 		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
 		assert.NoError(t, err)
@@ -438,12 +439,14 @@ func TestFeedProxy(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, len(testData), n)
 		t.Logf("client writes data: %s", testData)
+		time.Sleep(time.Second)
 
 		buf := make([]byte, len(testData))
 		n, err = conn.Read(buf)
 		assert.NoError(t, err)
 		assert.Equal(t, len(testData), n)
 		t.Logf("client reads data: %s", string(buf[:n]))
+		time.Sleep(time.Second)
 
 		// allow feeder validity check to happen
 		t.Log("waiting for feeder validity check")
@@ -629,6 +632,7 @@ func TestFeedProxy(t *testing.T) {
 		t.Cleanup(func() {
 			conn.Close()
 		})
+		time.Sleep(time.Second)
 
 		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
 		assert.NoError(t, err)
@@ -637,6 +641,7 @@ func TestFeedProxy(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, len(testData), n)
 		t.Logf("client writes data: %s", testData)
+		time.Sleep(time.Second)
 
 		// allow feeder validity check to happen
 		t.Log("waiting for feeder validity check")
