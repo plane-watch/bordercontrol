@@ -160,9 +160,9 @@ func main() {
 	logging.ConfigureForCli()
 
 	// runs before runServer() is called
-	app.Before = func(ctx *cli.Context) error {
-		return nil
-	}
+	// app.Before = func(ctx *cli.Context) error {
+	// 	return nil
+	// }
 
 	// Final exit
 	if err := app.Run(os.Args); nil != err {
