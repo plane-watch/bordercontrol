@@ -11,11 +11,17 @@ var natsStatsFeeder chan *nats.Msg
 
 func initNats(natsUrl string) {
 
+	log := log.With().
+		Str("func", "initNats").
+		Str("natsurl", natsUrl).
+		Logger()
+
 	// make chans & start chan handlers
 	natsStatsFeeder = make(chan *nats.Msg)
 	go natsStatsFeederHandler(natsStatsFeeder)
 
 	// connect to NATS
+	log.Debug().Msg("connecting to NATS")
 	nc, err := nats.Connect(natsUrl)
 	if err != nil {
 		log.Err(err).Msg("could not connect")
@@ -23,9 +29,10 @@ func initNats(natsUrl string) {
 	defer nc.Close()
 
 	// subscribe to pw_bordercontrol.stats.feeder
+	log.Debug().Msg("subscribe to pw_bordercontrol.stats.feeder")
 	_, err = nc.ChanSubscribe("pw_bordercontrol.stats.feeder", natsStatsFeeder)
 	if err != nil {
-		log.Err(err).Msg("could not connect")
+		log.Err(err).Msg("could not subscribe")
 	}
 
 	for {
