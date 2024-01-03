@@ -33,30 +33,6 @@ func TestGetRepoInfo(t *testing.T) {
 	assert.Equal(t, "unknown", ct)
 }
 
-// func TestCreateSignalChannels(t *testing.T) {
-
-// 	// create signal channels
-// 	t.Log("create signal channels")
-// 	createSignalChannels()
-
-// 	// send SIGHUP
-// 	t.Log("send SIGHUP")
-// 	err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
-// 	assert.NoError(t, err)
-
-// 	// check SIGHUP was received
-// 	t.Log("check SIGHUP was received")
-// 	select {
-// 	case <-time.After(time.Second * 5):
-// 		assert.Fail(t, "timeout reading chanSIGHUP")
-// 	case s := <-chanSIGHUP:
-// 		assert.Equal(t, syscall.SIGHUP, s)
-// 		t.Log("it was")
-// 	}
-
-// 	t.Log("test complete")
-// }
-
 // func TestListener(t *testing.T) {
 
 // 	err := PrepTestEnvironmentTLSCertAndKey()
