@@ -315,6 +315,8 @@ func TestFeedProxy(t *testing.T) {
 
 		t.Run("error too-frequent incoming connections", func(t *testing.T) {
 
+			wg := sync.WaitGroup{}
+
 			conn1, conn2 := net.Pipe()
 			t.Cleanup(func() {
 				conn1.Close()
@@ -336,11 +338,6 @@ func TestFeedProxy(t *testing.T) {
 				FeedInContainerPrefix:       "test-feed-in-",
 				FeederValidityCheckInterval: time.Second * 5,
 			}
-			err := c1.Start()
-			assert.NoError(t, err)
-			t.Cleanup(func() {
-				c1.Stop()
-			})
 
 			c2 := ProxyConnection{
 				Connection:                  conn2,
@@ -348,11 +345,6 @@ func TestFeedProxy(t *testing.T) {
 				FeedInContainerPrefix:       "test-feed-in-",
 				FeederValidityCheckInterval: time.Second * 5,
 			}
-			err = c2.Start()
-			assert.NoError(t, err)
-			t.Cleanup(func() {
-				c2.Stop()
-			})
 
 			c3 := ProxyConnection{
 				Connection:                  conn3,
@@ -360,11 +352,6 @@ func TestFeedProxy(t *testing.T) {
 				FeedInContainerPrefix:       "test-feed-in-",
 				FeederValidityCheckInterval: time.Second * 5,
 			}
-			err = c3.Start()
-			assert.NoError(t, err)
-			t.Cleanup(func() {
-				c3.Stop()
-			})
 
 			c4 := ProxyConnection{
 				Connection:                  conn4,
@@ -372,11 +359,44 @@ func TestFeedProxy(t *testing.T) {
 				FeedInContainerPrefix:       "test-feed-in-",
 				FeederValidityCheckInterval: time.Second * 5,
 			}
-			err = c4.Start()
-			assert.Error(t, err)
-			t.Cleanup(func() {
-				c4.Stop()
-			})
+
+			// make connections
+			wg.Add(1)
+			go func(t *testing.T) {
+				err := c1.Start()
+				assert.NoError(t, err)
+				t.Cleanup(func() {
+					c1.Stop()
+				})
+				wg.Done()
+			}(t)
+			wg.Add(1)
+			go func(t *testing.T) {
+				err := c2.Start()
+				assert.NoError(t, err)
+				t.Cleanup(func() {
+					c2.Stop()
+				})
+				wg.Done()
+			}(t)
+			wg.Add(1)
+			go func(t *testing.T) {
+				err := c3.Start()
+				assert.NoError(t, err)
+				t.Cleanup(func() {
+					c3.Stop()
+				})
+				wg.Done()
+			}(t)
+			wg.Add(1)
+			go func(t *testing.T) {
+				err := c4.Start()
+				assert.Error(t, err)
+				t.Cleanup(func() {
+					c4.Stop()
+				})
+				wg.Done()
+			}(t)
 
 		})
 
