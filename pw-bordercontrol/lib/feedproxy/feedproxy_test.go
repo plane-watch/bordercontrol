@@ -331,15 +331,15 @@ func TestFeedProxy(t *testing.T) {
 			err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
 			assert.NoError(t, err)
 
-			t.Log("server read from client")
 			n, err := readFromClient(sconn, buf)
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
+			t.Logf("server read from client: ", string(buf[n]))
 
-			t.Log("server write to client")
 			n, err = sconn.Write(buf)
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
+			t.Log("server write to client: ", string(buf[n]))
 
 			_ = <-stopServer
 
@@ -397,16 +397,18 @@ func TestFeedProxy(t *testing.T) {
 		err = conn.SetDeadline(time.Now().Add(time.Second * 30))
 		assert.NoError(t, err)
 
-		t.Log("client writes data")
 		n, err := conn.Write([]byte(testData))
 		assert.NoError(t, err)
 		assert.Equal(t, len(testData), n)
+		t.Logf("client writes data: ", testData)
 
-		t.Log("client reads data")
 		buf := make([]byte, len(testData))
 		n, err = conn.Read(buf)
 		assert.NoError(t, err)
 		assert.Equal(t, len(testData), n)
+		t.Logf("client reads data: ", string(buf[n]))
+
+		time.Sleep(time.Second * 10)
 
 		stopServer <- true
 		stopListener <- true
