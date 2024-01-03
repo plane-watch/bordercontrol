@@ -362,11 +362,32 @@ type protocolProxyConfig struct {
 	clientApiKey                uuid.UUID         // Client's API Key (from stunnel SNI).
 	mgmt                        *goRoutineManager // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
 	lastAuthCheck               *time.Time        // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
-	log                         zerolog.Logger    // Log. This allows the proxy to inherit a logging context.
-	feederValidityCheckInterval time.Duration     // How often to check the feeder is still valid.
+	lastAuthCheckMu             sync.RWMutex
+	log                         zerolog.Logger // Log. This allows the proxy to inherit a logging context.
+	feederValidityCheckInterval time.Duration  // How often to check the feeder is still valid.
 }
 
-func proxyClientToServer(conf protocolProxyConfig) {
+func feederStillValid(conf *protocolProxyConfig) bool {
+	// checks feeder is still valid every feederValidityCheckInterval
+	conf.lastAuthCheckMu.RLock()
+	if time.Now().After(conf.lastAuthCheck.Add(conf.feederValidityCheckInterval)) {
+		conf.lastAuthCheckMu.RUnlock()
+
+		if !isValidApiKey(conf.clientApiKey) {
+			log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
+			return false
+		}
+
+		conf.lastAuthCheckMu.Lock()
+		*conf.lastAuthCheck = time.Now()
+		conf.lastAuthCheckMu.Unlock()
+	} else {
+		conf.lastAuthCheckMu.RUnlock()
+	}
+	return true
+}
+
+func proxyClientToServer(conf *protocolProxyConfig) {
 	log := conf.log.With().Str("proxy", "ClientToServer").Logger()
 	buf := make([]byte, sendRecvBufferSize)
 	for {
@@ -406,18 +427,15 @@ func proxyClientToServer(conf protocolProxyConfig) {
 			statsIncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
 		}
 
-		// check feeder is still valid (every 60 secs)
-		if time.Now().After(conf.lastAuthCheck.Add(conf.feederValidityCheckInterval)) {
-			if !isValidApiKey(conf.clientApiKey) {
-				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-				break
-			}
-			*conf.lastAuthCheck = time.Now()
+		// check feeder is still valid
+		if !feederStillValid(conf) {
+			break
 		}
+
 	}
 }
 
-func proxyServerToClient(conf protocolProxyConfig) {
+func proxyServerToClient(conf *protocolProxyConfig) {
 	log := conf.log.With().Str("proxy", "ServerToClient").Logger()
 	buf := make([]byte, sendRecvBufferSize)
 	for {
@@ -457,13 +475,9 @@ func proxyServerToClient(conf protocolProxyConfig) {
 			statsIncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
 		}
 
-		// check feeder is still valid (every 60 secs)
-		if time.Now().After(conf.lastAuthCheck.Add(conf.feederValidityCheckInterval)) {
-			if !isValidApiKey(conf.clientApiKey) {
-				log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-				break
-			}
-			*conf.lastAuthCheck = time.Now()
+		// check feeder is still valid
+		if !feederStillValid(conf) {
+			break
 		}
 	}
 }
@@ -693,7 +707,7 @@ func (c *ProxyConnection) Start() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		proxyClientToServer(protoProxyConf)
+		proxyClientToServer(&protoProxyConf)
 
 		// tell other goroutine to exit
 		protoProxyConf.mgmt.Stop()
@@ -710,7 +724,7 @@ func (c *ProxyConnection) Start() error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			proxyServerToClient(protoProxyConf)
+			proxyServerToClient(&protoProxyConf)
 
 			// tell other goroutine to exit
 			protoProxyConf.mgmt.Stop()
