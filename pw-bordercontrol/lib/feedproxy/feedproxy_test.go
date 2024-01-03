@@ -2,6 +2,7 @@ package feedproxy
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
@@ -370,10 +371,11 @@ func TestFeedProxy(t *testing.T) {
 			assert.NoError(t, err)
 
 			c := ProxyConnection{
-				Connection:            lconn,
-				ConnectionProtocol:    feedprotocol.MLAT,
-				ConnectionNumber:      connNum,
-				FeedInContainerPrefix: "test-feed-in-",
+				Connection:                  lconn,
+				ConnectionProtocol:          feedprotocol.MLAT,
+				ConnectionNumber:            connNum,
+				FeedInContainerPrefix:       "test-feed-in-",
+				FeederValidityCheckInterval: time.Second * 5,
 			}
 			t.Log("listener starts proxy")
 			err = c.Start()
@@ -408,11 +410,33 @@ func TestFeedProxy(t *testing.T) {
 		assert.Equal(t, len(testData), n)
 		t.Logf("client reads data: %s", string(buf[:n]))
 
+		// allow feeder validity check to happen
+		t.Log("waiting for feeder validity check")
 		time.Sleep(time.Second * 10)
 
+		// make feeder invalid
+		t.Log("making feeder invalid")
+		getDataFromATCMu.Lock()
+		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+			f := atc.Feeders{
+				Feeders: []atc.Feeder{},
+			}
+			return f, nil
+		}
+		getDataFromATCMu.Unlock()
+
+		// allow feeder validity check to happen
+		t.Log("waiting for feeder validity check")
+		time.Sleep(time.Second * 10)
+
+		// attempt to write some data, should fail as client should've been disconnected
+		_, err = conn.Write([]byte(testData))
+		assert.Error(t, err)
+		fmt.Println(err)
+
+		// clean up
 		stopServer <- true
 		stopListener <- true
-
 		wg.Wait()
 
 	})

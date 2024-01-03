@@ -347,11 +347,12 @@ func listener(conf *listenConfig) error {
 			return err
 		}
 		proxyConn := feedproxy.ProxyConnection{
-			Connection:            conn,
-			ConnectionProtocol:    conf.listenProto,
-			ConnectionNumber:      connNum,
-			FeedInContainerPrefix: conf.feedInContainerPrefix,
-			Logger:                log,
+			Connection:                  conn,
+			ConnectionProtocol:          conf.listenProto,
+			ConnectionNumber:            connNum,
+			FeedInContainerPrefix:       conf.feedInContainerPrefix,
+			Logger:                      log,
+			FeederValidityCheckInterval: time.Second * 60,
 		}
 
 		// initiate proxying of the connection

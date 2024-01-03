@@ -469,11 +469,12 @@ func proxyServerToClient(conf protocolProxyConfig) {
 }
 
 type ProxyConnection struct {
-	Connection            net.Conn              // Incoming connection from feeder out on the internet
-	ConnectionProtocol    feedprotocol.Protocol // Incoming connection protocol
-	ConnectionNumber      uint                  // Connection number
-	FeedInContainerPrefix string                // feed-in container prefix
-	Logger                zerolog.Logger        // logger context to use
+	Connection                  net.Conn              // Incoming connection from feeder out on the internet
+	ConnectionProtocol          feedprotocol.Protocol // Incoming connection protocol
+	ConnectionNumber            uint                  // Connection number
+	FeedInContainerPrefix       string                // feed-in container prefix
+	Logger                      zerolog.Logger        // logger context to use
+	FeederValidityCheckInterval time.Duration         // how often to check feeder is still valid in atc
 
 	stop   bool
 	stopMu sync.RWMutex
@@ -685,7 +686,7 @@ func (c *ProxyConnection) Start() error {
 		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log,
-		feederValidityCheckInterval: time.Second * 60,
+		feederValidityCheckInterval: c.FeederValidityCheckInterval,
 	}
 
 	// handle data from feeder client to feed-in container
