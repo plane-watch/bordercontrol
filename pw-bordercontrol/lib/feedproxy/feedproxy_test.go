@@ -444,10 +444,6 @@ func TestFeedProxy(t *testing.T) {
 		stopListener <- true
 		wg.Wait()
 
-		// revert original func
-		getDataFromATCMu.Lock()
-		getDataFromATC = getDataFromATCOrig
-		getDataFromATCMu.Unlock()
 	})
 
 	t.Run("ProxyConnection BEAST", func(t *testing.T) {
@@ -468,6 +464,23 @@ func TestFeedProxy(t *testing.T) {
 		unregisterConnectionStats = func(conn stats.Connection) error { return nil }
 		statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
 		statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+		getDataFromATCMu.Lock()
+		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+			f := atc.Feeders{
+				Feeders: []atc.Feeder{
+					{
+						ApiKey:     TestFeederAPIKey,
+						Latitude:   TestFeederLatitude,
+						Longitude:  TestFeederLongitude,
+						Mux:        TestFeederMux,
+						Label:      TestFeederLabel,
+						FeederCode: TestFeederCode,
+					},
+				},
+			}
+			return f, nil
+		}
+		getDataFromATCMu.Unlock()
 
 		// create server
 		server, err := nettest.NewLocalListener("tcp4")
