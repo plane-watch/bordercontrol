@@ -633,7 +633,7 @@ func Init(addr, natsUrl string) error {
 
 	// init NATS
 	if natsUrl != "" {
-		initNats(natsUrl)
+		go initNats(natsUrl)
 	} else {
 		log.Debug().Msg("skipping nats as no natsurl given")
 	}
