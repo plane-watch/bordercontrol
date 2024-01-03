@@ -176,7 +176,17 @@ func TestFeedProxy(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	// ---
+	t.Run("dialContainerTCP error dialling", func(t *testing.T) {
+		l, err := nettest.NewLocalListener("tcp4")
+		assert.NoError(t, err)
+		ip := strings.Split(l.Addr().String(), ":")[0]
+		port, err := strconv.Atoi(strings.Split(l.Addr().String(), ":")[1])
+		assert.NoError(t, err)
+		err = l.Close()
+		assert.NoError(t, err)
+		_, err = dialContainerTCP(ip, port)
+		assert.Error(t, err)
+	})
 
 	t.Run("dialContainerTCP", func(t *testing.T) {
 
