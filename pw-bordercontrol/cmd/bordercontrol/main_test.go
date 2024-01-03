@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/sha256"
 	"net"
+	"os"
+	"os/exec"
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/feedproxy"
 	"strconv"
@@ -51,12 +53,19 @@ func TestPrepListenerConfig(t *testing.T) {
 	})
 
 	t.Run("error invalid addr", func(t *testing.T) {
-		testFeedInContainerPrefix := "test-feed-in-"
-		testListenAddr := ""
-		ptf := assert.PanicTestFunc(func() {
-			_ = prepListenerConfig(testListenAddr, feedprotocol.MLAT, testFeedInContainerPrefix)
-		})
-		assert.Panics(t, ptf)
+
+		if os.Getenv("BE_CRASHER") == "1" {
+			testListenAddr := "" // invalid
+			_ = prepListenerConfig(testListenAddr, feedprotocol.MLAT, "")
+		}
+
+		cmd := exec.Command(os.Args[0], "-test.run=TestCrasher")
+		cmd.Env = append(os.Environ(), "BE_CRASHER=1")
+		err := cmd.Run()
+		if e, ok := err.(*exec.ExitError); ok && !e.Success() {
+			return
+		}
+		t.Fatalf("process ran with err %v, want exit status 1", err)
 
 	})
 }
