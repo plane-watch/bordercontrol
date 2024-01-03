@@ -65,22 +65,22 @@ Prometheus metrics are published at `http://dockerhost:8080/metrics`.
 In the root of the repository, create a `.env` file containing the following:
 
 | Environment Variable        | CLI Flag Equiv.            | R/O | Description                                                                    | Example                                           |
-|-----------------------------|----------------------------|--------------------------------------------------------------------------------|---------------------------------------------------|
-| `ATC_UPDATE_FREQ`           | `--atcupdatefreq`          | O | Frequency (in minutes) for valid feeder updates from ATC                       | 1                                                 |
-| `ATC_URL`                   | `--atcurl`                 | R |URL to ATC API                                                                 | `http://10.0.6.2:3000`                            |
-| `ATC_USER`                  | `--atcuser`                | R |Username/email for ATC API                                                     | `controltower@plane.watch`                        |
-| `ATC_PASS`                  | `--atcpass`                | R |Password for ATC API                                                           | REDACTED                                          |
-| `BC_CERT_FILE`              | `--cert`                   | O |Path (within the bordercontrol container) of the X509 cert                     | `/etc/ssl/private/push.plane.watch/fullchain.pem` |
-| `BC_KEY_FILE`               | `--key`                    | O |Path (within the bordercontrol container) of the X509 key                      | `/etc/ssl/private/push.plane.watch/privkey.pem`   |
-| `BC_LISTEN_API`             | `--listenapi`              | O |Address and TCP port server will listen on for API, stats & Prometheus metrics | `0.0.0.0:8080`                                    |
-| `BC_LISTEN_BEAST`           | `--listenbeast`            | O |Address and TCP port to listen on for BEAST connections                        | `0.0.0.0:12345`                                   |
-| `BC_LISTEN_MLAT`            | `--listenmlat`             | O |Address and TCP port to listen on for MLAT connections                         | `0.0.0.0:12346`                                   |
-| `FEED_IN_CONTAINER_PREFIX`  | `--feedincontainerprefix`  | O |Feed-in container prefix                                                       | `feed-in-`                                        |
-| `FEED_IN_CONTAINER_NETWORK` | `--feedincontainernetwork` |O | Feed-in container network                                                      | `bordercontrol_feeder`                            |
-| `FEED_IN_IMAGE`             | `--feedinimage`            |O | Feed-in image name                                                             | `feed-in`                                         |
-| `PW_INGEST_SINK`            | `--pwingestpublish`        | R | URL passed through to `pw_ingest` in feed-in containers                        | `nats://nats-ingest.plane.watch:4222`             |
+|-----------------------------|----------------------------|-----|--------------------------------------------------------------------------------|---------------------------------------------------|
+| `ATC_UPDATE_FREQ`           | `--atcupdatefreq`          | O   | Frequency (in minutes) for valid feeder updates from ATC                       | 1                                                 |
+| `ATC_URL`                   | `--atcurl`                 | R   | URL to ATC API                                                                 | `http://10.0.6.2:3000`                            |
+| `ATC_USER`                  | `--atcuser`                | R   | Username/email for ATC API                                                     | `controltower@plane.watch`                        |
+| `ATC_PASS`                  | `--atcpass`                | R   | Password for ATC API                                                           | REDACTED                                          |
+| `BC_CERT_FILE`              | `--cert`                   | O   | Path (within the bordercontrol container) of the X509 cert                     | `/etc/ssl/private/push.plane.watch/fullchain.pem` |
+| `BC_KEY_FILE`               | `--key`                    | O   | Path (within the bordercontrol container) of the X509 key                      | `/etc/ssl/private/push.plane.watch/privkey.pem`   |
+| `BC_LISTEN_API`             | `--listenapi`              | O   | Address and TCP port server will listen on for API, stats & Prometheus metrics | `0.0.0.0:8080`                                    |
+| `BC_LISTEN_BEAST`           | `--listenbeast`            | O   | Address and TCP port to listen on for BEAST connections                        | `0.0.0.0:12345`                                   |
+| `BC_LISTEN_MLAT`            | `--listenmlat`             | O   | Address and TCP port to listen on for MLAT connections                         | `0.0.0.0:12346`                                   |
+| `FEED_IN_CONTAINER_PREFIX`  | `--feedincontainerprefix`  | O   | Feed-in container prefix                                                       | `feed-in-`                                        |
+| `FEED_IN_CONTAINER_NETWORK` | `--feedincontainernetwork` | O   | Feed-in container network                                                      | `bordercontrol_feeder`                            |
+| `FEED_IN_IMAGE`             | `--feedinimage`            | O   | Feed-in image name                                                             | `feed-in`                                         |
+| `PW_INGEST_SINK`            | `--pwingestpublish`        | R   | URL passed through to `pw_ingest` in feed-in containers                        | `nats://nats-ingest.plane.watch:4222`             |
 
-*O = **O**ptional, R = **R**equired*
+Note: *O = **O**ptional, R = **R**equired*.
 
 Example:
 
