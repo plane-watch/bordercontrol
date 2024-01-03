@@ -72,6 +72,9 @@ var (
 	dialContainerTCPWrapper = func(addr string, port int) (c *net.TCPConn, err error) {
 		return dialContainerTCP(addr, port)
 	}
+	authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
+		return authenticateFeeder(connIn)
+	}
 )
 
 func GetConnectionNumber() (num uint, err error) {
@@ -569,7 +572,7 @@ func (c *ProxyConnection) Start() error {
 
 	// When the first data is sent, the TLS handshake should take place.
 	// Accordingly, we need to track the state...
-	clientDetails, err = authenticateFeeder(c.Connection)
+	clientDetails, err = authenticateFeederWrapper(c.Connection)
 	if err != nil {
 		log.Err(err).Msg("error authenticating feeder")
 		return err

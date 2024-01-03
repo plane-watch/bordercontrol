@@ -320,6 +320,16 @@ func TestFeedProxy(t *testing.T) {
 		unregisterConnectionStats = func(conn stats.Connection) error { return nil }
 		statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
 		statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+		authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
+			return feederClient{
+				clientApiKey: TestFeederAPIKey,
+				refLat:       TestFeederLatitude,
+				refLon:       TestFeederLongitude,
+				mux:          TestFeederMux,
+				label:        TestFeederLabel,
+				feederCode:   TestFeederCode,
+			}, nil
+		}
 
 		// create server
 		server, err := net.Listen("tcp4", "127.0.0.1:12346")
@@ -485,23 +495,16 @@ func TestFeedProxy(t *testing.T) {
 		unregisterConnectionStats = func(conn stats.Connection) error { return nil }
 		statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
 		statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
-		getDataFromATCMu.Lock()
-		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
-			f := atc.Feeders{
-				Feeders: []atc.Feeder{
-					{
-						ApiKey:     TestFeederAPIKey,
-						Latitude:   TestFeederLatitude,
-						Longitude:  TestFeederLongitude,
-						Mux:        TestFeederMux,
-						Label:      TestFeederLabel,
-						FeederCode: TestFeederCode,
-					},
-				},
-			}
-			return f, nil
+		authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
+			return feederClient{
+				clientApiKey: TestFeederAPIKey,
+				refLat:       TestFeederLatitude,
+				refLon:       TestFeederLongitude,
+				mux:          TestFeederMux,
+				label:        TestFeederLabel,
+				feederCode:   TestFeederCode,
+			}, nil
 		}
-		getDataFromATCMu.Unlock()
 
 		// create server
 		server, err := nettest.NewLocalListener("tcp4")
