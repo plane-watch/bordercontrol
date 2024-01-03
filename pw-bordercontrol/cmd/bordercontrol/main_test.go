@@ -30,6 +30,37 @@ func TestGetRepoInfo(t *testing.T) {
 	assert.Equal(t, "unknown", ct)
 }
 
+func TestPrepListenerConfig(t *testing.T) {
+
+	t.Run("BEAST", func(t *testing.T) {
+		testFeedInContainerPrefix := "test-feed-in-"
+		testListenAddr := "1.2.3.4:1234"
+		conf := prepListenerConfig(testListenAddr, feedprotocol.BEAST, testFeedInContainerPrefix)
+		assert.Equal(t, testFeedInContainerPrefix, conf.feedInContainerPrefix)
+		assert.Equal(t, "tcp", conf.listenAddr.Network())
+		assert.Equal(t, testListenAddr, conf.listenAddr.String())
+	})
+
+	t.Run("MLAT", func(t *testing.T) {
+		testFeedInContainerPrefix := "test-feed-in-"
+		testListenAddr := "2.3.4.5:2345"
+		conf := prepListenerConfig(testListenAddr, feedprotocol.MLAT, testFeedInContainerPrefix)
+		assert.Equal(t, testFeedInContainerPrefix, conf.feedInContainerPrefix)
+		assert.Equal(t, "tcp", conf.listenAddr.Network())
+		assert.Equal(t, testListenAddr, conf.listenAddr.String())
+	})
+
+	t.Run("error invalid addr", func(t *testing.T) {
+		testFeedInContainerPrefix := "test-feed-in-"
+		testListenAddr := ""
+		ptf := assert.PanicTestFunc(func() {
+			_ = prepListenerConfig(testListenAddr, feedprotocol.MLAT, testFeedInContainerPrefix)
+		})
+		assert.Panics(t, ptf)
+
+	})
+}
+
 func TestLogNumGoroutines(t *testing.T) {
 	sc := make(chan bool)
 	wg := sync.WaitGroup{}

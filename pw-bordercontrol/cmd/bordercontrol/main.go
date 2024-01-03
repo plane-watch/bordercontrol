@@ -196,6 +196,27 @@ func logNumGoroutines(freq time.Duration, stopChan chan bool) {
 	}
 }
 
+func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string) *listenConfig {
+	// prep config
+	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
+	if ip == nil {
+		log.Fatal().Str("proto", proto.Name()).Str("addr", listenAddr).Msg("invalid listen address")
+	}
+	port, err := strconv.Atoi(strings.Split(listenAddr, ":")[1])
+	if err != nil {
+		log.Fatal().Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("invalid listen port")
+	}
+	return &listenConfig{
+		listenProto: proto,
+		listenAddr: net.TCPAddr{
+			IP:   ip,
+			Port: port,
+			Zone: "",
+		},
+		feedInContainerPrefix: feedInContainerPrefix,
+	}
+}
+
 func runServer(ctx *cli.Context) error {
 
 	// Set logging level
@@ -248,62 +269,34 @@ func runServer(ctx *cli.Context) error {
 	}
 	ContainerManager.Init()
 
+	wg := sync.WaitGroup{}
+
 	// start listening for incoming BEAST connections
+	wg.Add(1)
 	go func() {
-
-		// prep config
-		ip := net.ParseIP(strings.Split(ctx.String("listenbeast"), ":")[0])
-		port, err := strconv.Atoi(strings.Split(ctx.String("listenbeast"), ":")[1])
-		if err != nil {
-			log.Err(err).Str("addr", ctx.String("listenbeast")).Msg("invalid listen port")
-		}
-		conf := listenConfig{
-			listenProto: feedprotocol.BEAST,
-			listenAddr: net.TCPAddr{
-				IP:   ip,
-				Port: port,
-				Zone: "",
-			},
-		}
-
 		// listen forever
 		for {
-			err := listener(&conf)
+			err := listener(prepListenerConfig(ctx.String("listenbeast"), feedprotocol.BEAST, ctx.String("feedincontainerprefix")))
 			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
 			time.Sleep(time.Second * 1) // if there's a problem, slow down restarting
 		}
+		wg.Done()
 	}()
 
 	// start listening for incoming MLAT connections
+	wg.Add(1)
 	go func() {
-
-		// prep config
-		ip := net.ParseIP(strings.Split(ctx.String("listenmlat"), ":")[0])
-		port, err := strconv.Atoi(strings.Split(ctx.String("listenmlat"), ":")[1])
-		if err != nil {
-			log.Err(err).Str("addr", ctx.String("listenmlat")).Msg("invalid listen port")
-		}
-		conf := listenConfig{
-			listenProto: feedprotocol.MLAT,
-			listenAddr: net.TCPAddr{
-				IP:   ip,
-				Port: port,
-				Zone: "",
-			},
-		}
-
 		// listen forever
 		for {
-			err := listener(&conf)
-			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
+			err := listener(prepListenerConfig(ctx.String("listenmlat"), feedprotocol.MLAT, ctx.String("feedincontainerprefix")))
+			log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
 			time.Sleep(time.Second * 1) // if there's a problem, slow down restarting
 		}
+		wg.Done()
 	}()
 
 	// serve forever
-	for {
-		time.Sleep(time.Second)
-	}
+	wg.Wait()
 
 	return nil
 }
