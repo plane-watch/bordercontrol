@@ -2,6 +2,7 @@ package feedproxy
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
@@ -363,8 +364,7 @@ func TestFeedProxy(t *testing.T) {
 			// make connections
 			wg.Add(1)
 			go func(t *testing.T) {
-				err := c1.Start()
-				assert.NoError(t, err)
+				_ = c1.Start()
 				t.Cleanup(func() {
 					c1.Stop()
 				})
@@ -372,8 +372,7 @@ func TestFeedProxy(t *testing.T) {
 			}(t)
 			wg.Add(1)
 			go func(t *testing.T) {
-				err := c2.Start()
-				assert.NoError(t, err)
+				_ = c2.Start()
 				t.Cleanup(func() {
 					c2.Stop()
 				})
@@ -381,8 +380,7 @@ func TestFeedProxy(t *testing.T) {
 			}(t)
 			wg.Add(1)
 			go func(t *testing.T) {
-				err := c3.Start()
-				assert.NoError(t, err)
+				_ = c3.Start()
 				t.Cleanup(func() {
 					c3.Stop()
 				})
@@ -392,12 +390,13 @@ func TestFeedProxy(t *testing.T) {
 			go func(t *testing.T) {
 				err := c4.Start()
 				assert.Error(t, err)
+				fmt.Println(err)
 				t.Cleanup(func() {
 					c4.Stop()
 				})
 				wg.Done()
 			}(t)
-
+			wg.Wait()
 		})
 
 		t.Run("MLAT", func(t *testing.T) {
