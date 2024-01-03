@@ -52,6 +52,9 @@ var (
 	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection) error {
 		return f.Start()
 	}
+	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
+		return feedproxy.GetConnectionNumber()
+	}
 )
 
 func main() {
@@ -351,7 +354,7 @@ func listener(conf *listenConfig) error {
 		}
 
 		// prep proxy config
-		connNum, err := feedproxy.GetConnectionNumber()
+		connNum, err := feedproxyGetConnectionNumberWrapper()
 		if err != nil {
 			log.Err(err).Msg("could not get connection number")
 			return err

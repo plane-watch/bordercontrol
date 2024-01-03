@@ -52,6 +52,11 @@ func TestListener(t *testing.T) {
 		return nil
 	}
 
+	// bypass feederproxy as tested elsewhere
+	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
+		return 42, nil
+	}
+
 	wg := sync.WaitGroup{}
 
 	stopListener := make(chan bool)
