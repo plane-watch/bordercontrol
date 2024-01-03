@@ -72,7 +72,7 @@ var (
 				Category: "Network",
 				Name:     "listenapi",
 				Usage:    "Address and TCP port server will listen on for API, stats & Prometheus metrics",
-				Value:    "0.0.0.0:8080",
+				Value:    ":8080",
 				EnvVars:  []string{"BC_LISTEN_API"},
 			},
 			&cli.StringFlag{
@@ -149,7 +149,6 @@ var (
 				Category: "NATS",
 				Name:     "natsurl",
 				Usage:    "NATS URL for stats/control",
-				Value:    "",
 				EnvVars:  []string{"NATS_URL"},
 			},
 		},
