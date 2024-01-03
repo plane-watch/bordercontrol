@@ -420,7 +420,6 @@ func TestFeedProxy(t *testing.T) {
 		// make feeder invalid
 		t.Log("making feeder invalid")
 		getDataFromATCMu.Lock()
-		getDataFromATCOrig := getDataFromATC
 		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
 			f := atc.Feeders{
 				Feeders: []atc.Feeder{},
