@@ -55,6 +55,19 @@ const (
 
 var (
 	incomingConnTracker incomingConnectionTracker
+
+	// allow override of these functions to simplify testing
+	getUUIDfromSNI            = func(c net.Conn) (u uuid.UUID, err error) { return uuid.Parse(stunnel.GetSNI(c)) }
+	handshakeComplete         = func(c net.Conn) bool { return stunnel.HandshakeComplete(c) }
+	RegisterFeederWithStats   = func(f stats.FeederDetails) error { return stats.RegisterFeeder(f) }
+	registerConnectionStats   = func(conn stats.Connection) error { return conn.RegisterConnection() }
+	unregisterConnectionStats = func(conn stats.Connection) error { return conn.UnregisterConnection() }
+	statsGetNumConnections    = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) {
+		return stats.GetNumConnections(uuid, proto)
+	}
+	statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error {
+		return stats.IncrementByteCounters(uuid, connNum, bytesIn, bytesOut)
+	}
 )
 
 func GetConnectionNumber() (num uint, err error) {
@@ -274,11 +287,6 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 	return c, err
 }
 
-// allow override of these functions to simplify testing
-var getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return uuid.Parse(stunnel.GetSNI(c)) }
-var handshakeComplete = func(c net.Conn) bool { return stunnel.HandshakeComplete(c) }
-var RegisterFeederWithStats = func(f stats.FeederDetails) error { return stats.RegisterFeeder(f) }
-
 func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error) {
 	// authenticates a feeder
 
@@ -395,7 +403,7 @@ func proxyClientToServer(conf protocolProxyConfig) {
 			}
 
 			// update stats
-			stats.IncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
+			statsIncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
 		}
 
 		// check feeder is still valid (every 60 secs)
@@ -446,7 +454,7 @@ func proxyServerToClient(conf protocolProxyConfig) {
 			}
 
 			// update stats
-			stats.IncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
+			statsIncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
 		}
 
 		// check feeder is still valid (every 60 secs)
@@ -458,13 +466,6 @@ func proxyServerToClient(conf protocolProxyConfig) {
 			*conf.lastAuthCheck = time.Now()
 		}
 	}
-}
-
-// allow override of these functions to simplify testing
-var registerConnectionStats = func(conn stats.Connection) error { return conn.RegisterConnection() }
-var unregisterConnectionStats = func(conn stats.Connection) error { return conn.UnregisterConnection() }
-var statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) {
-	return stats.GetNumConnections(uuid, proto)
 }
 
 type ProxyConnection struct {

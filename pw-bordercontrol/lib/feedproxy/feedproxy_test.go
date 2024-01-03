@@ -308,10 +308,10 @@ func TestFeedProxy(t *testing.T) {
 		getUUIDfromSNI = func(c net.Conn) (u uuid.UUID, err error) { return TestFeederAPIKey, nil }
 		handshakeComplete = func(c net.Conn) bool { return true }
 		RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
-
 		registerConnectionStats = func(conn stats.Connection) error { return nil }
 		unregisterConnectionStats = func(conn stats.Connection) error { return nil }
 		statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
+		statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
 
 		// create server
 		server, err := net.Listen("tcp4", "127.0.0.1:12346")
