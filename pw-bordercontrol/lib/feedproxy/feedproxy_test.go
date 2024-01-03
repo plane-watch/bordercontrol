@@ -339,7 +339,7 @@ func TestFeedProxy(t *testing.T) {
 			n, err = sconn.Write(buf)
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
-			t.Log("server write to client: %s", string(buf[n]))
+			t.Logf("server write to client: %s", string(buf[n]))
 
 			_ = <-stopServer
 
