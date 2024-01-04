@@ -140,7 +140,7 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 	log.Debug().Msg("perform image build")
 	opts := types.ImageBuildOptions{
 		Dockerfile: dockerfile,
-		Tags:       []string{fmt.Sprintf("/%s", imageName)},
+		Tags:       []string{imageName},
 		Remove:     true,
 		PullParent: true,
 	}
