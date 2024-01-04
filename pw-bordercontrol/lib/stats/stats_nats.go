@@ -12,14 +12,12 @@ import (
 )
 
 const (
-	natsSubjFeederConnected      = "pw_bordercontrol.feeder.connected.*"
 	natsSubjFeederConnectedBEAST = "pw_bordercontrol.feeder.connected.beast"
 	natsSubjFeederConnectedMLAT  = "pw_bordercontrol.feeder.connected.mlat"
 
 	natsSubjFeedersMetrics = "pw_bordercontrol.feeders.metrics"
 
 	natsSubjFeederMetricsAllProtocols = "pw_bordercontrol.feeder.metrics"
-	natsSubjFeederMetrics             = "pw_bordercontrol.feeder.metrics.*"
 	natsSubjFeederMetricsBEAST        = "pw_bordercontrol.feeder.metrics.beast"
 	natsSubjFeederMetricsMLAT         = "pw_bordercontrol.feeder.metrics.mlat"
 )
@@ -61,41 +59,25 @@ func initNats(nc *nats.Conn, natsInstance string) {
 
 	// subscriptions
 
-	natsSubjFeederConnectedSub, err := nc.Subscribe(natsSubjFeederConnected, natsSubjFeederHandler)
-	if err != nil {
-		log.Err(err).Str("subj", natsSubjFeederConnected).Msg("could not subscribe")
-	} else {
-		defer natsSubjFeederConnectedSub.Unsubscribe()
-		log.Debug().Str("subj", natsSubjFeederConnected).Msg("subscribed")
-	}
-
-	natsSubjFeederMetricsSub, err := nc.Subscribe(natsSubjFeederMetrics, natsSubjFeederHandler)
-	if err != nil {
-		log.Err(err).Str("subj", natsSubjFeederMetrics).Msg("could not subscribe")
-	} else {
-		defer natsSubjFeederMetricsSub.Unsubscribe()
-		log.Debug().Str("subj", natsSubjFeederMetrics).Msg("subscribed")
-	}
-
-	natsSubjFeederMetricsAllProtocolsSub, err := nc.Subscribe(natsSubjFeederMetricsAllProtocols, natsSubjFeederMetricsAllProtocolsHandler)
-	if err != nil {
-		log.Err(err).Str("subj", natsSubjFeederMetricsAllProtocols).Msg("could not subscribe")
-	} else {
-		defer natsSubjFeederMetricsAllProtocolsSub.Unsubscribe()
-		log.Debug().Str("subj", natsSubjFeederMetricsAllProtocols).Msg("subscribed")
-	}
-
-	natsSubjFeedersMetricsSub, err := nc.Subscribe(natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
-	if err != nil {
-		log.Err(err).Str("subj", natsSubjFeedersMetrics).Msg("could not subscribe")
-	} else {
-		defer natsSubjFeedersMetricsSub.Unsubscribe()
-		log.Debug().Str("subj", natsSubjFeedersMetrics).Msg("subscribed")
-	}
+	natsSub(nc, natsSubjFeederConnectedBEAST, natsSubjFeederHandler)
+	natsSub(nc, natsSubjFeederConnectedMLAT, natsSubjFeederHandler)
+	natsSub(nc, natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
+	natsSub(nc, natsSubjFeederMetricsAllProtocols, natsSubjFeederHandler)
+	natsSub(nc, natsSubjFeederMetricsBEAST, natsSubjFeederHandler)
+	natsSub(nc, natsSubjFeederMetricsMLAT, natsSubjFeederHandler)
 
 	// ---
 
 	for {
+	}
+}
+
+func natsSub(nc *nats.Conn, subj string, handler func(msg *nats.Msg)) {
+	_, err := nc.Subscribe(subj, handler)
+	if err != nil {
+		log.Err(err).Str("subj", subj).Msg("could not subscribe")
+	} else {
+		log.Debug().Str("subj", subj).Msg("subscribed")
 	}
 }
 
