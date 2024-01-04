@@ -90,10 +90,13 @@ func Sub(subj string, handler func(msg *nats.Msg)) error {
 
 func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 	// when subj is received, signal sig is sent to channel ch
+	log := log.With().Str("subj", subj).Logger()
 	return Sub(subj, func(msg *nats.Msg) {
 		if string(msg.Data) == "*" || string(msg.Data) == natsInstance {
 			ch <- sig
 			msg.Ack()
+		} else {
+			log.Debug().Msg("ignoring, not for this instance")
 		}
 	})
 }
