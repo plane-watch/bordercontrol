@@ -246,6 +246,9 @@ func (conf *ContainerManager) Init() {
 	if nats_io.IsConnected() {
 		err := nats_io.Sub(natsSubjFeedInImageRebuild, func(msg *nats.Msg) {
 
+			log := log.With().Str("subj", natsSubjFeedInImageRebuild).Logger()
+			log.Debug().Msg("received req")
+
 			// prep reply
 			var reply nats.Msg
 			reply = nats.Msg{
@@ -254,6 +257,7 @@ func (conf *ContainerManager) Init() {
 
 			// perform build
 			msg.InProgress()
+			log.Debug().Msg("performing build")
 			lastLine, err := RebuildFeedInImage(conf.FeedInImageName, conf.FeedInImageBuildContext, conf.FeedInImageBuildContextDockerfile)
 			if err != nil {
 				log.Err(err).Msg("could not build feed-in image")
@@ -265,6 +269,7 @@ func (conf *ContainerManager) Init() {
 			}
 
 			// reply
+			log.Debug().Msg("sending reply")
 			err = msg.RespondMsg(&reply)
 			if err != nil {
 				log.Err(err).Str("subj", natsSubjFeedInImageRebuild).Msg("could not respond")
