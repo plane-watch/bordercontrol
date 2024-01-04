@@ -57,6 +57,11 @@ func (conf *NatsConfig) Init() {
 	initialisedMu.Lock()
 	initialised = true
 	defer initialisedMu.Unlock()
+
+	log.Info().
+		Str("instance", natsInstance).
+		Str("url", nc.ConnectedAddr()).
+		Msg("connected to nats server")
 }
 
 func GetInstance() (instance string, err error) {
