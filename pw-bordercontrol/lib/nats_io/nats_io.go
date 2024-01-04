@@ -67,6 +67,9 @@ func GetInstance() (instance string, err error) {
 }
 
 func IsConnected() bool {
+	if !isInitialised() {
+		return false
+	}
 	return nc.IsConnected()
 }
 
