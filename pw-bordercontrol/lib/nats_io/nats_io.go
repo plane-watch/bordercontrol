@@ -55,8 +55,8 @@ func (conf *NatsConfig) Init() {
 	}
 
 	initialisedMu.Lock()
+	initialised = true
 	defer initialisedMu.Unlock()
-
 }
 
 func GetInstance() (instance string, err error) {
@@ -70,10 +70,10 @@ func IsConnected() bool {
 	return nc.IsConnected()
 }
 
-func Sub(subj string, handler func(msg *nats.Msg)) {
-	// update log context
-	log := log.With().
-		Logger()
+func Sub(subj string, handler func(msg *nats.Msg)) error {
+	if !isInitialised() {
+		return ErrStatsNotInitialised
+	}
 
 	_, err := nc.Subscribe(subj, handler)
 	if err != nil {
@@ -81,4 +81,6 @@ func Sub(subj string, handler func(msg *nats.Msg)) {
 	} else {
 		log.Debug().Str("subj", subj).Msg("subscribed")
 	}
+
+	return nil
 }
