@@ -102,6 +102,12 @@ func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
 				return
 			}
 
+			err = msg.InProgress() // tell server we're working on it
+			if err != nil {
+				log.Err(err).Msg("could not respond to nats msg")
+			}
+			defer msg.Ack() // ack message when done
+
 			// report status
 			if conn.Status {
 				err := msg.Respond([]byte("true"))
