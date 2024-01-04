@@ -123,7 +123,7 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	result.cert = &cert
 	go func() {
 		for range signalChan {
-			log.Info().Msg("received SIGHUP, reloading TLS certificate and key")
+			log.Info().Msg("reloading TLS certificate and key")
 			if err := result.maybeReload(); err != nil {
 				log.Err(err).Msg("error loading TLS certificate, continuing to use old TLS certificate")
 			}
