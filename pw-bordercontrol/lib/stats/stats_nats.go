@@ -36,9 +36,11 @@ type perFeederPerProtocolMetrics struct {
 type perFeederAllProtocolMetrics struct {
 	FeederCode          string    `json:"feeder_code"`
 	Label               string    `json:"label"`
+	BeastConnected      bool      `json:"beast_connected"`
 	BeastBytesIn        uint64    `json:"beast_bytes_in"`
 	BeastBytesOut       uint64    `json:"beast_bytes_out"`
 	BeastConnectionTime time.Time `json:"beast_connection_time"`
+	MlatConnected       bool      `json:"mlat_connected"`
 	MlatBytesIn         uint64    `json:"mlat_bytes_in"`
 	MlatBytesOut        uint64    `json:"mlat_bytes_out"`
 	MlatConnectionTime  time.Time `json:"mlat_connection_time"`
@@ -148,6 +150,7 @@ func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 				fm.BeastConnectionTime = connDetail.TimeConnected
 				fm.BeastBytesIn = connDetail.BytesIn
 				fm.BeastBytesOut = connDetail.BytesOut
+				fm.BeastConnected = true
 				fm.send = true
 			}
 		}
@@ -164,6 +167,7 @@ func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 				fm.MlatConnectionTime = connDetail.TimeConnected
 				fm.MlatBytesIn = connDetail.BytesIn
 				fm.MlatBytesOut = connDetail.BytesOut
+				fm.MlatConnected = true
 				fm.send = true
 			}
 		}
