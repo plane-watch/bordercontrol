@@ -84,6 +84,13 @@ func initNats(natsUrl, natsInstance string) {
 		log.Debug().Str("subj", natsSubjFeederMetrics).Msg("subscribed")
 	}
 
+	natsSubjFeederMetricsAllProtocolsSub, err := nc.Subscribe(natsSubjFeederMetricsAllProtocols, natsSubjFeederMetricsAllProtocolsHandler)
+	if err != nil {
+		log.Err(err).Str("subj", natsSubjFeederMetricsAllProtocols).Msg("could not subscribe")
+	} else {
+		defer natsSubjFeederMetricsAllProtocolsSub.Unsubscribe()
+		log.Debug().Str("subj", natsSubjFeederMetricsAllProtocols).Msg("subscribed")
+	}
 	// ---
 
 	for {
