@@ -54,6 +54,7 @@ func (conf *NatsConfig) Init() {
 		}
 	}
 
+	// set initialised
 	initialisedMu.Lock()
 	initialised = true
 	defer initialisedMu.Unlock()

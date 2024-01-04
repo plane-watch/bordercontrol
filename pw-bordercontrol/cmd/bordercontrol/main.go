@@ -140,6 +140,13 @@ var (
 				EnvVars:  []string{"FEED_IN_CONTAINER_NETWORK"},
 			},
 			&cli.StringFlag{
+				Category: "Docker Environment",
+				Name:     "feedinbuildercontainer",
+				Usage:    "feed-in-builder container name",
+				Value:    "feed-in-builder",
+				EnvVars:  []string{"FEED_IN_BUILDER_CONTAINER"},
+			},
+			&cli.StringFlag{
 				Category: "NATS",
 				Name:     "pwingestpublish",
 				Usage:    "pw_ingest --sink setting in feed-in containers",

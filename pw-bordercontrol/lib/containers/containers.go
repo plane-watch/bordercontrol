@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"pw_bordercontrol/lib/nats_io"
 	"pw_bordercontrol/lib/stats"
 	"sync"
 	"syscall"
@@ -18,6 +19,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -31,8 +33,14 @@ var (
 	containersToStartResponses  chan startContainerResponse // channel for container start responses
 	containerManagerInitialised bool                        // has ContainerManager.Init() been run?
 
+	feedInBuilderContainerName string // Name of feed-in-builder container.
+
 	promMetricFeederContainersImageCurrent    prometheus.GaugeFunc // prom metric "feedercontainers_image_current"
 	promMetricFeederContainersImageNotCurrent prometheus.GaugeFunc // prom metric "feedercontainers_image_not_current"
+)
+
+const (
+	natsSubjFeedInImageRebuild = "pw_bordercontrol.feedinimage.rebuild"
 )
 
 // struct for responses from the startFeederContainers goroutine start a container
@@ -49,6 +57,30 @@ var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	cctx := context.Background()
 	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	return &cctx, cli, err
+}
+
+func RebuildFeedInImage() error {
+
+	// ensure container manager has been initialised
+	if !containerManagerInitialised {
+		err := errors.New("container manager has not been initialised")
+		return err
+	}
+
+	ctx, cli, err := GetDockerClient()
+	if err != nil {
+		return err
+	}
+	defer cli.Close()
+
+	cj, err := cli.ContainerInspect(*ctx, feedInBuilderContainerName)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(cj.Config.Labels)
+
+	return nil
 }
 
 func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContainerPrefix string) float64 {
@@ -140,6 +172,7 @@ func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 
 type ContainerManager struct {
 	FeedInImageName                    string         // Name of docker image for feed-in containers.
+	FeedInBuilderContainerName         string         // Name of feed-in-builder container.
 	FeedInContainerPrefix              string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
 	FeedInContainerNetwork             string         // Name of docker network to attach feed-in containers to.
 	SignalSkipContainerRecreationDelay syscall.Signal // Signal that will skip container recreation delay.
@@ -162,6 +195,23 @@ func (conf *ContainerManager) Init() {
 
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
+
+	feedInBuilderContainerName = conf.FeedInBuilderContainerName
+
+	// nats
+	if nats_io.IsConnected() {
+		err := nats_io.Sub(natsSubjFeedInImageRebuild, func(msg *nats.Msg) {
+			err := RebuildFeedInImage()
+			log.Err(err).Msg("could not build feed-in image")
+		})
+		if err != nil {
+			log.Fatal().Str("subj", natsSubjFeedInImageRebuild).Err(err).Msg("subscribe failed")
+		}
+	}
+
+	if nats_io.IsConnected() {
+
+	}
 
 	// register prom metrics
 	registerPromMetrics(conf.FeedInImageName, conf.FeedInContainerPrefix)
