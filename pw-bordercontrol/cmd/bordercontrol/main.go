@@ -150,7 +150,7 @@ var (
 				Name:     "natsurl",
 				Usage:    "NATS URL for stats/control",
 				Value:    "",
-				EnvVars:  []string{"NATS_URL"},
+				EnvVars:  []string{"NATS"},
 			},
 		},
 	}
