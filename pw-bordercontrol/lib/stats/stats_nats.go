@@ -2,10 +2,8 @@ package stats
 
 import (
 	"encoding/json"
-	"fmt"
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,8 +21,7 @@ const (
 	natsSubjFeederMetricsMLAT         = "pw_bordercontrol.feeder.metrics.mlat"
 )
 
-var natsSubjFeederConnected chan *nats.Msg
-var natsSubjFeederMetrics chan *nats.Msg
+var NatsInstance string
 
 type feederMetrics struct {
 	BytesIn        uint64    `json:"bytes_in"`
@@ -42,7 +39,7 @@ func initNats(natsUrl, natsInstance string) {
 		Str("natsinstance", natsInstance).
 		Logger()
 
-	wg := sync.WaitGroup{}
+	NatsInstance = natsInstance
 
 	// connect to NATS
 	log.Debug().Msg("connecting to NATS")
@@ -52,30 +49,22 @@ func initNats(natsUrl, natsInstance string) {
 	}
 	defer nc.Close()
 
-	// make chans, start chan handlers, subscribe
+	// subscriptions
 
-	natsSubjFeederConnected = make(chan *nats.Msg)
-	wg.Add(1)
-	go func() {
-		natsSubjFeederConnectedHandler(natsSubjFeederConnected, natsInstance)
-		wg.Done()
-	}()
-	log.Debug().Msgf("subscribe to: %s", natsSubjFeederConnectedAllProtocols)
-	_, err = nc.ChanSubscribe(natsSubjFeederConnectedAllProtocols, natsSubjFeederConnected)
+	natsSubjFeederConnectedAllProtocolsSub, err := nc.Subscribe(natsSubjFeederConnectedAllProtocols, natsSubjFeederHandler)
 	if err != nil {
-		log.Err(err).Msg("could not subscribe")
+		log.Err(err).Str("subj", natsSubjFeederConnectedAllProtocols).Msg("could not subscribe")
+	} else {
+		defer natsSubjFeederConnectedAllProtocolsSub.Unsubscribe()
+		log.Debug().Str("subj", natsSubjFeederConnectedAllProtocols).Msg("subscribed")
 	}
 
-	natsSubjFeederMetrics = make(chan *nats.Msg)
-	wg.Add(1)
-	go func() {
-		natsSubjFeederMetricsHandler(natsSubjFeederMetrics, natsInstance)
-		wg.Done()
-	}()
-	log.Debug().Msgf("subscribe to: %s", natsSubjFeederMetricsAllProtocols)
-	_, err = nc.ChanSubscribe(natsSubjFeederMetricsAllProtocols, natsSubjFeederMetrics)
+	natsSubjFeederMetricsAllProtocolsSub, err := nc.Subscribe(natsSubjFeederMetricsAllProtocols, natsSubjFeederHandler)
 	if err != nil {
-		log.Err(err).Msg("could not subscribe")
+		log.Err(err).Str("subj", natsSubjFeederMetricsAllProtocols).Msg("could not subscribe")
+	} else {
+		defer natsSubjFeederMetricsAllProtocolsSub.Unsubscribe()
+		log.Debug().Str("subj", natsSubjFeederMetricsAllProtocols).Msg("subscribed")
 	}
 
 	// ---
@@ -84,175 +73,150 @@ func initNats(natsUrl, natsInstance string) {
 	}
 }
 
-func natsSubjFeederMetricsHandler(c chan *nats.Msg, natsInstance string) {
-	for {
-
-		// receive a message
-		msg := <-c
-
-		// handle message
-		func(msg *nats.Msg) {
-
-			fmt.Println(msg.Subject)
-
-			// verify protocol
-			var proto feedprotocol.Protocol
-			switch msg.Subject {
-			case natsSubjFeederConnectedBEAST:
-				proto = feedprotocol.BEAST
-			case natsSubjFeederConnectedMLAT:
-				proto = feedprotocol.MLAT
-			default:
-				unknown := strings.Split(msg.Subject, ":")[3:]
-				log.Error().Str("subject", msg.Subject).Strs("unknowns", unknown).Msg("unknown subject")
-			}
-
-			// update log context
-			log := log.With().
-				Str("subject", msg.Subject).
-				Str("proto", proto.Name()).
-				Logger()
-
-			// parse API key
-			apiKey, err := uuid.ParseBytes(msg.Data)
-			if err != nil {
-				log.Err(err).Msg("could not parse API Key")
-				return
-			}
-
-			// update log context
-			log = log.With().
-				Str("apikey", apiKey.String()).
-				Logger()
-
-			// find feeder
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			feeder, ok := stats.Feeders[apiKey]
-			if !ok {
-				// silently ignore if the client is not connected to this instance
-				log.Debug().Msg("unknown API Key")
-				return
-			}
-
-			// find connection
-			conns, ok := feeder.Connections[proto.Name()]
-			if !ok {
-				log.Debug().Msg("no connection")
-				return
-			}
-
-			// prep reply struct
-			fm := feederMetrics{}
-			for _, connDetail := range conns.ConnectionDetails {
-				if fm.ConnectionTime.Before(connDetail.TimeConnected) {
-					fm.ConnectionTime = connDetail.TimeConnected
-					fm.BytesIn = connDetail.BytesIn
-					fm.BytesOut = connDetail.BytesOut
-					fm.send = true
-				}
-			}
-
-			fmt.Println(fm)
-
-			if fm.send {
-				// prep reply
-				reply := nats.NewMsg(msg.Subject)
-				reply.Header.Add("instance", natsInstance)
-
-				// marshall metrics struct into json
-				jb, err := json.Marshal(fm)
-				if err != nil {
-					log.Err(err).Msg("could not marshall feeder metrics into JSON")
-					return
-				}
-				reply.Data = jb
-
-				fmt.Println(string(jb))
-
-				// send reply
-				err = msg.RespondMsg(reply)
-				if err != nil {
-					log.Err(err).Msg("could not respond to nats msg")
-				}
-			}
-			return
-		}(msg)
+func getProtocolFromLastToken(subject string) (feedprotocol.Protocol, error) {
+	// returns the feeder protocol, where the protocol is the last token in the subject
+	tokens := strings.Split(subject, ".")
+	lastToken := strings.ToUpper(tokens[len(tokens)-1])
+	switch {
+	case lastToken == strings.ToUpper(feedprotocol.ProtocolNameBEAST):
+		return feedprotocol.BEAST, nil
+	case lastToken == strings.ToUpper(feedprotocol.ProtocolNameMLAT):
+		return feedprotocol.MLAT, nil
+	default:
+		return feedprotocol.Protocol(0), feedprotocol.ErrUnknownProtocol
 	}
 }
 
-func natsSubjFeederConnectedHandler(c chan *nats.Msg, natsInstance string) {
-	for {
+func natsSubjFeederHandler(msg *nats.Msg) {
 
-		// receive a message
-		msg := <-c
-
-		// handle message
-		func(msg *nats.Msg) {
-
-			// verify protocol
-			var proto feedprotocol.Protocol
-			switch msg.Subject {
-			case natsSubjFeederConnectedBEAST:
-				proto = feedprotocol.BEAST
-			case natsSubjFeederConnectedMLAT:
-				proto = feedprotocol.MLAT
-			default:
-				unknown := strings.Split(msg.Subject, ":")[3:]
-				log.Error().Str("subject", msg.Subject).Strs("unknowns", unknown).Msg("unknown subject")
-			}
-
-			// update log context
-			log := log.With().
-				Str("subject", msg.Subject).
-				Str("proto", proto.Name()).
-				Logger()
-
-			// parse API key
-			apiKey, err := uuid.ParseBytes(msg.Data)
-			if err != nil {
-				log.Err(err).Msg("could not parse API Key")
-				return
-			}
-
-			// update log context
-			log = log.With().
-				Str("apikey", apiKey.String()).
-				Logger()
-
-			// find feeder
-			stats.mu.RLock()
-			defer stats.mu.RUnlock()
-			feeder, ok := stats.Feeders[apiKey]
-			if !ok {
-				// silently ignore if the client is not connected to this instance
-				log.Debug().Msg("unknown API Key")
-				return
-			}
-
-			// find connection
-			conn, ok := feeder.Connections[proto.Name()]
-			if !ok {
-				log.Debug().Msg("no connection")
-				return
-			}
-
-			// report status
-			if conn.Status {
-
-				// prep reply
-				reply := nats.NewMsg(msg.Subject)
-				reply.Data = []byte("true")
-				reply.Header.Add("instance", natsInstance)
-
-				// send reply
-				err := msg.RespondMsg(reply)
-				if err != nil {
-					log.Err(err).Msg("could not respond to nats msg")
-				}
-			}
-			return
-
-		}(msg)
+	// verify protocol
+	proto, err := getProtocolFromLastToken(msg.Subject)
+	if err != nil {
+		log.Err(err).Msg("could not determine protocol from subject")
+		return
 	}
+
+	// parse API key
+	apiKey, err := uuid.ParseBytes(msg.Data)
+	if err != nil {
+		log.Err(err).Msg("could not parse API Key")
+		return
+	}
+
+	// send message to relevant handler
+	switch msg.Subject {
+	case natsSubjFeederConnectedBEAST:
+		natsSubjFeederConnectedHandler(msg, apiKey, proto)
+	case natsSubjFeederConnectedMLAT:
+		natsSubjFeederConnectedHandler(msg, apiKey, proto)
+	case natsSubjFeederMetricsBEAST:
+		natsSubjFeederMetricsHandler(msg, apiKey, proto)
+	case natsSubjFeederMetricsMLAT:
+		natsSubjFeederMetricsHandler(msg, apiKey, proto)
+	default:
+		log.Error().Msg("unsupported subject")
+	}
+
+}
+
+func natsSubjFeederMetricsHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedprotocol.Protocol) {
+
+	// update log context
+	log := log.With().
+		Str("subject", msg.Subject).
+		Str("proto", proto.Name()).
+		Str("apikey", apiKey.String()).
+		Logger()
+
+	// find feeder
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+	feeder, ok := stats.Feeders[apiKey]
+	if !ok {
+		// silently ignore if the client is not connected to this instance
+		log.Debug().Msg("unknown API Key")
+		return
+	}
+
+	// find connection
+	conns, ok := feeder.Connections[proto.Name()]
+	if !ok {
+		log.Debug().Msg("no connection")
+		return
+	}
+
+	// prep reply struct
+	fm := feederMetrics{}
+	for _, connDetail := range conns.ConnectionDetails {
+		if fm.ConnectionTime.Before(connDetail.TimeConnected) {
+			fm.ConnectionTime = connDetail.TimeConnected
+			fm.BytesIn = connDetail.BytesIn
+			fm.BytesOut = connDetail.BytesOut
+			fm.send = true
+		}
+	}
+
+	if fm.send {
+		// prep reply
+		reply := nats.NewMsg(msg.Subject)
+		reply.Header.Add("instance", NatsInstance)
+
+		// marshall metrics struct into json
+		jb, err := json.Marshal(fm)
+		if err != nil {
+			log.Err(err).Msg("could not marshall feeder metrics into JSON")
+			return
+		}
+		reply.Data = jb
+
+		// send reply
+		err = msg.RespondMsg(reply)
+		if err != nil {
+			log.Err(err).Msg("could not respond to nats msg")
+		}
+	}
+	return
+}
+
+func natsSubjFeederConnectedHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedprotocol.Protocol) {
+
+	// update log context
+	log := log.With().
+		Str("subject", msg.Subject).
+		Str("proto", proto.Name()).
+		Str("apikey", apiKey.String()).
+		Logger()
+
+	// find feeder
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+	feeder, ok := stats.Feeders[apiKey]
+	if !ok {
+		// silently ignore if the client is not connected to this instance
+		log.Debug().Msg("unknown API Key")
+		return
+	}
+
+	// find connection
+	conn, ok := feeder.Connections[proto.Name()]
+	if !ok {
+		log.Debug().Msg("no connection")
+		return
+	}
+
+	// report status
+	if conn.Status {
+
+		// prep reply
+		reply := nats.NewMsg(msg.Subject)
+		reply.Data = []byte("true")
+		reply.Header.Add("instance", NatsInstance)
+
+		// send reply
+		err := msg.RespondMsg(reply)
+		if err != nil {
+			log.Err(err).Msg("could not respond to nats msg")
+		}
+	}
+	return
 }
