@@ -93,6 +93,8 @@ func natsSubjFeederMetricsHandler(c chan *nats.Msg, natsInstance string) {
 		// handle message
 		func(msg *nats.Msg) {
 
+			fmt.Println(msg.Subject)
+
 			// verify protocol
 			var proto feedprotocol.Protocol
 			switch msg.Subject {
