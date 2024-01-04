@@ -246,7 +246,7 @@ func (conf *ContainerManager) Init() {
 	if nats_io.IsConnected() {
 		err := nats_io.Sub(natsSubjFeedInImageRebuild, func(msg *nats.Msg) {
 
-			log := log.With().Str("subj", natsSubjFeedInImageRebuild).Logger()
+			log := conf.Logger.With().Str("subj", natsSubjFeedInImageRebuild).Logger()
 			log.Debug().Msg("received req")
 
 			// prep reply
