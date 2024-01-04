@@ -82,6 +82,8 @@ func RebuildFeedInImage() error {
 		return err
 	}
 
+	fmt.Println(cList)
+
 	if len(cList) != 1 {
 		err := errors.New("could not find feed in builder container")
 		return err
