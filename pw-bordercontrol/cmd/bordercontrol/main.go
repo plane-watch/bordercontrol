@@ -143,7 +143,7 @@ var (
 				Category: "Docker Environment",
 				Name:     "feedinimagecontext",
 				Usage:    "feed-in-image build context",
-				Value:    "/opt/pw-feed-in",
+				Value:    "/opt/pw-feed-in/",
 				EnvVars:  []string{"FEED_IN_BUILD_CONTEXT"},
 			},
 			&cli.StringFlag{
