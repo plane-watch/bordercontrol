@@ -274,6 +274,13 @@ func runServer(ctx *cli.Context) error {
 		go logNumGoroutines(time.Minute*5, logNumGoroutinesStopChan)
 	}
 
+	// connect to nats for control/stats/etc
+	natsConf := nats_io.NatsConfig{
+		Url:      ctx.String("natsurl"),
+		Instance: ctx.String("natsinstance"),
+	}
+	natsConf.Init()
+
 	// initialise ssl/tls subsystem
 	stunnel.Init(syscall.SIGHUP)
 
@@ -282,13 +289,6 @@ func runServer(ctx *cli.Context) error {
 	if err != nil {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
-
-	// connect to nats for control/stats/etc
-	natsConf := nats_io.NatsConfig{
-		Url:      ctx.String("natsurl"),
-		Instance: ctx.String("natsinstance"),
-	}
-	natsConf.Init()
 
 	// start statistics manager
 	err = stats.Init(ctx.String("listenapi"))
