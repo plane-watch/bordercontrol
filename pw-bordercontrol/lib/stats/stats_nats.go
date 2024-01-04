@@ -3,6 +3,7 @@ package stats
 import (
 	"encoding/json"
 	"pw_bordercontrol/lib/feedprotocol"
+	"pw_bordercontrol/lib/nats_io"
 	"strings"
 	"time"
 
@@ -22,7 +23,9 @@ const (
 	natsSubjFeederMetricsMLAT         = "pw_bordercontrol.feeder.metrics.mlat"
 )
 
-var NatsInstance string
+var (
+	natsInstance string
+)
 
 type perFeederPerProtocolMetrics struct {
 	FeederCode     string    `json:"feeder_code"`
@@ -47,42 +50,24 @@ type perFeederAllProtocolMetrics struct {
 	send                bool
 }
 
-func initNats(nc *nats.Conn, natsInstance string) {
+func initNats() {
 
-	// // update log context
-	// log := log.With().
-	// 	Str("func", "initNats").
-	// 	Str("natsinstance", natsInstance).
-	// 	Logger()
-
-	NatsInstance = natsInstance
+	var err error
+	natsInstance, err = nats_io.GetInstance()
+	if err != nil {
+		log.Err(err).Msg("cannot get instance")
+		return
+	}
 
 	// subscriptions
-
-	natsSub(nc, natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
-	natsSub(nc, natsSubjFeederMetricsAllProtocols, natsSubjFeederMetricsAllProtocolsHandler)
-	natsSub(nc, natsSubjFeederMetricsBEAST, natsSubjFeederHandler)
-	natsSub(nc, natsSubjFeederMetricsMLAT, natsSubjFeederHandler)
-	natsSub(nc, natsSubjFeederConnectedBEAST, natsSubjFeederHandler)
-	natsSub(nc, natsSubjFeederConnectedMLAT, natsSubjFeederHandler)
-
-	// ---
+	nats_io.Sub(natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
+	nats_io.Sub(natsSubjFeederMetricsAllProtocols, natsSubjFeederMetricsAllProtocolsHandler)
+	nats_io.Sub(natsSubjFeederMetricsBEAST, natsSubjFeederHandler)
+	nats_io.Sub(natsSubjFeederMetricsMLAT, natsSubjFeederHandler)
+	nats_io.Sub(natsSubjFeederConnectedBEAST, natsSubjFeederHandler)
+	nats_io.Sub(natsSubjFeederConnectedMLAT, natsSubjFeederHandler)
 
 	for {
-	}
-}
-
-func natsSub(nc *nats.Conn, subj string, handler func(msg *nats.Msg)) {
-	// update log context
-	log := log.With().
-		Str("func", "initNats").
-		Logger()
-
-	_, err := nc.Subscribe(subj, handler)
-	if err != nil {
-		log.Err(err).Str("subj", subj).Msg("could not subscribe")
-	} else {
-		log.Debug().Str("subj", subj).Msg("subscribed")
 	}
 }
 
@@ -166,7 +151,7 @@ func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 
 	// prep reply
 	reply := nats.NewMsg(msg.Subject)
-	reply.Header.Add("instance", NatsInstance)
+	reply.Header.Add("instance", natsInstance)
 
 	// marshall metrics struct into json
 	jb, err := json.Marshal(afm)
@@ -252,7 +237,7 @@ func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 	if fm.send {
 		// prep reply
 		reply := nats.NewMsg(msg.Subject)
-		reply.Header.Add("instance", NatsInstance)
+		reply.Header.Add("instance", natsInstance)
 
 		// marshall metrics struct into json
 		jb, err := json.Marshal(fm)
@@ -345,7 +330,7 @@ func natsSubjFeederMetricsHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedpro
 	if fm.send {
 		// prep reply
 		reply := nats.NewMsg(msg.Subject)
-		reply.Header.Add("instance", NatsInstance)
+		reply.Header.Add("instance", natsInstance)
 
 		// marshall metrics struct into json
 		jb, err := json.Marshal(fm)
@@ -396,7 +381,7 @@ func natsSubjFeederConnectedHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedp
 		// prep reply
 		reply := nats.NewMsg(msg.Subject)
 		reply.Data = []byte("true")
-		reply.Header.Add("instance", NatsInstance)
+		reply.Header.Add("instance", natsInstance)
 
 		// send reply
 		err := msg.RespondMsg(reply)

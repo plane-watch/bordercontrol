@@ -16,10 +16,10 @@ import (
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/feedproxy"
 	"pw_bordercontrol/lib/logging"
+	"pw_bordercontrol/lib/nats_io"
 	"pw_bordercontrol/lib/stats"
 	"pw_bordercontrol/lib/stunnel"
 
-	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -254,11 +254,6 @@ func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInCo
 	}
 }
 
-func connectToNats(natsUrl string) (*nats.Conn, error) {
-	// connect to NATS
-	return nats.Connect(natsUrl)
-}
-
 func runServer(ctx *cli.Context) error {
 
 	// Set logging level
@@ -289,27 +284,14 @@ func runServer(ctx *cli.Context) error {
 	}
 
 	// connect to nats for control/stats/etc
-	var nc *nats.Conn
-	if ctx.String("natsurl") != "" {
-		nc, err = connectToNats(ctx.String("natsurl"))
-		if err != nil {
-			log.Fatal().Err(err).Msg("error connecting to NATS")
-		}
-	} else {
-		log.Debug().Msg("skipping NATS connection")
+	natsConf := nats_io.NatsConfig{
+		Url:      ctx.String("natsurl"),
+		Instance: ctx.String("natsinstance"),
 	}
-
-	// prep nats instance name
-	natsInstance := ctx.String("natsinstance")
-	if natsInstance == "" {
-		natsInstance, err = os.Hostname()
-		if err != nil {
-			log.Fatal().Err(err).Msg("could not determine hostname")
-		}
-	}
+	natsConf.Init()
 
 	// start statistics manager
-	err = stats.Init(ctx.String("listenapi"), nc, natsInstance)
+	err = stats.Init(ctx.String("listenapi"))
 	if err != nil {
 		log.Err(err).Msg("could not start statistics manager")
 		return err

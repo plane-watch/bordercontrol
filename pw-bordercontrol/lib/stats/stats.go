@@ -9,13 +9,13 @@ import (
 	"net"
 	"net/http"
 	"pw_bordercontrol/lib/feedprotocol"
+	"pw_bordercontrol/lib/nats_io"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nats-io/nats.go"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -613,7 +613,7 @@ func registerPerFeederCounterVecs() error {
 	return nil
 }
 
-func Init(addr string, nc *nats.Conn, natsInstance string) error {
+func Init(addr string) error {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
@@ -633,8 +633,8 @@ func Init(addr string, nc *nats.Conn, natsInstance string) error {
 	}
 
 	// init NATS
-	if nc.IsConnected() {
-		go initNats(nc, natsInstance)
+	if nats_io.IsConnected() {
+		go initNats()
 	} else {
 		log.Debug().Msg("skipping nats as not connected")
 	}
