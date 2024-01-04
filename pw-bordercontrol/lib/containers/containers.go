@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"pw_bordercontrol/lib/nats_io"
 	"pw_bordercontrol/lib/stats"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -158,10 +159,10 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Ms
 		var v map[string]interface{}
 		err := json.Unmarshal([]byte(lastLine), &v)
 		if err == nil {
-			stream, ok := v["stream"]
+			stream, ok := v["stream"].(string)
 			if ok {
-				if stream != "\n" {
-					log.Debug().Str("stream", v["stream"].(string)).Msg("build output")
+				if stream != "\n" && strings.Contains(stream, " ---> ") {
+					log.Debug().Str("stream", stream).Msg("build output")
 				}
 			}
 		}
