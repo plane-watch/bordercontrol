@@ -157,7 +157,7 @@ var (
 				Name:     "natsinstance",
 				Usage:    "NATS instance ID (will be put into header of responses). Default: hostname",
 				Value:    "",
-				EnvVars:  []string{"NATS"},
+				EnvVars:  []string{"NATS_INSTANCE"},
 			},
 		},
 	}
