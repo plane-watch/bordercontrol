@@ -12,22 +12,37 @@ import (
 )
 
 const (
-	natsSubjFeederConnectedAllProtocols = "pw_bordercontrol.feeder.connected.*"
-	natsSubjFeederConnectedBEAST        = "pw_bordercontrol.feeder.connected.beast"
-	natsSubjFeederConnectedMLAT         = "pw_bordercontrol.feeder.connected.mlat"
+	natsSubjFeederConnected      = "pw_bordercontrol.feeder.connected.*"
+	natsSubjFeederConnectedBEAST = "pw_bordercontrol.feeder.connected.beast"
+	natsSubjFeederConnectedMLAT  = "pw_bordercontrol.feeder.connected.mlat"
 
-	natsSubjFeederMetricsAllProtocols = "pw_bordercontrol.feeder.metrics.*"
+	natsSubjFeederMetricsAllProtocols = "pw_bordercontrol.feeder.metrics"
+	natsSubjFeederMetrics             = "pw_bordercontrol.feeder.metrics.*"
 	natsSubjFeederMetricsBEAST        = "pw_bordercontrol.feeder.metrics.beast"
 	natsSubjFeederMetricsMLAT         = "pw_bordercontrol.feeder.metrics.mlat"
 )
 
 var NatsInstance string
 
-type feederMetrics struct {
+type perFeederPerProtocolMetrics struct {
+	FeederCode     string    `json:"feeder_code"`
+	Label          string    `json:"label"`
 	BytesIn        uint64    `json:"bytes_in"`
 	BytesOut       uint64    `json:"bytes_out"`
 	ConnectionTime time.Time `json:"connection_time"`
 	send           bool
+}
+
+type perFeederAllProtocolMetrics struct {
+	FeederCode          string    `json:"feeder_code"`
+	Label               string    `json:"label"`
+	BeastBytesIn        uint64    `json:"beast_bytes_in"`
+	BeastBytesOut       uint64    `json:"beast_bytes_out"`
+	BeastConnectionTime time.Time `json:"beast_connection_time"`
+	MlatBytesIn         uint64    `json:"mlat_bytes_in"`
+	MlatBytesOut        uint64    `json:"mlat_bytes_out"`
+	MlatConnectionTime  time.Time `json:"mlat_connection_time"`
+	send                bool
 }
 
 func initNats(natsUrl, natsInstance string) {
@@ -51,20 +66,20 @@ func initNats(natsUrl, natsInstance string) {
 
 	// subscriptions
 
-	natsSubjFeederConnectedAllProtocolsSub, err := nc.Subscribe(natsSubjFeederConnectedAllProtocols, natsSubjFeederHandler)
+	natsSubjFeederConnectedSub, err := nc.Subscribe(natsSubjFeederConnected, natsSubjFeederHandler)
 	if err != nil {
-		log.Err(err).Str("subj", natsSubjFeederConnectedAllProtocols).Msg("could not subscribe")
+		log.Err(err).Str("subj", natsSubjFeederConnected).Msg("could not subscribe")
 	} else {
-		defer natsSubjFeederConnectedAllProtocolsSub.Unsubscribe()
-		log.Debug().Str("subj", natsSubjFeederConnectedAllProtocols).Msg("subscribed")
+		defer natsSubjFeederConnectedSub.Unsubscribe()
+		log.Debug().Str("subj", natsSubjFeederConnected).Msg("subscribed")
 	}
 
-	natsSubjFeederMetricsAllProtocolsSub, err := nc.Subscribe(natsSubjFeederMetricsAllProtocols, natsSubjFeederHandler)
+	natsSubjFeederMetricsSub, err := nc.Subscribe(natsSubjFeederMetrics, natsSubjFeederHandler)
 	if err != nil {
-		log.Err(err).Str("subj", natsSubjFeederMetricsAllProtocols).Msg("could not subscribe")
+		log.Err(err).Str("subj", natsSubjFeederMetrics).Msg("could not subscribe")
 	} else {
-		defer natsSubjFeederMetricsAllProtocolsSub.Unsubscribe()
-		log.Debug().Str("subj", natsSubjFeederMetricsAllProtocols).Msg("subscribed")
+		defer natsSubjFeederMetricsSub.Unsubscribe()
+		log.Debug().Str("subj", natsSubjFeederMetrics).Msg("subscribed")
 	}
 
 	// ---
@@ -87,6 +102,95 @@ func getProtocolFromLastToken(subject string) (feedprotocol.Protocol, error) {
 	}
 }
 
+func parseApiKeyFromMsgData(msg *nats.Msg) (uuid.UUID, error) {
+	// parse API key
+	return uuid.ParseBytes(msg.Data)
+}
+
+func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
+
+	// verify api key
+	apiKey, err := parseApiKeyFromMsgData(msg)
+	if err != nil {
+		log.Err(err).Msg("could not parse API Key")
+		return
+	}
+
+	// update log context
+	log := log.With().
+		Str("subject", msg.Subject).
+		Str("apikey", apiKey.String()).
+		Logger()
+
+	// find feeder
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+	feeder, ok := stats.Feeders[apiKey]
+	if !ok {
+		// silently ignore if the client is not connected to this instance
+		log.Debug().Msg("unknown API Key")
+		return
+	}
+
+	// prep reply struct
+	fm := perFeederAllProtocolMetrics{}
+	fm.FeederCode = feeder.Code
+	fm.Label = feeder.Label
+
+	// beast connection
+	conns, ok := feeder.Connections[feedprotocol.ProtocolNameBEAST]
+	if !ok {
+		log.Debug().Msg("no beast connection")
+	} else {
+
+		for _, connDetail := range conns.ConnectionDetails {
+			if fm.BeastConnectionTime.Before(connDetail.TimeConnected) {
+				fm.BeastConnectionTime = connDetail.TimeConnected
+				fm.BeastBytesIn = connDetail.BytesIn
+				fm.BeastBytesOut = connDetail.BytesOut
+				fm.send = true
+			}
+		}
+	}
+
+	// mlat connection
+	conns, ok = feeder.Connections[feedprotocol.ProtocolNameMLAT]
+	if !ok {
+		log.Debug().Msg("no mlat connection")
+	} else {
+
+		for _, connDetail := range conns.ConnectionDetails {
+			if fm.MlatConnectionTime.Before(connDetail.TimeConnected) {
+				fm.MlatConnectionTime = connDetail.TimeConnected
+				fm.MlatBytesIn = connDetail.BytesIn
+				fm.MlatBytesOut = connDetail.BytesOut
+				fm.send = true
+			}
+		}
+	}
+
+	if fm.send {
+		// prep reply
+		reply := nats.NewMsg(msg.Subject)
+		reply.Header.Add("instance", NatsInstance)
+
+		// marshall metrics struct into json
+		jb, err := json.Marshal(fm)
+		if err != nil {
+			log.Err(err).Msg("could not marshall feeder metrics into JSON")
+			return
+		}
+		reply.Data = jb
+
+		// send reply
+		err = msg.RespondMsg(reply)
+		if err != nil {
+			log.Err(err).Msg("could not respond to nats msg")
+		}
+	}
+	return
+}
+
 func natsSubjFeederHandler(msg *nats.Msg) {
 
 	// verify protocol
@@ -96,8 +200,8 @@ func natsSubjFeederHandler(msg *nats.Msg) {
 		return
 	}
 
-	// parse API key
-	apiKey, err := uuid.ParseBytes(msg.Data)
+	// verify api key
+	apiKey, err := parseApiKeyFromMsgData(msg)
 	if err != nil {
 		log.Err(err).Msg("could not parse API Key")
 		return
@@ -146,12 +250,14 @@ func natsSubjFeederMetricsHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedpro
 	}
 
 	// prep reply struct
-	fm := feederMetrics{}
+	fm := perFeederPerProtocolMetrics{}
 	for _, connDetail := range conns.ConnectionDetails {
 		if fm.ConnectionTime.Before(connDetail.TimeConnected) {
 			fm.ConnectionTime = connDetail.TimeConnected
 			fm.BytesIn = connDetail.BytesIn
 			fm.BytesOut = connDetail.BytesOut
+			fm.FeederCode = feeder.Code
+			fm.Label = feeder.Label
 			fm.send = true
 		}
 	}
