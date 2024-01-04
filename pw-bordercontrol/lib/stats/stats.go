@@ -612,7 +612,7 @@ func registerPerFeederCounterVecs() error {
 	return nil
 }
 
-func Init(addr, natsUrl string) error {
+func Init(addr, natsUrl, natsInstance string) error {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
@@ -633,7 +633,7 @@ func Init(addr, natsUrl string) error {
 
 	// init NATS
 	if natsUrl != "" {
-		go initNats(natsUrl)
+		go initNats(natsUrl, natsInstance)
 	} else {
 		log.Debug().Msg("skipping nats as no natsurl given")
 	}

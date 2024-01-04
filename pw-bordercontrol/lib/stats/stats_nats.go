@@ -1,9 +1,9 @@
 package stats
 
 import (
-	"os"
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
@@ -18,16 +18,24 @@ const (
 
 var natsSubjFeederConnected chan *nats.Msg
 
-func initNats(natsUrl string) {
+func initNats(natsUrl, natsInstance string) {
 
+	// update log context
 	log := log.With().
 		Str("func", "initNats").
 		Str("natsurl", natsUrl).
+		Str("natsinstance", natsInstance).
 		Logger()
+
+	wg := sync.WaitGroup{}
 
 	// make chans & start chan handlers
 	natsSubjFeederConnected = make(chan *nats.Msg)
-	go natsSubjFeederConnectedHandler(natsSubjFeederConnected)
+	wg.Add(1)
+	go func() {
+		natsSubjFeederConnectedHandler(natsSubjFeederConnected, natsInstance)
+		wg.Done()
+	}()
 
 	// connect to NATS
 	log.Debug().Msg("connecting to NATS")
@@ -48,14 +56,8 @@ func initNats(natsUrl string) {
 	}
 }
 
-func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
+func natsSubjFeederConnectedHandler(c chan *nats.Msg, natsInstance string) {
 	for {
-
-		// get hostname
-		hostname, err := os.Hostname()
-		if err != nil {
-			log.Fatal().Err(err).Msg("could not determine hostname")
-		}
 
 		// receive a message
 		msg := <-c
@@ -116,7 +118,7 @@ func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
 				// prep reply
 				reply := nats.NewMsg(msg.Subject)
 				reply.Data = []byte("true")
-				reply.Header.Add("host", hostname)
+				reply.Header.Add("host", natsInstance)
 
 				// send reply
 				err := msg.RespondMsg(reply)

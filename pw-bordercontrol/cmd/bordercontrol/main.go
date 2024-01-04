@@ -152,6 +152,13 @@ var (
 				Value:    "",
 				EnvVars:  []string{"NATS"},
 			},
+			&cli.StringFlag{
+				Category: "NATS_INSTANCE",
+				Name:     "natsinstance",
+				Usage:    "NATS instance ID (will be put into header of responses). Default: hostname",
+				Value:    "",
+				EnvVars:  []string{"NATS"},
+			},
 		},
 	}
 
@@ -276,7 +283,14 @@ func runServer(ctx *cli.Context) error {
 	}
 
 	// start statistics manager
-	err = stats.Init(ctx.String("listenapi"), ctx.String("natsurl"))
+	natsInstance := ctx.String("natsinstance")
+	if natsInstance == "" {
+		natsInstance, err = os.Hostname()
+		if err != nil {
+			log.Fatal().Err(err).Msg("could not determine hostname")
+		}
+	}
+	err = stats.Init(ctx.String("listenapi"), ctx.String("natsurl"), natsInstance)
 	if err != nil {
 		log.Err(err).Msg("could not start statistics manager")
 		return err
