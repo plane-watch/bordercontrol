@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"os"
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 
@@ -49,6 +50,12 @@ func initNats(natsUrl string) {
 
 func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
 	for {
+
+		// get hostname
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.Fatal().Err(err).Msg("could not determine hostname")
+		}
 
 		// receive a message
 		msg := <-c
@@ -105,7 +112,14 @@ func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
 
 			// report status
 			if conn.Status {
-				err := msg.Respond([]byte("true"))
+
+				// prep reply
+				reply := nats.NewMsg(msg.Subject)
+				reply.Data = []byte("true")
+				reply.Header.Add("host", hostname)
+
+				// send reply
+				err := msg.RespondMsg(reply)
 				if err != nil {
 					log.Err(err).Msg("could not respond to nats msg")
 				}
