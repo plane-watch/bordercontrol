@@ -2,6 +2,7 @@ package stats
 
 import (
 	"encoding/json"
+	"fmt"
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 	"sync"
@@ -150,6 +151,8 @@ func natsSubjFeederMetricsHandler(c chan *nats.Msg, natsInstance string) {
 				}
 			}
 
+			fmt.Println(fm)
+
 			if fm.send {
 				// prep reply
 				reply := nats.NewMsg(msg.Subject)
@@ -162,6 +165,8 @@ func natsSubjFeederMetricsHandler(c chan *nats.Msg, natsInstance string) {
 					return
 				}
 				reply.Data = jb
+
+				fmt.Println(string(jb))
 
 				// send reply
 				err = msg.RespondMsg(reply)
