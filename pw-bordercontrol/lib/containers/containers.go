@@ -109,8 +109,6 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 
 func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Msg) (lastLine string, err error) {
 
-	msg.InProgress()
-
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
 		err := errors.New("container manager has not been initialised")
@@ -128,7 +126,6 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Ms
 	defer cli.Close()
 
 	// create tar archive from build context
-	msg.InProgress()
 	log.Debug().Msg("tar-ing build context")
 	tar, err := archive.TarWithOptions(buildContext, &archive.TarOptions{
 		ExcludePatterns: []string{"*.md"},
@@ -139,7 +136,6 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Ms
 	}
 
 	// build
-	msg.InProgress()
 	log.Debug().Msg("perform image build")
 	opts := types.ImageBuildOptions{
 		Dockerfile: dockerfile,
@@ -155,11 +151,18 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Ms
 	defer res.Body.Close()
 
 	// get log
-	msg.InProgress()
 	scanner := bufio.NewScanner(res.Body)
 	for scanner.Scan() {
 		lastLine = scanner.Text()
-		log.Debug().Str("output", lastLine).Msg("build output")
+
+		var v map[string]interface{}
+		err := json.Unmarshal([]byte(lastLine), &v)
+		if err == nil {
+			_, ok := v["stream"]
+			if ok {
+				log.Debug().Str("stream", v["stream"].(string)).Msg("build output")
+			}
+		}
 	}
 
 	// get error if one exists
