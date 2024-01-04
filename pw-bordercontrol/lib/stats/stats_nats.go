@@ -96,6 +96,7 @@ func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
 
 			// find feeder
 			stats.mu.RLock()
+			defer stats.mu.RUnlock()
 			feeder, ok := stats.Feeders[apiKey]
 			if !ok {
 				// silently ignore if the client is not connected to this instance
