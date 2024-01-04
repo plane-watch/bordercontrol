@@ -56,14 +56,6 @@ func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
 		// handle message
 		func(msg *nats.Msg) {
 
-			err := msg.InProgress() // workin' on it!
-			if err != nil {
-				log.Err(err).Msg("could not send msg.InProgress")
-				return
-			}
-
-			defer msg.Ack() // ack message when done
-
 			// verify protocol
 			var proto feedprotocol.Protocol
 			switch msg.Subject {
@@ -111,19 +103,9 @@ func natsSubjFeederConnectedHandler(c chan *nats.Msg) {
 				return
 			}
 
-			err = msg.InProgress() // tell server we're working on it
-			if err != nil {
-				log.Err(err).Msg("could not respond to nats msg")
-			}
-
 			// report status
 			if conn.Status {
 				err := msg.Respond([]byte("true"))
-				if err != nil {
-					log.Err(err).Msg("could not respond to nats msg")
-				}
-			} else {
-				err := msg.Respond([]byte("false"))
 				if err != nil {
 					log.Err(err).Msg("could not respond to nats msg")
 				}
