@@ -38,6 +38,10 @@ var (
 
 	promMetricFeederContainersImageCurrent    prometheus.GaugeFunc // prom metric "feedercontainers_image_current"
 	promMetricFeederContainersImageNotCurrent prometheus.GaugeFunc // prom metric "feedercontainers_image_not_current"
+
+	feedInImageName                   string
+	feedInImageBuildContext           string
+	feedInImageBuildContextDockerfile string
 )
 
 const (
@@ -67,6 +71,44 @@ var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	cctx := context.Background()
 	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	return &cctx, cli, err
+}
+
+func RebuildFeedInImageHandler(msg *nats.Msg) {
+
+	log := log.With().
+		Str("subj", natsSubjFeedInImageRebuild).
+		Str("context", feedInImageBuildContext).
+		Str("dockerfile", feedInImageBuildContextDockerfile).
+		Str("image", feedInImageName).
+		Logger()
+	log.Debug().Msg("received req")
+
+	// prep reply
+	var reply nats.Msg
+	reply = nats.Msg{
+		Subject: msg.Subject,
+	}
+
+	// perform build
+	// msg.InProgress()
+	log.Debug().Msg("performing build")
+	lastLine, err := RebuildFeedInImage(feedInImageName, feedInImageBuildContext, feedInImageBuildContextDockerfile)
+	if err != nil {
+		log.Err(err).Msg("could not build feed-in image")
+		reply.Header.Add("result", "error")
+		reply.Data = []byte(err.Error())
+	} else {
+		log.Debug().Msg("build completed")
+		reply.Header.Add("result", "ok")
+		reply.Data = []byte(lastLine)
+	}
+
+	// reply
+	log.Debug().Msg("sending reply")
+	err = msg.RespondMsg(&reply)
+	if err != nil {
+		log.Err(err).Str("subj", natsSubjFeedInImageRebuild).Msg("could not respond")
+	}
 }
 
 func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine string, err error) {
@@ -242,39 +284,13 @@ func (conf *ContainerManager) Init() {
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
 
+	feedInImageName = conf.FeedInImageName
+	feedInImageBuildContext = conf.FeedInImageBuildContext
+	feedInImageBuildContextDockerfile = conf.FeedInImageBuildContextDockerfile
+
 	// nats
 	if nats_io.IsConnected() {
-		err := nats_io.Sub(natsSubjFeedInImageRebuild, func(msg *nats.Msg) {
-
-			log := conf.Logger.With().Str("subj", natsSubjFeedInImageRebuild).Logger()
-			log.Debug().Msg("received req")
-
-			// prep reply
-			var reply nats.Msg
-			reply = nats.Msg{
-				Subject: msg.Subject,
-			}
-
-			// perform build
-			// msg.InProgress()
-			log.Debug().Msg("performing build")
-			lastLine, err := RebuildFeedInImage(conf.FeedInImageName, conf.FeedInImageBuildContext, conf.FeedInImageBuildContextDockerfile)
-			if err != nil {
-				log.Err(err).Msg("could not build feed-in image")
-				reply.Header.Add("result", "error")
-				reply.Data = []byte(err.Error())
-			} else {
-				reply.Header.Add("result", "ok")
-				reply.Data = []byte(lastLine)
-			}
-
-			// reply
-			log.Debug().Msg("sending reply")
-			err = msg.RespondMsg(&reply)
-			if err != nil {
-				log.Err(err).Str("subj", natsSubjFeedInImageRebuild).Msg("could not respond")
-			}
-		})
+		err := nats_io.Sub(natsSubjFeedInImageRebuild, RebuildFeedInImageHandler)
 		if err != nil {
 			log.Fatal().Str("subj", natsSubjFeedInImageRebuild).Err(err).Msg("subscribe failed")
 		}
