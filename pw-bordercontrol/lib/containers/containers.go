@@ -77,22 +77,28 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 		return lastLine, err
 	}
 
+	log.Debug().Msg("starting rebuild feed-in image")
+
 	// get docker client
 	ctx, cli, err := GetDockerClient()
 	if err != nil {
+		log.Err(err).Msg("error getting docker client")
 		return lastLine, err
 	}
 	defer cli.Close()
 
 	// create tar archive from build context
+	log.Debug().Msg("tar-ing build context")
 	tar, err := archive.TarWithOptions(buildContext, &archive.TarOptions{
 		ExcludePatterns: []string{"*.md"},
 	})
 	if err != nil {
+		log.Err(err).Msg("tar-ing build context")
 		return lastLine, err
 	}
 
 	// build
+	log.Debug().Msg("perform image build")
 	opts := types.ImageBuildOptions{
 		Dockerfile: dockerfile,
 		Tags:       []string{fmt.Sprintf("/%s", imageName)},
@@ -100,6 +106,7 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 	}
 	res, err := cli.ImageBuild(*ctx, tar, opts)
 	if err != nil {
+		log.Err(err).Msg("perform image build")
 		return lastLine, err
 	}
 	defer res.Body.Close()
