@@ -16,7 +16,7 @@ const (
 	natsSubjFeederConnectedBEAST = "pw_bordercontrol.feeder.connected.beast"
 	natsSubjFeederConnectedMLAT  = "pw_bordercontrol.feeder.connected.mlat"
 
-	natsSubjFeedersMetrics = "pw_bordercontrol.feeder.metrics"
+	natsSubjFeedersMetrics = "pw_bordercontrol.feeders.metrics"
 
 	natsSubjFeederMetricsAllProtocols = "pw_bordercontrol.feeder.metrics"
 	natsSubjFeederMetrics             = "pw_bordercontrol.feeder.metrics.*"
