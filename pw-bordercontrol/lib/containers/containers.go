@@ -75,7 +75,7 @@ func RebuildFeedInImage() error {
 
 	filters := filters.Args{}
 	filters.Add("name", feedInBuilderContainerName)
-	cList, err := cli.ContainerList(ctx, types.ContainerListOptions{
+	cList, err := cli.ContainerList(*ctx, types.ContainerListOptions{
 		Filters: filters,
 	})
 	if err != nil {
