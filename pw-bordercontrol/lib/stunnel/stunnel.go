@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"pw_bordercontrol/lib/nats_io"
 	"sync"
 	"time"
 
@@ -23,6 +24,8 @@ var (
 	tlsConfig  tls.Config
 	kpr        *keypairReloader
 	signalChan chan os.Signal
+
+	natsSubjReloadCertKey = "pw_bordercontrol.stunnel.reloadcertkey"
 
 	initialised   bool
 	initialisedMu sync.RWMutex
@@ -42,6 +45,13 @@ func Init(reloadSignal os.Signal) {
 	// prepares channels to catch signal to reload TLS/SSL cert/key
 	signalChan = make(chan os.Signal, 1)
 	signal.Notify(signalChan, reloadSignal)
+
+	if nats_io.IsConnected() {
+		err := nats_io.SignalSendOnSubj(natsSubjReloadCertKey, reloadSignal, signalChan)
+		if err != nil {
+			log.Fatal().Str("subj", natsSubjReloadCertKey).Err(err).Msg("subscribe failed")
+		}
+	}
 
 	initialisedMu.Lock()
 	defer initialisedMu.Unlock()
