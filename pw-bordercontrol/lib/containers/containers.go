@@ -167,7 +167,8 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Ms
 		if err == nil {
 			stream, ok := v["stream"].(string)
 			if ok {
-				if stream != "\n" && !strings.Contains(stream, " ---> ") {
+				stream = strings.ReplaceAll(stream, "\n", "")
+				if stream != "" && !strings.Contains(stream, " ---> ") {
 					log.Debug().Str("stream", stream).Msg("build output")
 				}
 			}
