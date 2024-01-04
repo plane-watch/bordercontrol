@@ -316,6 +316,7 @@ func runServer(ctx *cli.Context) error {
 	// initialise container manager
 	ContainerManager := containers.ContainerManager{
 		FeedInImageName:                    ctx.String("feedinimage"),
+		FeedInBuilderContainerName:         ctx.String("feedinbuildercontainer"),
 		FeedInContainerPrefix:              ctx.String("feedincontainerprefix"),
 		FeedInContainerNetwork:             ctx.String("feedincontainernetwork"),
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
