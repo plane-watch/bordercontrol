@@ -91,7 +91,7 @@ func Sub(subj string, handler func(msg *nats.Msg)) error {
 func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 	// when subj is received, signal sig is sent to channel ch
 	return Sub(subj, func(msg *nats.Msg) {
-		if msg.Data == nil {
+		if string(msg.Data) == "*" || string(msg.Data) == natsInstance {
 			ch <- sig
 			msg.Ack()
 		}
