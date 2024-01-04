@@ -256,7 +256,7 @@ func (conf *ContainerManager) Init() {
 			}
 
 			// perform build
-			msg.InProgress()
+			// msg.InProgress()
 			log.Debug().Msg("performing build")
 			lastLine, err := RebuildFeedInImage(conf.FeedInImageName, conf.FeedInImageBuildContext, conf.FeedInImageBuildContextDockerfile)
 			if err != nil {
