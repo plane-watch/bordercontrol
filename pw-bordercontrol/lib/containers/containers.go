@@ -158,9 +158,11 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Ms
 		var v map[string]interface{}
 		err := json.Unmarshal([]byte(lastLine), &v)
 		if err == nil {
-			_, ok := v["stream"]
+			stream, ok := v["stream"]
 			if ok {
-				log.Debug().Str("stream", v["stream"].(string)).Msg("build output")
+				if stream != "\n" {
+					log.Debug().Str("stream", v["stream"].(string)).Msg("build output")
+				}
 			}
 		}
 	}
