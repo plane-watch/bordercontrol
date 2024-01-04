@@ -87,6 +87,11 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 
 	// prep reply
 	reply := nats.NewMsg(msg.Subject)
+	inst, err := nats_io.GetInstance()
+	if err != nil {
+		log.Err(err).Msg("could not get nats instance")
+	}
+	reply.Header.Add("instance", inst)
 
 	// perform build
 	log.Debug().Msg("performing build")
