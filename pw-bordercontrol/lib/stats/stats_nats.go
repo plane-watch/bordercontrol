@@ -59,12 +59,12 @@ func initNats(nc *nats.Conn, natsInstance string) {
 
 	// subscriptions
 
-	natsSub(nc, natsSubjFeederConnectedBEAST, natsSubjFeederHandler)
-	natsSub(nc, natsSubjFeederConnectedMLAT, natsSubjFeederHandler)
 	natsSub(nc, natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
-	natsSub(nc, natsSubjFeederMetricsAllProtocols, natsSubjFeederHandler)
+	natsSub(nc, natsSubjFeederMetricsAllProtocols, natsSubjFeederMetricsAllProtocolsHandler)
 	natsSub(nc, natsSubjFeederMetricsBEAST, natsSubjFeederHandler)
 	natsSub(nc, natsSubjFeederMetricsMLAT, natsSubjFeederHandler)
+	natsSub(nc, natsSubjFeederConnectedBEAST, natsSubjFeederHandler)
+	natsSub(nc, natsSubjFeederConnectedMLAT, natsSubjFeederHandler)
 
 	// ---
 
