@@ -16,6 +16,8 @@ const (
 	natsSubjFeederConnectedBEAST = "pw_bordercontrol.feeder.connected.beast"
 	natsSubjFeederConnectedMLAT  = "pw_bordercontrol.feeder.connected.mlat"
 
+	natsSubjFeedersMetrics = "pw_bordercontrol.feeder.metrics"
+
 	natsSubjFeederMetricsAllProtocols = "pw_bordercontrol.feeder.metrics"
 	natsSubjFeederMetrics             = "pw_bordercontrol.feeder.metrics.*"
 	natsSubjFeederMetricsBEAST        = "pw_bordercontrol.feeder.metrics.beast"
@@ -91,6 +93,15 @@ func initNats(natsUrl, natsInstance string) {
 		defer natsSubjFeederMetricsAllProtocolsSub.Unsubscribe()
 		log.Debug().Str("subj", natsSubjFeederMetricsAllProtocols).Msg("subscribed")
 	}
+
+	natsSubjFeedersMetricsSub, err := nc.Subscribe(natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
+	if err != nil {
+		log.Err(err).Str("subj", natsSubjFeedersMetrics).Msg("could not subscribe")
+	} else {
+		defer natsSubjFeedersMetricsSub.Unsubscribe()
+		log.Debug().Str("subj", natsSubjFeedersMetrics).Msg("subscribed")
+	}
+
 	// ---
 
 	for {
@@ -114,6 +125,86 @@ func getProtocolFromLastToken(subject string) (feedprotocol.Protocol, error) {
 func parseApiKeyFromMsgData(msg *nats.Msg) (uuid.UUID, error) {
 	// parse API key
 	return uuid.ParseBytes(msg.Data)
+}
+
+func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
+
+	// update log context
+	log := log.With().
+		Str("subject", msg.Subject).
+		Logger()
+
+	// find feeder
+	stats.mu.RLock()
+	defer stats.mu.RUnlock()
+
+	afm := make(map[string]perFeederAllProtocolMetrics)
+
+	for apiKey, feeder := range stats.Feeders {
+
+		// prep reply struct
+		fm := perFeederAllProtocolMetrics{}
+		fm.FeederCode = feeder.Code
+		fm.Label = feeder.Label
+
+		// beast connection
+		conns, ok := feeder.Connections[feedprotocol.ProtocolNameBEAST]
+		if !ok {
+			log.Debug().Msg("no beast connection")
+		} else {
+
+			for _, connDetail := range conns.ConnectionDetails {
+				if fm.BeastConnectionTime.Before(connDetail.TimeConnected) {
+					fm.BeastConnectionTime = connDetail.TimeConnected
+					fm.BeastBytesIn = connDetail.BytesIn
+					fm.BeastBytesOut = connDetail.BytesOut
+					fm.BeastConnected = true
+					fm.send = true
+				}
+			}
+		}
+
+		// mlat connection
+		conns, ok = feeder.Connections[feedprotocol.ProtocolNameMLAT]
+		if !ok {
+			log.Debug().Msg("no mlat connection")
+		} else {
+
+			for _, connDetail := range conns.ConnectionDetails {
+				if fm.MlatConnectionTime.Before(connDetail.TimeConnected) {
+					fm.MlatConnectionTime = connDetail.TimeConnected
+					fm.MlatBytesIn = connDetail.BytesIn
+					fm.MlatBytesOut = connDetail.BytesOut
+					fm.MlatConnected = true
+					fm.send = true
+				}
+			}
+		}
+
+		if fm.send {
+			afm[apiKey.String()] = fm
+		}
+	}
+
+	// prep reply
+	reply := nats.NewMsg(msg.Subject)
+	reply.Header.Add("instance", NatsInstance)
+
+	// marshall metrics struct into json
+	jb, err := json.Marshal(afm)
+	if err != nil {
+		log.Err(err).Msg("could not marshall feeder metrics into JSON")
+		return
+	}
+	reply.Data = jb
+
+	// send reply
+	err = msg.RespondMsg(reply)
+	if err != nil {
+		log.Err(err).Msg("could not respond to nats msg")
+	}
+
+	return
 }
 
 func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
