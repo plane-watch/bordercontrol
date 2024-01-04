@@ -49,11 +49,11 @@ type perFeederAllProtocolMetrics struct {
 
 func initNats(nc *nats.Conn, natsInstance string) {
 
-	// update log context
-	log := log.With().
-		Str("func", "initNats").
-		Str("natsinstance", natsInstance).
-		Logger()
+	// // update log context
+	// log := log.With().
+	// 	Str("func", "initNats").
+	// 	Str("natsinstance", natsInstance).
+	// 	Logger()
 
 	NatsInstance = natsInstance
 
@@ -73,6 +73,11 @@ func initNats(nc *nats.Conn, natsInstance string) {
 }
 
 func natsSub(nc *nats.Conn, subj string, handler func(msg *nats.Msg)) {
+	// update log context
+	log := log.With().
+		Str("func", "initNats").
+		Logger()
+
 	_, err := nc.Subscribe(subj, handler)
 	if err != nil {
 		log.Err(err).Str("subj", subj).Msg("could not subscribe")
