@@ -44,6 +44,7 @@ services:
       - DEBUG=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./pw-feed-in:/opt/pw-feed-in:ro
     networks:
       - bordercontrol_feeder
     ports:
@@ -55,7 +56,7 @@ services:
   feed-in-builder:
     container_name: feed-in-builder
     build:
-      context: .
+      context: ./pw-feed-in
       dockerfile: Dockerfile.feeder
     image: feed-in
     entrypoint: /bin/true
