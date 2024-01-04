@@ -83,11 +83,14 @@ func RebuildFeedInImage() error {
 	}
 
 	if len(cList) > 0 {
-		cj, err := cli.ContainerInspect(*ctx, cList[0].ID)
-		if err != nil {
-			return err
+		for _, b := range cList {
+			cj, err := cli.ContainerInspect(*ctx, b.ID)
+			if err != nil {
+				return err
+			}
+			fmt.Println(cj.Name)
+			fmt.Println(cj.Config.Labels)
 		}
-		fmt.Println(cj.Config.Labels)
 	}
 
 	return nil
