@@ -118,7 +118,7 @@ func natsSubjFeederConnectedHandler(c chan *nats.Msg, natsInstance string) {
 				// prep reply
 				reply := nats.NewMsg(msg.Subject)
 				reply.Data = []byte("true")
-				reply.Header.Add("host", natsInstance)
+				reply.Header.Add("instance", natsInstance)
 
 				// send reply
 				err := msg.RespondMsg(reply)
