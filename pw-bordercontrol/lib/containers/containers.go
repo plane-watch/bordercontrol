@@ -1,7 +1,9 @@
 package containers
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -18,6 +20,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,8 +36,6 @@ var (
 	containersToStartResponses  chan startContainerResponse // channel for container start responses
 	containerManagerInitialised bool                        // has ContainerManager.Init() been run?
 
-	feedInBuilderContainerName string // Name of feed-in-builder container.
-
 	promMetricFeederContainersImageCurrent    prometheus.GaugeFunc // prom metric "feedercontainers_image_current"
 	promMetricFeederContainersImageNotCurrent prometheus.GaugeFunc // prom metric "feedercontainers_image_not_current"
 )
@@ -42,6 +43,15 @@ var (
 const (
 	natsSubjFeedInImageRebuild = "pw_bordercontrol.feedinimage.rebuild"
 )
+
+type ErrorLine struct {
+	Error       string      `json:"error"`
+	ErrorDetail ErrorDetail `json:"errorDetail"`
+}
+
+type ErrorDetail struct {
+	Message string `json:"message"`
+}
 
 // struct for responses from the startFeederContainers goroutine start a container
 type startContainerResponse struct {
@@ -59,43 +69,56 @@ var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 	return &cctx, cli, err
 }
 
-func RebuildFeedInImage() error {
+func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine string, err error) {
 
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
 		err := errors.New("container manager has not been initialised")
-		return err
+		return lastLine, err
 	}
 
+	// get docker client
 	ctx, cli, err := GetDockerClient()
 	if err != nil {
-		return err
+		return lastLine, err
 	}
 	defer cli.Close()
 
-	filters := filters.NewArgs()
-	fmt.Println(feedInBuilderContainerName)
-	filters.Add("name", feedInBuilderContainerName)
-	cList, err := cli.ContainerList(*ctx, types.ContainerListOptions{
-		Filters: filters,
-		All:     true,
+	// create tar archive from build context
+	tar, err := archive.TarWithOptions(buildContext, &archive.TarOptions{
+		ExcludePatterns: []string{"*.md"},
 	})
 	if err != nil {
-		return err
+		return lastLine, err
 	}
 
-	if len(cList) > 0 {
-		for _, b := range cList {
-			cj, err := cli.ContainerInspect(*ctx, b.ID)
-			if err != nil {
-				return err
-			}
-			fmt.Println(cj.Name)
-			fmt.Println(cj.Config.Labels)
-		}
+	// build
+	opts := types.ImageBuildOptions{
+		Dockerfile: dockerfile,
+		Tags:       []string{fmt.Sprintf("/%s", imageName)},
+		Remove:     true,
+	}
+	res, err := cli.ImageBuild(*ctx, tar, opts)
+	if err != nil {
+		return lastLine, err
+	}
+	defer res.Body.Close()
+
+	// get log
+	scanner := bufio.NewScanner(res.Body)
+	for scanner.Scan() {
+		lastLine = scanner.Text()
+		fmt.Println(scanner.Text())
 	}
 
-	return nil
+	// get error if one exists
+	errLine := &ErrorLine{}
+	json.Unmarshal([]byte(lastLine), errLine)
+	if errLine.Error != "" {
+		return lastLine, errors.New(errLine.Error)
+	}
+
+	return lastLine, nil
 }
 
 func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContainerPrefix string) float64 {
@@ -186,8 +209,9 @@ func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 }
 
 type ContainerManager struct {
-	FeedInImageName                    string         // Name of docker image for feed-in containers.
-	FeedInBuilderContainerName         string         // Name of feed-in-builder container.
+	FeedInImageName                    string // Name of docker image for feed-in containers.
+	FeedInImageBuildContext            string
+	FeedInImageBuildContextDockerfile  string
 	FeedInContainerPrefix              string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
 	FeedInContainerNetwork             string         // Name of docker network to attach feed-in containers to.
 	SignalSkipContainerRecreationDelay syscall.Signal // Signal that will skip container recreation delay.
@@ -211,21 +235,37 @@ func (conf *ContainerManager) Init() {
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
 
-	feedInBuilderContainerName = conf.FeedInBuilderContainerName
-
 	// nats
 	if nats_io.IsConnected() {
 		err := nats_io.Sub(natsSubjFeedInImageRebuild, func(msg *nats.Msg) {
-			err := RebuildFeedInImage()
-			log.Err(err).Msg("could not build feed-in image")
+
+			// prep reply
+			var reply nats.Msg
+			reply = nats.Msg{
+				Subject: msg.Subject,
+			}
+
+			// perform build
+			msg.InProgress()
+			lastLine, err := RebuildFeedInImage(conf.FeedInImageName, conf.FeedInImageBuildContext, conf.FeedInImageBuildContextDockerfile)
+			if err != nil {
+				log.Err(err).Msg("could not build feed-in image")
+				reply.Header.Add("result", "error")
+				reply.Data = []byte(err.Error())
+			} else {
+				reply.Header.Add("result", "ok")
+				reply.Data = []byte(lastLine)
+			}
+
+			// reply
+			err = msg.RespondMsg(&reply)
+			if err != nil {
+				log.Err(err).Str("subj", natsSubjFeedInImageRebuild).Msg("could not respond")
+			}
 		})
 		if err != nil {
 			log.Fatal().Str("subj", natsSubjFeedInImageRebuild).Err(err).Msg("subscribe failed")
 		}
-	}
-
-	if nats_io.IsConnected() {
-
 	}
 
 	// register prom metrics

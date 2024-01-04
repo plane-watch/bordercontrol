@@ -139,12 +139,19 @@ var (
 				Value:    "bordercontrol_feeder",
 				EnvVars:  []string{"FEED_IN_CONTAINER_NETWORK"},
 			},
+			&cli.PathFlag{
+				Category: "Docker Environment",
+				Name:     "feedinimagecontext",
+				Usage:    "feed-in-image build context",
+				Value:    "/opt/pw-feed-in",
+				EnvVars:  []string{"FEED_IN_BUILD_CONTEXT"},
+			},
 			&cli.StringFlag{
 				Category: "Docker Environment",
-				Name:     "feedinbuildercontainer",
-				Usage:    "feed-in-builder container name",
-				Value:    "feed-in-builder",
-				EnvVars:  []string{"FEED_IN_BUILDER_CONTAINER"},
+				Name:     "feedinimagedockerfile",
+				Usage:    "feed-in-image build Dockerfile (relative to context)",
+				Value:    "Dockerfile.feeder",
+				EnvVars:  []string{"FEED_IN_BUILD_DOCKERFILE"},
 			},
 			&cli.StringFlag{
 				Category: "NATS",
@@ -316,7 +323,8 @@ func runServer(ctx *cli.Context) error {
 	// initialise container manager
 	ContainerManager := containers.ContainerManager{
 		FeedInImageName:                    ctx.String("feedinimage"),
-		FeedInBuilderContainerName:         ctx.String("feedinbuildercontainer"),
+		FeedInImageBuildContext:            ctx.String("feedinimagecontext"),
+		FeedInImageBuildContextDockerfile:  ctx.String("feedinimagedockerfile"),
 		FeedInContainerPrefix:              ctx.String("feedincontainerprefix"),
 		FeedInContainerNetwork:             ctx.String("feedincontainernetwork"),
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
