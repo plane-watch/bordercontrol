@@ -8,18 +8,20 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
 
 * [plane.watch Border Control](#planewatch-border-control)
   * [Overview](#overview)
-  * [Operations](#operations)
-    * [Statistics](#statistics)
-      * [Human Readable](#human-readable)
-      * [API](#api)
-      * [Prometheus Metrics](#prometheus-metrics)
-    * [Configuring the environment](#configuring-the-environment)
-    * [Signals](#signals)
-    * [Starting the environment](#starting-the-environment)
-    * [Stopping the environment](#stopping-the-environment)
-    * [Updating the environment](#updating-the-environment)
-    * [Re-reading SSL certificates](#re-reading-ssl-certificates)
-  * [Feed-In Container Health](#feed-in-container-health)
+  * [Configuring the environment](#configuring-the-environment)
+    * [Operation](#operation)
+      * [Starting the environment](#starting-the-environment)
+      * [Stopping the environment](#stopping-the-environment)
+      * [Updating the environment](#updating-the-environment)
+      * [Re-reading SSL certificates](#re-reading-ssl-certificates)
+      * [Feed-In Container Health](#feed-in-container-health)
+  * [Statistics](#statistics)
+    * [NATS](#nats)
+      * [Per-feeder](#per-feeder)
+      * [All Feeders](#all-feeders)
+    * [Human Readable](#human-readable)
+    * [API](#api)
+    * [Prometheus Metrics](#prometheus-metrics)
 
 ## Overview
 
@@ -35,32 +37,7 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
   * BEAST data is sent to the "feed-in" container
   * MLAT connections are proxied to `mlat-server` instances
 
-## Operations
-
-### Statistics
-
-Bordercontrol listens on TCP port `8080` for http requests
-
-#### Human Readable
-
-Bordercontrol will display a simple HTML table of feeders with statistics at `http://dockerhost:8080`
-
-#### API
-
-Bordercontrol supports the following API calls to `http://dockerhost:8080`:
-
-| Query Type | URL Path                | Returns                              |
-|------------|-------------------------|--------------------------------------|
-| `GET`      | `/api/v1/feeder/<UUID>` | Statistics for single feeder by UUID |
-| `GET`      | `/api/v1/feeders/`      | Statistics for all feeders           |
-
-These queries return a JSON object with keys `Data` and `Error`. If `Error == ""`, then the `Data` key should contain the requested data. If `Error != ""`, then the error details are contained within `Error` and any data in `Data` should be discarded.
-
-#### Prometheus Metrics
-
-Prometheus metrics are published at `http://dockerhost:8080/metrics`.
-
-### Configuring the environment
+## Configuring the environment
 
 In the root of the repository, create a `.env` file containing the following:
 
@@ -72,13 +49,14 @@ In the root of the repository, create a `.env` file containing the following:
 | `ATC_PASS`                  | `--atcpass`                | R   | Password for ATC API                                                           | REDACTED                                          |
 | `BC_CERT_FILE`              | `--cert`                   | O   | Path (within the bordercontrol container) of the X509 cert                     | `/etc/ssl/private/push.plane.watch/fullchain.pem` |
 | `BC_KEY_FILE`               | `--key`                    | O   | Path (within the bordercontrol container) of the X509 key                      | `/etc/ssl/private/push.plane.watch/privkey.pem`   |
-| `BC_LISTEN_API`             | `--listenapi`              | O   | Address and TCP port server will listen on for API, stats & Prometheus metrics | `0.0.0.0:8080`                                    |
+| `BC_LISTEN_API`             | `--listenapi`              | O   | Address and TCP port server will listen on for API, stats & Prometheus metrics | `:8080`                                           |
 | `BC_LISTEN_BEAST`           | `--listenbeast`            | O   | Address and TCP port to listen on for BEAST connections                        | `0.0.0.0:12345`                                   |
 | `BC_LISTEN_MLAT`            | `--listenmlat`             | O   | Address and TCP port to listen on for MLAT connections                         | `0.0.0.0:12346`                                   |
 | `FEED_IN_CONTAINER_PREFIX`  | `--feedincontainerprefix`  | O   | Feed-in container prefix                                                       | `feed-in-`                                        |
 | `FEED_IN_CONTAINER_NETWORK` | `--feedincontainernetwork` | O   | Feed-in container network                                                      | `bordercontrol_feeder`                            |
 | `FEED_IN_IMAGE`             | `--feedinimage`            | O   | Feed-in image name                                                             | `feed-in`                                         |
 | `PW_INGEST_SINK`            | `--pwingestpublish`        | R   | URL passed through to `pw_ingest` in feed-in containers                        | `nats://nats-ingest.plane.watch:4222`             |
+| `NATS`                      | `--natsurl`                | O   | NATS URL for stats/control                                                     | `nats://nats-ingest.plane.watch:4222`             |
 
 Note: *O = **O**ptional, R = **R**equired*.
 
@@ -94,32 +72,26 @@ BC_CERT_FILE=/path/to/fullchain.pem
 BC_KEY_FILE=/path/to/privkey.pem
 # pw_ingest
 PW_INGEST_SINK=nats://nats-ingest.youdomain.tld:4222
+NATS=nats://nats-ingest.youdomain.tld:4222
 ```
 
 Create a the `docker-compose-local.yml` file (see the example), under `services:` -> `bordercontrol:`, ensure the path holding SSL certs/keys is mapped as a volume.
 
-### Signals
+### Operation
 
-Bordercontrol supports receiving some signals:
-
-| Signal    | What it Does                        |
-|-----------|-------------------------------------|
-| `SIGHUP`  | Reload SSL certificate(s)           |
-| `SIGUSR1` | Skip feed-in container update delay |
-
-### Starting the environment
+#### Starting the environment
 
 From the root of the repository, run `docker compose up -d --build`.
 
 This will build the images, containers and launch bordercontrol.
 
-### Stopping the environment
+#### Stopping the environment
 
 From the root of the repository, run `docker compose down`.
 
 This will stop and remove multiplexer and bordercontrol containers. After approximately 10 minutes, the feed-in containers will stop and be removed.
 
-### Updating the environment
+#### Updating the environment
 
 From the root of the repository, run `docker compose up -d --build`.
 
@@ -132,13 +104,13 @@ Mon Nov  6 20:51:43 UTC 2023 INF caught signal, proceeding immediately goroutine
 Mon Nov  6 20:51:43 UTC 2023 INF out of date container being killed for recreation container=feed-in-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx goroutine=checkFeederContainers
 ```
 
-### Re-reading SSL certificates
+#### Re-reading SSL certificates
 
 Bordercontrol will non-disruptively re-read SSL certificate(s) if it receives a `SIGHUP`.
 
 The easiest way to do this is `docker exec bordercontrol pkill -HUP bordercontrol`.
 
-## Feed-In Container Health
+#### Feed-In Container Health
 
 Healthchecks are run within the feed-in containers.
 
@@ -154,3 +126,49 @@ If the feed-in container has been unhealthy for longer than 10 minutes, the cont
 As the containers are launched via bordercontrol with "autoremove" enabled, the stopped container will be removed automatically.
 
 This ensures that only containers of active feeders are started and running.
+
+## Statistics
+
+### NATS
+
+Bordercontrol will report statistics via NATS.
+
+On all replies, the bordercontrol instance is returned as a header, so the instance the feeder is connected to can be identified if needed.
+
+#### Per-feeder
+
+| Subject                                   | Header    | Body           | Description                                                                                                                                                                                                                                                                                                                                                   |
+|-------------------------------------------|-----------|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pw_bordercontrol.feeder.connected.beast` | *Ignored* | Feeder API Key | Returns `true` if feeder matching API Key has a BEAST protocol connection.                                                                                                                                                                                                                                                                                    |
+| `pw_bordercontrol.feeder.connected.mlat`  | *Ignored* | Feeder API Key | Returns `true` if feeder matching API Key has a MLAT protocol connection.                                                                                                                                                                                                                                                                                     |
+| `pw_bordercontrol.feeder.metrics`         | *Ignored* | Feeder API Key | Returns JSON containing metrics for all connections. Eg: `{"feeder_code":"YPPH-0003","label":"Bayswater2","beast_connected":true,"beast_bytes_in":10120,"beast_bytes_out":0,"beast_connection_time":"2024-01-04T15:14:03.892056108Z","mlat_connected":true,"mlat_bytes_in":140,"mlat_bytes_out":458,"mlat_connection_time":"2024-01-04T15:13:44.397506876Z"}` |
+| `pw_bordercontrol.feeder.metrics.beast`   | *Ignored* | Feeder API Key | Returns JSON containing metrics for BEAST connection. Eg: `{"bytes_in":305177,"bytes_out":0,"connection_time":"2024-01-04T14:37:47.87329718Z"}`                                                                                                                                                                                                               |
+| `pw_bordercontrol.feeder.metrics.mlat`    | *Ignored* | Feeder API Key | Returns JSON containing metrics for MLAT connection. Eg: `{"bytes_in":29172,"bytes_out":744,"connection_time":"2024-01-04T14:37:27.133693249Z"}`                                                                                                                                                                                                              |
+
+If the requested feeder is not connected to bordercontrol, bordercontrol will silently ignore the message. This ensures that in scale-out environments, you can simply use the first (and hopefully only) reply. It is suggested to use a short timeout too (100ms should be *plenty*).
+
+#### All Feeders
+
+| Subject                            | Header    | Body      | Description                                                                                                                                                                                                                                                                                                                                                                                            |
+|------------------------------------|-----------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pw_bordercontrol.feeders.metrics` | *Ignored* | *Ignored* | Returns JSON containing metrics for all feeders, all connections. Eg: `{"<feeder api key redacted>":{"feeder_code":"YPPH-0003","label":"Bayswater2","beast_connected":true,"beast_bytes_in":258,"beast_bytes_out":0,"beast_connection_time":"2024-01-04T15:28:28.697372348Z","mlat_connected":true,"mlat_bytes_in":140,"mlat_bytes_out":458,"mlat_connection_time":"2024-01-04T15:28:10.295874658Z"}}` |
+
+### Human Readable
+
+Bordercontrol will display a simple HTML table of feeders with statistics at `http://dockerhost:8080`
+
+### API
+
+Bordercontrol supports the following API calls to `http://dockerhost:8080`:
+
+| Query Type | URL Path                | Returns                              |
+|------------|-------------------------|--------------------------------------|
+| `GET`      | `/api/v1/feeder/<UUID>` | Statistics for single feeder by UUID |
+| `GET`      | `/api/v1/feeders/`      | Statistics for all feeders           |
+
+These queries return a JSON object with keys `Data` and `Error`. If `Error == ""`, then the `Data` key should contain the requested data. If `Error != ""`, then the error details are contained within `Error` and any data in `Data` should be discarded.
+
+### Prometheus Metrics
+
+Prometheus metrics are published at `http://dockerhost:8080/metrics`.
+
