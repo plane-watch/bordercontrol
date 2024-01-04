@@ -32,10 +32,11 @@ import (
 )
 
 var (
-	chanSkipDelay               chan os.Signal              // channel for received signals to skip container recreation delay
-	containersToStartRequests   chan FeedInContainer        // channel for container start requests
-	containersToStartResponses  chan startContainerResponse // channel for container start responses
-	containerManagerInitialised bool                        // has ContainerManager.Init() been run?
+	chanSkipDelay                      chan os.Signal // channel for received signals to skip container recreation delay
+	signalSkipContainerRecreationDelay os.Signal
+	containersToStartRequests          chan FeedInContainer        // channel for container start requests
+	containersToStartResponses         chan startContainerResponse // channel for container start responses
+	containerManagerInitialised        bool                        // has ContainerManager.Init() been run?
 
 	promMetricFeederContainersImageCurrent    prometheus.GaugeFunc // prom metric "feedercontainers_image_current"
 	promMetricFeederContainersImageNotCurrent prometheus.GaugeFunc // prom metric "feedercontainers_image_not_current"
@@ -175,6 +176,9 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Ms
 		return lastLine, errors.New(errLine.Error)
 	}
 
+	// kick-off updates
+	chanSkipDelay <- signalSkipContainerRecreationDelay
+
 	return lastLine, nil
 }
 
@@ -292,6 +296,7 @@ func (conf *ContainerManager) Init() {
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
 
+	signalSkipContainerRecreationDelay = conf.SignalSkipContainerRecreationDelay
 	feedInImageName = conf.FeedInImageName
 	feedInImageBuildContext = conf.FeedInImageBuildContext
 	feedInImageBuildContextDockerfile = conf.FeedInImageBuildContextDockerfile
