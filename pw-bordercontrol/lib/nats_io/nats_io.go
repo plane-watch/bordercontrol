@@ -92,6 +92,7 @@ func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 	// when subj is received, signal sig is sent to channel ch
 	return Sub(subj, func(msg *nats.Msg) {
 		ch <- sig
+		msg.Header.Add("instance", natsInstance)
 		msg.Ack()
 	})
 }
