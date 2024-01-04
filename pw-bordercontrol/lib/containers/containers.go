@@ -87,9 +87,8 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 	reply := nats.NewMsg(msg.Subject)
 
 	// perform build
-	// msg.InProgress()
 	log.Debug().Msg("performing build")
-	lastLine, err := RebuildFeedInImage(feedInImageName, feedInImageBuildContext, feedInImageBuildContextDockerfile)
+	lastLine, err := RebuildFeedInImage(feedInImageName, feedInImageBuildContext, feedInImageBuildContextDockerfile, msg)
 	if err != nil {
 		log.Err(err).Msg("could not build feed-in image")
 		reply.Header.Add("result", "error")
@@ -108,7 +107,9 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 	}
 }
 
-func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine string, err error) {
+func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Msg) (lastLine string, err error) {
+
+	msg.InProgress()
 
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
@@ -127,6 +128,7 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 	defer cli.Close()
 
 	// create tar archive from build context
+	msg.InProgress()
 	log.Debug().Msg("tar-ing build context")
 	tar, err := archive.TarWithOptions(buildContext, &archive.TarOptions{
 		ExcludePatterns: []string{"*.md"},
@@ -137,6 +139,7 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 	}
 
 	// build
+	msg.InProgress()
 	log.Debug().Msg("perform image build")
 	opts := types.ImageBuildOptions{
 		Dockerfile: dockerfile,
@@ -152,10 +155,11 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 	defer res.Body.Close()
 
 	// get log
+	msg.InProgress()
 	scanner := bufio.NewScanner(res.Body)
 	for scanner.Scan() {
 		lastLine = scanner.Text()
-		fmt.Println(scanner.Text())
+		log.Debug().Str("output", lastLine).Msg("build output")
 	}
 
 	// get error if one exists
