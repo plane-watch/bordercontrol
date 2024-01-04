@@ -82,19 +82,13 @@ func RebuildFeedInImage() error {
 		return err
 	}
 
-	fmt.Println(cList)
-
-	if len(cList) != 1 {
-		err := errors.New("could not find feed in builder container")
-		return err
+	if len(cList) > 0 {
+		cj, err := cli.ContainerInspect(*ctx, cList[0].ID)
+		if err != nil {
+			return err
+		}
+		fmt.Println(cj.Config.Labels)
 	}
-
-	cj, err := cli.ContainerInspect(*ctx, cList[0].ID)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(cj.Config.Labels)
 
 	return nil
 }
