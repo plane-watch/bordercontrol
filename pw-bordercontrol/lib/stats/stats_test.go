@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/nettest"
@@ -167,8 +168,8 @@ func TestStats(t *testing.T) {
 		assert.Equal(t, ErrStatsNotInitialised, err)
 	})
 
-	// initialising stats subsystem
-	Init(testAddr, "")
+	// initialising stats subsystem - no nats
+	Init(testAddr, &nats.Conn{}, "")
 
 	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST

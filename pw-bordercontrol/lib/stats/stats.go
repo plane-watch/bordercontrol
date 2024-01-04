@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -612,7 +613,7 @@ func registerPerFeederCounterVecs() error {
 	return nil
 }
 
-func Init(addr, natsUrl, natsInstance string) error {
+func Init(addr string, nc *nats.Conn, natsInstance string) error {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
@@ -632,10 +633,10 @@ func Init(addr, natsUrl, natsInstance string) error {
 	}
 
 	// init NATS
-	if natsUrl != "" {
-		go initNats(natsUrl, natsInstance)
+	if nc.IsConnected() {
+		go initNats(nc, natsInstance)
 	} else {
-		log.Debug().Msg("skipping nats as no natsurl given")
+		log.Debug().Msg("skipping nats as not connected")
 	}
 
 	// set initialised

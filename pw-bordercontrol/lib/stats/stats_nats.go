@@ -49,24 +49,15 @@ type perFeederAllProtocolMetrics struct {
 	send                bool
 }
 
-func initNats(natsUrl, natsInstance string) {
+func initNats(nc *nats.Conn, natsInstance string) {
 
 	// update log context
 	log := log.With().
 		Str("func", "initNats").
-		Str("natsurl", natsUrl).
 		Str("natsinstance", natsInstance).
 		Logger()
 
 	NatsInstance = natsInstance
-
-	// connect to NATS
-	log.Debug().Msg("connecting to NATS")
-	nc, err := nats.Connect(natsUrl)
-	if err != nil {
-		log.Err(err).Msg("could not connect")
-	}
-	defer nc.Close()
 
 	// subscriptions
 

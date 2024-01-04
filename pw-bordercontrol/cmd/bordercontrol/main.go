@@ -19,6 +19,7 @@ import (
 	"pw_bordercontrol/lib/stats"
 	"pw_bordercontrol/lib/stunnel"
 
+	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -253,6 +254,11 @@ func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInCo
 	}
 }
 
+func connectToNats(natsUrl string) (*nats.Conn, error) {
+	// connect to NATS
+	return nats.Connect(natsUrl)
+}
+
 func runServer(ctx *cli.Context) error {
 
 	// Set logging level
@@ -282,7 +288,18 @@ func runServer(ctx *cli.Context) error {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
 
-	// start statistics manager
+	// connect to nats for control/stats/etc
+	var nc *nats.Conn
+	if ctx.String("natsurl") != "" {
+		nc, err = connectToNats(ctx.String("natsurl"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("error connecting to NATS")
+		}
+	} else {
+		log.Debug().Msg("skipping NATS connection")
+	}
+
+	// prep nats instance name
 	natsInstance := ctx.String("natsinstance")
 	if natsInstance == "" {
 		natsInstance, err = os.Hostname()
@@ -290,7 +307,9 @@ func runServer(ctx *cli.Context) error {
 			log.Fatal().Err(err).Msg("could not determine hostname")
 		}
 	}
-	err = stats.Init(ctx.String("listenapi"), ctx.String("natsurl"), natsInstance)
+
+	// start statistics manager
+	err = stats.Init(ctx.String("listenapi"), nc, natsInstance)
 	if err != nil {
 		log.Err(err).Msg("could not start statistics manager")
 		return err
