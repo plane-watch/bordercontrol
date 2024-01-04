@@ -84,10 +84,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 	log.Debug().Msg("received req")
 
 	// prep reply
-	var reply nats.Msg
-	reply = nats.Msg{
-		Subject: msg.Subject,
-	}
+	reply := nats.NewMsg(msg.Subject)
 
 	// perform build
 	// msg.InProgress()
@@ -105,7 +102,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 
 	// reply
 	log.Debug().Msg("sending reply")
-	err = msg.RespondMsg(&reply)
+	err = msg.RespondMsg(reply)
 	if err != nil {
 		log.Err(err).Str("subj", natsSubjFeedInImageRebuild).Msg("could not respond")
 	}
@@ -145,6 +142,7 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 		Dockerfile: dockerfile,
 		Tags:       []string{fmt.Sprintf("/%s", imageName)},
 		Remove:     true,
+		PullParent: true,
 	}
 	res, err := cli.ImageBuild(*ctx, tar, opts)
 	if err != nil {
