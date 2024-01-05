@@ -65,12 +65,6 @@ func (conf *NatsConfig) Init() {
 		}
 	}
 
-	// ping
-	err = Sub(natsSubjPing, PingHandler)
-	if err != nil {
-		log.Err(err).Str("subj", natsSubjPing).Msg("error subscribing")
-	}
-
 	// set initialised
 	initialisedMu.Lock()
 	initialised = true
@@ -80,6 +74,12 @@ func (conf *NatsConfig) Init() {
 		Str("instance", natsConfig.Instance).
 		Str("url", nc.ConnectedAddr()).
 		Msg("connected to nats server")
+
+	// subscriptions
+	err = Sub(natsSubjPing, PingHandler)
+	if err != nil {
+		log.Err(err).Str("subj", natsSubjPing).Msg("error subscribing")
+	}
 }
 
 func GetInstance() (instance string, err error) {
