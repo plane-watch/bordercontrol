@@ -83,14 +83,23 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 		Str("dockerfile", feedInImageBuildContextDockerfile).
 		Str("image", feedInImageName).
 		Logger()
-	log.Debug().Msg("received req")
 
-	// prep reply
-	reply := nats.NewMsg(msg.Subject)
 	inst, err := nats_io.GetInstance()
 	if err != nil {
 		log.Err(err).Msg("could not get nats instance")
 	}
+
+	log = log.With().Str("instance", inst).Logger()
+
+	if string(msg.Data) == "*" || string(msg.Data) == inst {
+		log.Debug().Msg("performing build")
+	} else {
+		log.Debug().Msg("ignoring, not for this instance")
+		return
+	}
+
+	// prep reply
+	reply := nats.NewMsg(msg.Subject)
 	reply.Header.Add("instance", inst)
 
 	// perform build
