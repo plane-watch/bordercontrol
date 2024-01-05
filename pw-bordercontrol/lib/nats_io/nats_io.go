@@ -9,9 +9,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	natsSubjPing = "pw_bordercontrol.info"
+)
+
 var (
-	natsInstance string
-	nc           *nats.Conn
+	nc         *nats.Conn
+	natsConfig NatsConfig
 
 	initialised   bool
 	initialisedMu sync.RWMutex
@@ -20,6 +24,18 @@ var (
 	ErrStatsNotInitialised = errors.New("stats not initialised")
 )
 
+type NatsConfig struct {
+
+	// NATS config
+	Url      string // nats url
+	Instance string // unique instance name for this instance of bordercontrol
+
+	// App info
+	Version    string
+	CommitHash string
+	CommitTime string
+}
+
 func isInitialised() bool {
 	// returns true if Init() has been called, else false
 	initialisedMu.RLock()
@@ -27,23 +43,18 @@ func isInitialised() bool {
 	return initialised
 }
 
-type NatsConfig struct {
-	Url      string // nats url
-	Instance string // nats instance
-}
-
 func (conf *NatsConfig) Init() {
+
+	natsConfig = *conf
 
 	var err error
 
 	// prep nats instance name
-	if conf.Instance == "" {
-		natsInstance, err = os.Hostname()
+	if natsConfig.Instance == "" {
+		natsConfig.Instance, err = os.Hostname()
 		if err != nil {
 			log.Fatal().Err(err).Msg("could not determine hostname")
 		}
-	} else {
-		natsInstance = conf.Instance
 	}
 
 	// nats connection
@@ -60,7 +71,7 @@ func (conf *NatsConfig) Init() {
 	defer initialisedMu.Unlock()
 
 	log.Info().
-		Str("instance", natsInstance).
+		Str("instance", natsConfig.Instance).
 		Str("url", nc.ConnectedAddr()).
 		Msg("connected to nats server")
 }
@@ -69,7 +80,7 @@ func GetInstance() (instance string, err error) {
 	if !isInitialised() {
 		err = ErrStatsNotInitialised
 	}
-	return natsInstance, err
+	return natsConfig.Instance, err
 }
 
 func IsConnected() bool {
@@ -98,7 +109,7 @@ func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 	// when subj is received, signal sig is sent to channel ch
 	log := log.With().Str("subj", subj).Logger()
 	return Sub(subj, func(msg *nats.Msg) {
-		if string(msg.Data) == "*" || string(msg.Data) == natsInstance {
+		if string(msg.Data) == "*" || string(msg.Data) == natsConfig.Instance {
 			ch <- sig
 			msg.Ack()
 		} else {

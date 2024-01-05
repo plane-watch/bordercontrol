@@ -191,6 +191,10 @@ var (
 
 func main() {
 
+	// add extra stuff to version
+	commitHash, commitTime := getRepoInfo()
+	app.Version = fmt.Sprintf("%s (%s), %s", app.Version, commitHash, commitTime)
+
 	// set action when run
 	app.Action = runServer
 
@@ -273,12 +277,9 @@ func runServer(ctx *cli.Context) error {
 	// Set logging level
 	logging.SetLoggingLevel(ctx)
 
-	// get commit hash and commit time from git info
-	commithash, committime := getRepoInfo()
-
 	// initial logging
 	log.Info().Msg(banner) // show awesome banner
-	log.Info().Str("version", ctx.App.Version).Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
+	log.Info().Str("version", ctx.App.Version).Msg("bordercontrol starting")
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
 	// if debug then show some extra goodies
