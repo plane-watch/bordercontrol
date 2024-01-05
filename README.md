@@ -15,6 +15,7 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
       * [Rebuilding the environment](#rebuilding-the-environment)
       * [Updating just feed-in containers](#updating-just-feed-in-containers)
       * [Re-reading SSL certificates](#re-reading-ssl-certificates)
+      * [Kicking a Feeder](#kicking-a-feeder)
       * [Feed-In Container Health](#feed-in-container-health)
   * [Statistics](#statistics)
     * [NATS](#nats)
@@ -119,6 +120,23 @@ Bordercontrol will non-disruptively re-read SSL certificate(s) if it receives a 
 
 * via `SIGHUP`: `docker exec bordercontrol pkill -HUP bordercontrol`
 * via NATS: `nats req pw_bordercontrol.stunnel.reloadcertkey "*"`
+
+#### Kicking a Feeder
+
+If the need arises to kick a feeder, this can be done via NATS:
+
+| Subject                        | Header    | Body           | Description                                                           |
+|--------------------------------|-----------|----------------|-----------------------------------------------------------------------|
+| `pw_bordercontrol.feeder.kick` | *Ignored* | Feeder API Key | Immediately removes the feed-in container associated with the feeder. |
+
+Example:
+
+```
+# nats req pw_bordercontrol.feeder.kick <Feeder API Key>
+13:33:35 Sending request on "pw_bordercontrol.feeder.kick"
+13:33:35 Received with rtt 254.043895ms
++ACK
+```
 
 #### Feed-In Container Health
 
