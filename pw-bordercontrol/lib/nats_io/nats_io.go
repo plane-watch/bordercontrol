@@ -139,6 +139,7 @@ func PingHandler(msg *nats.Msg) {
 	reply.Header.Add("instance", inst)
 	reply.Header.Add("version", natsConfig.Version)
 	reply.Header.Add("uptime", time.Since(natsConfig.StartTime).String())
+	reply.Data = []byte("pong")
 
 	err = msg.RespondMsg(reply)
 	if err != nil {
