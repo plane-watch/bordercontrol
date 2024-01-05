@@ -177,6 +177,8 @@ var (
 		},
 	}
 
+	startTime time.Time
+
 	// allow override of these functions to simplify testing
 	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
 		return stunnel.NewListener(network, laddr)
@@ -190,6 +192,9 @@ var (
 )
 
 func main() {
+
+	// record start time
+	startTime = time.Now()
 
 	// add extra stuff to version
 	commitHash, commitTime := getRepoInfo()
@@ -291,8 +296,10 @@ func runServer(ctx *cli.Context) error {
 
 	// connect to nats for control/stats/etc
 	natsConf := nats_io.NatsConfig{
-		Url:      ctx.String("natsurl"),
-		Instance: ctx.String("natsinstance"),
+		Url:       ctx.String("natsurl"),
+		Instance:  ctx.String("natsinstance"),
+		Version:   ctx.App.Version,
+		StartTime: startTime,
 	}
 	natsConf.Init()
 

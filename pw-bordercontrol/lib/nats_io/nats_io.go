@@ -4,13 +4,14 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	natsSubjPing = "pw_bordercontrol.info"
+	natsSubjPing = "pw_bordercontrol.ping"
 )
 
 var (
@@ -31,9 +32,8 @@ type NatsConfig struct {
 	Instance string // unique instance name for this instance of bordercontrol
 
 	// App info
-	Version    string
-	CommitHash string
-	CommitTime string
+	Version   string    // app version
+	StartTime time.Time // time when app was started (for working out uptime)
 }
 
 func isInitialised() bool {
@@ -63,6 +63,12 @@ func (conf *NatsConfig) Init() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("error connecting to NATS")
 		}
+	}
+
+	// ping
+	err = Sub(natsSubjPing, PingHandler)
+	if err != nil {
+		log.Err(err).Str("subj", natsSubjPing).Msg("error subscribing")
 	}
 
 	// set initialised
@@ -116,4 +122,24 @@ func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 			log.Debug().Msg("ignoring, not for this instance")
 		}
 	})
+}
+
+func PingHandler(msg *nats.Msg) {
+	log := log.With().Str("subj", msg.Subject).Logger()
+
+	inst, err := GetInstance()
+	if err != nil {
+		log.Err(err).Msg("could not get NATS instance")
+	}
+	log = log.With().Str("instance", inst).Logger()
+
+	reply := nats.NewMsg()
+	reply.Header.Add("instance", inst)
+	reply.Header.Add("version", natsConfig.Version)
+	reply.Header.Add("uptime", time.Since(natsConfig.StartTime).String())
+
+	err = msg.RespondMsg(reply)
+	if err != nil {
+		log.Err(err).Msg("could not reply to nats req")
+	}
 }
