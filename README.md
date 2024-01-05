@@ -12,7 +12,8 @@ Designed to be horizontally scalable, sat behind TCP load balancer(s).
     * [Operation](#operation)
       * [Starting the environment](#starting-the-environment)
       * [Stopping the environment](#stopping-the-environment)
-      * [Updating the environment](#updating-the-environment)
+      * [Rebuilding the environment](#rebuilding-the-environment)
+      * [Updating just feed-in containers](#updating-just-feed-in-containers)
       * [Re-reading SSL certificates](#re-reading-ssl-certificates)
       * [Feed-In Container Health](#feed-in-container-health)
   * [Statistics](#statistics)
@@ -91,11 +92,19 @@ From the root of the repository, run `docker compose down`.
 
 This will stop and remove multiplexer and bordercontrol containers. After approximately 10 minutes, the feed-in containers will stop and be removed.
 
-#### Updating the environment
+#### Rebuilding the environment
 
-From the root of the repository, run `docker compose up -d --build`.
+From the root of the repository, run `docker compose build --pull && docker compose up -d`.
 
-Any updated containers will be re-created.
+Any updated containers will be rebuilt and recreated.
+
+#### Updating just feed-in containers
+
+This can be done via rebuilding the `feed-in-builder` container, or a NATS request to `pw_bordercontrol.stunnel.reloadcertkey` with the body containing the NATS instance or wildcard (`*`) for all instances.
+
+
+* From the root of the repository, run: `docker compose build --pull feed-in-builder`.
+* via NATS: `nats req --timeout=2m pw_bordercontrol.feedinimage.rebuild "*"`
 
 For the feed-in containers, bordercontrol checks these every 5 minutes. Containers are updated one at a time. After updating a container, bordercontrol waits 30 seconds, to hopefully prevent any visible impact on the web UI. These timeouts/sleeps can be skipped by sending a `SIGUSR1` signal to bordercontrol. This is shown in the logs:
 
