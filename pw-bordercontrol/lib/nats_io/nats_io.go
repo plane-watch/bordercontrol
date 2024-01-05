@@ -133,7 +133,7 @@ func PingHandler(msg *nats.Msg) {
 	}
 	log = log.With().Str("instance", inst).Logger()
 
-	reply := nats.NewMsg()
+	reply := nats.NewMsg(msg.Subject)
 	reply.Header.Add("instance", inst)
 	reply.Header.Add("version", natsConfig.Version)
 	reply.Header.Add("uptime", time.Since(natsConfig.StartTime).String())
