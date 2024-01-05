@@ -822,6 +822,7 @@ func KickFeeder(apiKey uuid.UUID) error {
 	}
 
 	// kill container
+	log.Info().Msg("killing feed-in container")
 	err = cli.ContainerRemove(*ctx, containers[0].ID, types.ContainerRemoveOptions{
 		Force: true,
 	})
