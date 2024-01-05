@@ -66,9 +66,11 @@ func (conf *NatsConfig) Init() {
 	}
 
 	// set initialised
-	initialisedMu.Lock()
-	initialised = true
-	defer initialisedMu.Unlock()
+	func() {
+		initialisedMu.Lock()
+		initialised = true
+		defer initialisedMu.Unlock()
+	}()
 
 	log.Info().
 		Str("instance", natsConfig.Instance).
