@@ -44,10 +44,13 @@ var (
 	feedInImageName                   string
 	feedInImageBuildContext           string
 	feedInImageBuildContextDockerfile string
+
+	feedInContainerPrefix string
 )
 
 const (
 	natsSubjFeedInImageRebuild = "pw_bordercontrol.feedinimage.rebuild"
+	natsSubjFeederKick         = "pw_bordercontrol.feeder.kick"
 )
 
 type ErrorLine struct {
@@ -315,12 +318,17 @@ func (conf *ContainerManager) Init() {
 	feedInImageName = conf.FeedInImageName
 	feedInImageBuildContext = conf.FeedInImageBuildContext
 	feedInImageBuildContextDockerfile = conf.FeedInImageBuildContextDockerfile
+	feedInContainerPrefix = conf.FeedInContainerPrefix
 
 	// nats
 	if nats_io.IsConnected() {
 		err := nats_io.Sub(natsSubjFeedInImageRebuild, RebuildFeedInImageHandler)
 		if err != nil {
 			log.Fatal().Str("subj", natsSubjFeedInImageRebuild).Err(err).Msg("subscribe failed")
+		}
+		err = nats_io.Sub(natsSubjFeederKick, KickFeederHandler)
+		if err != nil {
+			log.Fatal().Str("subj", natsSubjFeederKick).Err(err).Msg("subscribe failed")
 		}
 	}
 
@@ -578,6 +586,11 @@ ContainerLoop:
 	return nil
 }
 
+func getFeedInContainerName(apiKey uuid.UUID) string {
+	// return feed in image container name for given api key
+	return fmt.Sprintf("%s%s", feedInContainerPrefix, apiKey.String())
+}
+
 type startFeederContainersConfig struct {
 	feedInImageName            string                      // Name of docker image for feed-in containers.
 	feedInContainerPrefix      string                      // Feed-in containers will be prefixed with this. Recommend "feed-in-".
@@ -631,7 +644,7 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 
 	// determine if container is already running
 
-	response.ContainerName = fmt.Sprintf("%s%s", conf.feedInContainerPrefix, containerToStart.ApiKey.String())
+	response.ContainerName = getFeedInContainerName(containerToStart.ApiKey)
 
 	// prepare filter to find feed-in container
 	filterFeedIn := filters.NewArgs()
@@ -732,5 +745,90 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 	conf.containersToStartResponses <- response
 
 	// log.Trace().Msg("finished")
+	return nil
+}
+
+func KickFeederHandler(msg *nats.Msg) {
+
+	log := log.With().
+		Str("subj", natsSubjFeederKick).
+		Logger()
+
+	inst, err := nats_io.GetInstance()
+	if err != nil {
+		log.Err(err).Msg("could not get nats instance")
+		return
+	}
+
+	log = log.With().Str("instance", inst).Logger()
+
+	apiKey, err := uuid.ParseBytes(msg.Data)
+	if err != nil {
+		log.Err(err).Msg("could not parse api key from message body")
+		return
+	}
+
+	log = log.With().Str("apikey", apiKey.String()).Logger()
+
+	err = KickFeeder(apiKey)
+	if err != nil {
+		log.Err(err).Msg("could not kick feeder")
+		return
+	}
+
+	// reply
+	log.Debug().Msg("acking message")
+	err = msg.Ack()
+	if err != nil {
+		log.Err(err).Msg("could not acknowledge message")
+		return
+	}
+}
+
+func KickFeeder(apiKey uuid.UUID) error {
+	// kills the feeder container used by feeder with apiKey
+
+	// get docker client
+	ctx, cli, err := GetDockerClient()
+	if err != nil {
+		return err
+	}
+
+	// get container name
+	containerName := getFeedInContainerName(apiKey)
+
+	// log context
+	log := log.With().Str("container", containerName).Logger()
+
+	// prep filters
+	filters := filters.NewArgs()
+	filters.Add("label", fmt.Sprintf("%s=%s", "plane.watch.uuid", apiKey.String()))
+	filters.Add("name", containerName)
+
+	// find container
+	containers, err := cli.ContainerList(*ctx, types.ContainerListOptions{
+		All:     true,
+		Filters: filters,
+	})
+
+	// ensure exactly one container found
+	if len(containers) <= 0 {
+		log.Debug().Msg("container not found")
+		return nil
+	} else if len(containers) > 1 {
+		err := errors.New("multiple containers found")
+		log.Err(err).Msg("container not found")
+		return err
+	}
+
+	// kill container
+	err = cli.ContainerRemove(*ctx, containers[0].ID, types.ContainerRemoveOptions{
+		Force: true,
+	})
+	if err != nil {
+		log.Err(err).Msg("could not remove container")
+		return err
+	}
+
 	return nil
 }
