@@ -483,11 +483,11 @@ func TestContainers(t *testing.T) {
 			wg := sync.WaitGroup{}
 
 			// override functions for testing
-			NatsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+			natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
 				return true, sentToInstance, nil
 			}
 			wg.Add(1)
-			NatsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 				require.Equal(t, string(original.Data), reply.Header.Get("instance"))
 				t.Log(string(reply.Data))
 				wg.Done()
