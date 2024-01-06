@@ -89,6 +89,9 @@ var (
 	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 		return original.RespondMsg(reply)
 	}
+	natsAck = func(msg *nats.Msg) error {
+		return msg.Ack()
+	}
 )
 
 func RebuildFeedInImageHandler(msg *nats.Msg) {
@@ -781,13 +784,18 @@ func KickFeederHandler(msg *nats.Msg) {
 		Str("subj", natsSubjFeederKick).
 		Logger()
 
-	inst, err := nats_io.GetInstance()
+	forUs, inst, err := natsThisInstance(string(msg.Data))
 	if err != nil {
 		log.Err(err).Msg("could not get nats instance")
 		return
 	}
 
 	log = log.With().Str("instance", inst).Logger()
+
+	if !forUs {
+		log.Debug().Msg("not for this instance")
+		return
+	}
 
 	apiKey, err := uuid.ParseBytes(msg.Data)
 	if err != nil {
@@ -805,7 +813,7 @@ func KickFeederHandler(msg *nats.Msg) {
 
 	// reply
 	log.Debug().Msg("acking message")
-	err = msg.Ack()
+	err = natsAck(msg)
 	if err != nil {
 		log.Err(err).Msg("could not acknowledge message")
 		return

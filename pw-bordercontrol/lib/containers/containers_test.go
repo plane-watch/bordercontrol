@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -21,9 +20,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/nettest"
 
-	natsserver "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 )
 
@@ -45,38 +42,6 @@ var (
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
 )
-
-func RunTestNatsServer() (*natsserver.Server, error) {
-
-	// get host & port for testing
-	tmpListener, err := nettest.NewLocalListener("tcp4")
-	if err != nil {
-		return &natsserver.Server{}, err
-	}
-	natsHost := strings.Split(tmpListener.Addr().String(), ":")[0]
-	natsPort, err := strconv.Atoi(strings.Split(tmpListener.Addr().String(), ":")[1])
-	if err != nil {
-		return &natsserver.Server{}, err
-	}
-	tmpListener.Close()
-
-	// create nats server
-	server, err := natsserver.NewServer(&natsserver.Options{
-		ServerName: "bordercontrol_test_server",
-		Host:       natsHost,
-		Port:       natsPort,
-	})
-	if err != nil {
-		return &natsserver.Server{}, err
-	}
-
-	// start nats server
-	server.Start()
-	if !server.ReadyForConnections(time.Second * 5) {
-		return &natsserver.Server{}, errors.New("NATS server didn't start")
-	}
-	return server, nil
-}
 
 func TestGetDockerClient(t *testing.T) {
 	getDockerClientMu.RLock()
@@ -564,6 +529,38 @@ func TestContainers(t *testing.T) {
 
 			err = KickFeeder(TestFeederAPIKey)
 			require.NoError(t, err)
+		})
+
+		t.Run("KickFeederHandler", func(t *testing.T) {
+
+			wg := sync.WaitGroup{}
+
+			fic := FeedInContainer{
+				Lat:        TestFeederLatitude,
+				Lon:        TestFeederLongitude,
+				Label:      TestFeederLabel,
+				ApiKey:     TestFeederAPIKey,
+				FeederCode: TestFeederCode,
+				Addr:       TestFeederAddr,
+			}
+			cid, err = fic.Start()
+			require.NoError(t, err)
+
+			// override functions for testing
+			natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+				return true, sentToInstance, nil
+			}
+			wg.Add(1)
+			natsAck = func(msg *nats.Msg) error {
+				wg.Done()
+				return nil
+			}
+
+			err = KickFeeder(TestFeederAPIKey)
+			require.NoError(t, err)
+
+			wg.Wait()
+
 		})
 
 	})
