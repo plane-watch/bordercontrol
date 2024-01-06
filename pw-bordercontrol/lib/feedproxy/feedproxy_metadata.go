@@ -1,7 +1,6 @@
 package feedproxy
 
 import (
-	"errors"
 	"net/url"
 	"pw_bordercontrol/lib/atc"
 	"pw_bordercontrol/lib/stats"
@@ -15,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// struct for a list of valid feeder uuids (+ mutex for sync)
+// struct for a list of valid feeders (+ mutex for sync)
 type atcFeeders struct {
 	mu      sync.RWMutex
 	Feeders []atc.Feeder
@@ -70,7 +69,7 @@ func getFeederInfo(f *feederClient) error {
 		}
 	}
 	if !found {
-		return errors.New("could not find feeder")
+		return ErrFeederNotFound
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ var (
 	ErrClientSentInvalidAPIKey = errors.New("client sent invalid API key")
 	ErrConnectionLimitExceeded = errors.New("connection limit exceeded")
 	ErrUnsupportedProtocol     = errors.New("unsupported protocol")
+	ErrFeederNotFound          = errors.New("feeder not found")
 )
 
 func ErrConnectingTooFrequently(maxIncomingConnectionRequestsPerSrcIP, maxIncomingConnectionRequestSeconds int) error {
