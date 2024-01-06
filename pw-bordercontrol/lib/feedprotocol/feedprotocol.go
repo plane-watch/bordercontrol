@@ -5,18 +5,22 @@ import (
 	"strings"
 )
 
+// type for protocol
 type Protocol uint8
 
 const (
-	_ Protocol = iota
-	BEAST
-	MLAT
+	// protocol constants
+	_     Protocol = iota // 0 = invalid/unsupported
+	BEAST                 // 1 = BEAST
+	MLAT                  // 2 = MLAT
 
+	// name constants
 	ProtocolNameBEAST = "BEAST"
 	ProtocolNameMLAT  = "MLAT"
 )
 
 var (
+	// errors
 	ErrUnknownProtocol = errors.New("unknown protocol")
 )
 

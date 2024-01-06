@@ -816,7 +816,7 @@ func TestFeedProxy(t *testing.T) {
 
 			wg.Add(1)
 			go func(t *testing.T) {
-				proxyClientToServer(&conf)
+				protocolProxy(&conf, clientToServer)
 				wg.Done()
 			}(t)
 
@@ -881,7 +881,7 @@ func TestFeedProxy(t *testing.T) {
 
 			wg.Add(1)
 			go func(t *testing.T) {
-				proxyServerToClient(&conf)
+				protocolProxy(&conf, serverToClient)
 				wg.Done()
 			}(t)
 
