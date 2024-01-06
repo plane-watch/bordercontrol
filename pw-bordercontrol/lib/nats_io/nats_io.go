@@ -44,7 +44,7 @@ func isInitialised() bool {
 	return initialised
 }
 
-func (conf *NatsConfig) Init() {
+func (conf *NatsConfig) Init() error {
 
 	natsConfig = *conf
 
@@ -55,6 +55,7 @@ func (conf *NatsConfig) Init() {
 		natsConfig.Instance, err = os.Hostname()
 		if err != nil {
 			log.Fatal().Err(err).Msg("could not determine hostname")
+			return err
 		}
 	}
 
@@ -63,6 +64,7 @@ func (conf *NatsConfig) Init() {
 		nc, err = nats.Connect(conf.Url)
 		if err != nil {
 			log.Fatal().Err(err).Msg("error connecting to NATS")
+			return err
 		}
 	}
 
@@ -82,7 +84,10 @@ func (conf *NatsConfig) Init() {
 	err = Sub(natsSubjPing, PingHandler)
 	if err != nil {
 		log.Err(err).Str("subj", natsSubjPing).Msg("error subscribing")
+		return err
 	}
+
+	return nil
 }
 
 func GetInstance() (instance string, err error) {

@@ -87,4 +87,25 @@ func TestNats(t *testing.T) {
 		ns.Shutdown()
 	})
 
+	// test init
+	t.Run("test Init", func(t *testing.T) {
+
+		t.Run("bad url", func(t *testing.T) {
+			// get host & port for testing
+			tmpListener, err := nettest.NewLocalListener("tcp4")
+			require.NoError(t, err)
+			tmpListener.Close()
+
+			conf := NatsConfig{
+				Url:       tmpListener.Addr().String(),
+				Instance:  "pw_bordercontrol_testing",
+				Version:   "testver",
+				StartTime: time.Now(),
+			}
+			err = conf.Init()
+			require.Error(t, err)
+		})
+
+	})
+
 }

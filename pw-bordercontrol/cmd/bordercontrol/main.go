@@ -298,13 +298,16 @@ func runServer(ctx *cli.Context) error {
 		Version:   ctx.App.Version,
 		StartTime: startTime,
 	}
-	natsConf.Init()
+	err := natsConf.Init()
+	if err != nil {
+		log.Fatal().Err(err).Msg("could not init nats")
+	}
 
 	// initialise ssl/tls subsystem
 	stunnel.Init(syscall.SIGHUP)
 
 	// load SSL cert/key
-	err := stunnel.LoadCertAndKeyFromFile(ctx.String("cert"), ctx.String("key"))
+	err = stunnel.LoadCertAndKeyFromFile(ctx.String("cert"), ctx.String("key"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
