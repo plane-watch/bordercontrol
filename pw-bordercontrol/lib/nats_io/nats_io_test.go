@@ -209,6 +209,9 @@ func TestNats(t *testing.T) {
 				d := msg.Data
 				assert.Equal(t, testMsgData, string(d))
 
+				require.NoError(t, msg.Ack())
+
+				t.Log("done")
 				wg.Done()
 			})
 
