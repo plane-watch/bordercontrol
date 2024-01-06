@@ -91,6 +91,10 @@ func TestNats(t *testing.T) {
 			require.Equal(t, ErrNatsNotInitialised.Error(), err.Error())
 		})
 
+		t.Run("PingHandler", func(t *testing.T) {
+			PingHandler(&nats.Msg{})
+		})
+
 	})
 
 	// start nats server
@@ -109,7 +113,19 @@ func TestNats(t *testing.T) {
 	// test init
 	t.Run("test Init", func(t *testing.T) {
 
-		t.Run("bad url", func(t *testing.T) {
+		t.Run("empty url & empty instance", func(t *testing.T) {
+
+			conf := NatsConfig{
+				Url:       "",
+				Instance:  "",
+				Version:   testVersion,
+				StartTime: time.Now(),
+			}
+			err = conf.Init()
+			require.Error(t, err)
+		})
+
+		t.Run("bad url & empty instance", func(t *testing.T) {
 			// get host & port for testing
 			tmpListener, err := nettest.NewLocalListener("tcp4")
 			require.NoError(t, err)
@@ -243,13 +259,23 @@ func TestNats(t *testing.T) {
 			// wait for nats
 			time.Sleep(time.Second)
 
-			// send test req
+			// send test req to this instance
 			wg.Add(1)
 			go func(t *testing.T) {
 				testMsg := nats.NewMsg(testSubjectToChan)
-				testMsg.Data = []byte("*")
+				testMsg.Data = []byte(testInstanceName)
 				_, err := testNatsClient.RequestMsg(testMsg, time.Second*5)
 				require.NoError(t, err)
+				wg.Done()
+			}(t)
+
+			// send test req to not this instance
+			wg.Add(1)
+			go func(t *testing.T) {
+				testMsg := nats.NewMsg(testSubjectToChan)
+				testMsg.Data = []byte(fmt.Sprintf("not-%s", testInstanceName))
+				_, err := testNatsClient.RequestMsg(testMsg, time.Second*5)
+				require.Error(t, err)
 				wg.Done()
 			}(t)
 
@@ -278,7 +304,6 @@ func TestNats(t *testing.T) {
 			require.Equal(t, replyMsg.Data, []byte("pong"))
 			require.Equal(t, testVersion, ver)
 			require.Equal(t, testInstanceName, inst)
-
 		})
 
 	})

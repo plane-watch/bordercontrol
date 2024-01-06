@@ -180,6 +180,7 @@ func PingHandler(msg *nats.Msg) {
 	inst, err := GetInstance()
 	if err != nil {
 		log.Err(err).Msg("could not get NATS instance")
+		return
 	}
 	log = log.With().Str("instance", inst).Logger()
 
@@ -194,5 +195,6 @@ func PingHandler(msg *nats.Msg) {
 	err = msg.RespondMsg(reply)
 	if err != nil {
 		log.Err(err).Msg("could not reply to nats req")
+		return
 	}
 }
