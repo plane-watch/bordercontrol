@@ -556,8 +556,8 @@ func TestContainers(t *testing.T) {
 				return nil
 			}
 
-			err = KickFeeder(TestFeederAPIKey)
-			require.NoError(t, err)
+			msg := nats.NewMsg("pw_bordercontrol.testing.KickFeederHandler")
+			KickFeederHandler(msg)
 
 			wg.Wait()
 
