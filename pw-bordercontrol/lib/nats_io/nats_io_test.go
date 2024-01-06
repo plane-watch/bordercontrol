@@ -237,7 +237,7 @@ func TestNats(t *testing.T) {
 			ch := make(chan os.Signal)
 
 			// subscribe
-			err := SignalSendOnSubj(testSubjectToChan, syscall.SIGINFO, ch)
+			err := SignalSendOnSubj(testSubjectToChan, syscall.SIGHUP, ch)
 			require.NoError(t, err)
 
 			// wait for nats
@@ -257,7 +257,7 @@ func TestNats(t *testing.T) {
 			wg.Add(1)
 			go func(t *testing.T) {
 				sig := <-ch
-				require.Equal(t, syscall.SIGINFO, sig)
+				require.Equal(t, syscall.SIGHUP, sig)
 				wg.Done()
 			}(t)
 
