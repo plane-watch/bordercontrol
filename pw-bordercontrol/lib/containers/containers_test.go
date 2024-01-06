@@ -408,8 +408,7 @@ func TestContainers(t *testing.T) {
 
 			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, buildContext, "Dockerfile.feeder")
 			require.NoError(t, err)
-			t.Logf("lastLine: %s", lastLine)
-
+			require.Contains(t, lastLine, fmt.Sprintf("Successfully tagged %s:latest", TestFeedInImageNameSecond))
 		})
 
 		var cid string
@@ -497,6 +496,7 @@ func TestContainers(t *testing.T) {
 			wg.Add(1)
 			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 				require.Equal(t, string(original.Data), reply.Header.Get("instance"))
+				require.Contains(t, string(reply.Data), fmt.Sprintf("Successfully tagged %s:latest", feedInImageName))
 				t.Log(string(reply.Data))
 				wg.Done()
 				return nil
