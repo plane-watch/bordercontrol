@@ -201,6 +201,8 @@ func TestNats(t *testing.T) {
 			wg.Add(1)
 			Sub(testSubject, func(msg *nats.Msg) {
 
+				t.Log("received")
+
 				h := msg.Header.Get(testMsgHeaderName)
 				assert.Equal(t, testMsgHeaderValue, h)
 
