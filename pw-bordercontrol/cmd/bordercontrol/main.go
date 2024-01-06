@@ -392,7 +392,6 @@ func listener(conf *listenConfig) error {
 
 	log := log.With().
 		Str("proto", protoName).
-		Str("ip", conf.listenAddr.IP.String()).
 		Int("port", conf.listenAddr.Port).
 		Logger()
 
