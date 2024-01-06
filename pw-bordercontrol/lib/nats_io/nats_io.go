@@ -123,15 +123,25 @@ func IsConnected() bool {
 
 func Sub(subj string, handler func(msg *nats.Msg)) error {
 	// subscribes to a subject "subj", and calls function "handler" with msg as argument
+
+	// update log context
+	log := log.With().
+		Str("subj", subj).
+		Str("instance", natsConfig.Instance).
+		Str("url", natsConfig.Url).
+		Logger()
+
+	// error if not initialised
 	if !isInitialised() {
 		return ErrNatsNotInitialised
 	}
 
+	// subscribe
 	_, err := nc.Subscribe(subj, handler)
 	if err != nil {
-		log.Err(err).Str("subj", subj).Msg("could not subscribe")
+		log.Err(err).Msg("could not subscribe")
 	} else {
-		log.Debug().Str("subj", subj).Msg("subscribed")
+		log.Debug().Msg("subscribed")
 	}
 
 	return nil
