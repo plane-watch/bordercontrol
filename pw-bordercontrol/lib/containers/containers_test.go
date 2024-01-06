@@ -550,6 +550,22 @@ func TestContainers(t *testing.T) {
 			}
 		})
 
+		t.Run("KickFeeder", func(t *testing.T) {
+			fic := FeedInContainer{
+				Lat:        TestFeederLatitude,
+				Lon:        TestFeederLongitude,
+				Label:      TestFeederLabel,
+				ApiKey:     TestFeederAPIKey,
+				FeederCode: TestFeederCode,
+				Addr:       TestFeederAddr,
+			}
+			cid, err = fic.Start()
+			require.NoError(t, err)
+
+			err = KickFeeder(TestFeederAPIKey)
+			require.NoError(t, err)
+		})
+
 	})
 
 }
