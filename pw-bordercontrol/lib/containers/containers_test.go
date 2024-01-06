@@ -404,11 +404,11 @@ func TestContainers(t *testing.T) {
 			require.NoError(t, err)
 
 			buildContext := filepath.Join(pwd, "../../../pw-feed-in/")
-			t.Log(buildContext)
+			t.Logf("build context: %s", buildContext)
 
 			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, buildContext, "Dockerfile.feeder")
 			require.NoError(t, err)
-			fmt.Println(lastLine)
+			t.Logf("lastLine: %s", lastLine)
 
 		})
 
@@ -481,6 +481,14 @@ func TestContainers(t *testing.T) {
 		t.Run("RebuildFeedInImageHandler", func(t *testing.T) {
 
 			wg := sync.WaitGroup{}
+
+			feedInImageName = TestFeedInImageNameSecond
+
+			pwd, err := os.Getwd()
+			require.NoError(t, err)
+
+			feedInImageBuildContext = filepath.Join(pwd, "../../../pw-feed-in/")
+			feedInImageBuildContextDockerfile = "Dockerfile.feeder"
 
 			// override functions for testing
 			natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
