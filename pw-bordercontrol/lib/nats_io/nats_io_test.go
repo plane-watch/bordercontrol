@@ -122,7 +122,9 @@ func TestNats(t *testing.T) {
 				StartTime: time.Now(),
 			}
 			err = conf.Init()
-			require.Error(t, err)
+			require.NoError(t, err)
+			require.False(t, IsConnected())
+			require.False(t, isInitialised())
 		})
 
 		t.Run("bad url & empty instance", func(t *testing.T) {
