@@ -25,6 +25,14 @@ const (
 
 var (
 	natsInstance string
+
+	// functions to override for testing
+	natsGetInstance = func() (instance string, err error) {
+		return nats_io.GetInstance()
+	}
+	natsSub = func(subj string, handler func(msg *nats.Msg)) error {
+		return nats_io.Sub(subj, handler)
+	}
 )
 
 type perFeederPerProtocolMetrics struct {
@@ -50,25 +58,41 @@ type perFeederAllProtocolMetrics struct {
 	send                bool
 }
 
-func initNats() {
+func initNats() error {
 
 	var err error
-	natsInstance, err = nats_io.GetInstance()
+	natsInstance, err = natsGetInstance()
 	if err != nil {
 		log.Err(err).Msg("cannot get instance")
-		return
+		return err
 	}
 
 	// subscriptions
-	nats_io.Sub(natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
-	nats_io.Sub(natsSubjFeederMetricsAllProtocols, natsSubjFeederMetricsAllProtocolsHandler)
-	nats_io.Sub(natsSubjFeederMetricsBEAST, natsSubjFeederHandler)
-	nats_io.Sub(natsSubjFeederMetricsMLAT, natsSubjFeederHandler)
-	nats_io.Sub(natsSubjFeederConnectedBEAST, natsSubjFeederHandler)
-	nats_io.Sub(natsSubjFeederConnectedMLAT, natsSubjFeederHandler)
-
-	for {
+	err = natsSub(natsSubjFeedersMetrics, natsSubjFeedersMetricsHandler)
+	if err != nil {
+		return err
 	}
+	err = natsSub(natsSubjFeederMetricsAllProtocols, natsSubjFeederMetricsAllProtocolsHandler)
+	if err != nil {
+		return err
+	}
+	err = natsSub(natsSubjFeederMetricsBEAST, natsSubjFeederHandler)
+	if err != nil {
+		return err
+	}
+	err = natsSub(natsSubjFeederMetricsMLAT, natsSubjFeederHandler)
+	if err != nil {
+		return err
+	}
+	err = natsSub(natsSubjFeederConnectedBEAST, natsSubjFeederHandler)
+	if err != nil {
+		return err
+	}
+	err = natsSub(natsSubjFeederConnectedMLAT, natsSubjFeederHandler)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func getProtocolFromLastToken(subject string) (feedprotocol.Protocol, error) {

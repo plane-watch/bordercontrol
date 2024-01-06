@@ -634,7 +634,10 @@ func Init(addr string) error {
 
 	// init NATS
 	if nats_io.IsConnected() {
-		go initNats()
+		err := initNats()
+		if err != nil {
+			return err
+		}
 	} else {
 		log.Debug().Msg("skipping nats as not connected")
 	}
