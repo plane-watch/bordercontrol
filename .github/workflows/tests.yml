@@ -83,7 +83,7 @@ jobs:
         with:
           push: false
           context: ./pw-feed-in
-          file: ./Dockerfile.feeder
+          file: ./pw-feed-in/Dockerfile.feeder
       -
         name: Build mlat-server
         uses: docker/build-push-action@v5
