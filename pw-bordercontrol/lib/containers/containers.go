@@ -46,6 +46,8 @@ var (
 	feedInImageBuildContextDockerfile string
 
 	feedInContainerPrefix string
+
+	getDockerClientMu sync.RWMutex
 )
 
 const (
@@ -143,7 +145,9 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 	log.Debug().Msg("starting rebuild feed-in image")
 
 	// get docker client
+	getDockerClientMu.RLock()
 	ctx, cli, err := GetDockerClient()
+	getDockerClientMu.RUnlock()
 	if err != nil {
 		log.Err(err).Msg("error getting docker client")
 		return lastLine, err
@@ -211,7 +215,9 @@ func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContaine
 	n := float64(0)
 
 	// set up docker client
+	getDockerClientMu.RLock()
 	dockerCtx, cli, err := GetDockerClient()
+	getDockerClientMu.RUnlock()
 	if err != nil {
 		panic(err)
 	}
@@ -243,7 +249,9 @@ func promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInConta
 	n := float64(0)
 
 	// set up docker client
+	getDockerClientMu.RLock()
 	dockerCtx, cli, err := GetDockerClient()
+	getDockerClientMu.RUnlock()
 	if err != nil {
 		panic(err)
 	}
@@ -518,7 +526,9 @@ func checkFeederContainers(conf checkFeederContainersConfig) error {
 
 	// set up docker client
 	log.Trace().Msg("set up docker client")
+	getDockerClientMu.RLock()
 	dockerCtx, cli, err := GetDockerClient()
+	getDockerClientMu.RUnlock()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
 		return err
@@ -621,7 +631,9 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 
 	// set up docker client
 	log.Trace().Msg("set up docker client")
+	getDockerClientMu.RLock()
 	dockerCtx, cli, err := GetDockerClient()
+	getDockerClientMu.RUnlock()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
 		return err
@@ -796,7 +808,9 @@ func KickFeeder(apiKey uuid.UUID) error {
 	// kills the feeder container used by feeder with apiKey
 
 	// get docker client
+	getDockerClientMu.RLock()
 	ctx, cli, err := GetDockerClient()
+	getDockerClientMu.RUnlock()
 	if err != nil {
 		return err
 	}
