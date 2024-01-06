@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 
@@ -16,8 +18,12 @@ import (
 )
 
 var (
-	testInstanceName = "pw_bordercontrol_testing"
-	testVersion      = "0.0.0 (aabbccd), 2024-01-06T11:53:19Z"
+	testInstanceName   = "pw_bordercontrol_testing"
+	testVersion        = "0.0.0 (aabbccd), 2024-01-06T11:53:19Z"
+	testSubject        = "pw_bordercontrol.testing.test"
+	testMsgHeaderName  = "testHeaderName"
+	testMsgHeaderValue = "testHeaderValue"
+	testMsgData        = "The quick brown fox jumped over the lazy dog 1234567890 times."
 )
 
 func RunTestServer() (*natsserver.Server, error) {
@@ -86,11 +92,15 @@ func TestNats(t *testing.T) {
 
 	// start nats server
 	ns, err := RunTestServer()
-	if err != nil {
-		require.NoError(t, err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		ns.Shutdown()
+	})
+
+	// get test client
+	testNatsClient, err := nats.Connect(ns.ClientURL())
+	t.Cleanup(func() {
+		testNatsClient.Close()
 	})
 
 	// test init
@@ -177,6 +187,41 @@ func TestNats(t *testing.T) {
 				require.False(t, meantForThisInstance)
 				require.Equal(t, testInstanceName, thisInstanceName)
 			})
+
+		})
+
+		t.Run("IsConnected", func(t *testing.T) {
+			require.True(t, IsConnected())
+		})
+
+		t.Run("Sub", func(t *testing.T) {
+			wg := sync.WaitGroup{}
+
+			// subscribe to test subject
+			wg.Add(1)
+			Sub(testSubject, func(msg *nats.Msg) {
+
+				h := msg.Header.Get(testMsgHeaderName)
+				assert.Equal(t, testMsgHeaderValue, h)
+
+				d := msg.Data
+				assert.Equal(t, testMsgData, string(d))
+
+				wg.Done()
+			})
+
+			// wait for nats
+			time.Sleep(time.Second)
+
+			// send test req
+			testMsg := nats.NewMsg(testSubject)
+			testMsg.Header.Add(testMsgHeaderName, testMsgHeaderValue)
+			testMsg.Data = []byte(testMsgData)
+			_, err := testNatsClient.RequestMsg(testMsg, time.Second)
+			require.NoError(t, err)
+
+			// wait for sub function to complete
+			wg.Wait()
 
 		})
 

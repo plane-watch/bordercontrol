@@ -66,6 +66,8 @@ func (conf *NatsConfig) Init() error {
 			log.Err(err).Msg("error connecting to NATS")
 			return err
 		}
+	} else {
+		return nil
 	}
 
 	// set initialised
