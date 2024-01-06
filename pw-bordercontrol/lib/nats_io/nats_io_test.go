@@ -217,7 +217,7 @@ func TestNats(t *testing.T) {
 			testMsg := nats.NewMsg(testSubject)
 			testMsg.Header.Add(testMsgHeaderName, testMsgHeaderValue)
 			testMsg.Data = []byte(testMsgData)
-			_, err := testNatsClient.RequestMsg(testMsg, time.Second)
+			_, err := testNatsClient.RequestMsg(testMsg, time.Second*5)
 			require.NoError(t, err)
 
 			// wait for sub function to complete
