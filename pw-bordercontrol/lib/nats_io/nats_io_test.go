@@ -266,6 +266,21 @@ func TestNats(t *testing.T) {
 
 		})
 
+		t.Run("PingHandler", func(t *testing.T) {
+			// send test req
+			testMsg := nats.NewMsg(natsSubjPing)
+			replyMsg, err := testNatsClient.RequestMsg(testMsg, time.Second*5)
+			require.NoError(t, err)
+
+			inst := replyMsg.Header.Get("instance")
+			ver := replyMsg.Header.Get("version")
+
+			require.Equal(t, replyMsg.Data, []byte("pong"))
+			require.Equal(t, testVersion, ver)
+			require.Equal(t, testInstanceName, inst)
+
+		})
+
 	})
 
 }
