@@ -177,7 +177,7 @@ var (
 		},
 	}
 
-	startTime time.Time
+	startTime time.Time // When app was started. To calculate uptime.
 
 	// allow override of these functions to simplify testing
 	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
@@ -216,10 +216,8 @@ func main() {
 
 func getRepoInfo() (commitHash, commitTime string) {
 	// returns commit hash and commit time
-
 	commitHash = "unknown"
 	commitTime = "unknown"
-
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.revision" {
@@ -229,7 +227,6 @@ func getRepoInfo() (commitHash, commitTime string) {
 			}
 		}
 	}
-
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.time" {
@@ -237,11 +234,11 @@ func getRepoInfo() (commitHash, commitTime string) {
 			}
 		}
 	}
-
 	return commitHash, commitTime
 }
 
 func logNumGoroutines(freq time.Duration, stopChan chan bool) {
+	// logs number of goroutines to debug level
 	last := runtime.NumGoroutine()
 	for {
 		select {
@@ -257,7 +254,7 @@ func logNumGoroutines(freq time.Duration, stopChan chan bool) {
 }
 
 func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string) *listenConfig {
-	// prep config
+	// prep listener config
 	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
 	if ip == nil {
 		log.Fatal().Str("proto", proto.Name()).Str("addr", listenAddr).Msg("invalid listen address")
@@ -385,11 +382,13 @@ type listenConfig struct {
 func listener(conf *listenConfig) error {
 	// incoming connection listener
 
+	// get protocol name
 	protoName, err := feedprotocol.GetName(conf.listenProto)
 	if err != nil {
 		return err
 	}
 
+	// update log context
 	log := log.With().
 		Str("proto", protoName).
 		Int("port", conf.listenAddr.Port).
