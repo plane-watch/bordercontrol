@@ -38,13 +38,11 @@ var (
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
-
-	GetDockerClientMu sync.RWMutex
 )
 
 func TestGetDockerClient(t *testing.T) {
-	GetDockerClientMu.RLock()
-	defer GetDockerClientMu.RUnlock()
+	getDockerClientMu.RLock()
+	defer getDockerClientMu.RUnlock()
 	_, cli, err := GetDockerClient()
 	require.NoError(t, err)
 	err = cli.Close()
@@ -76,13 +74,13 @@ func TestContainers(t *testing.T) {
 	// prep broken docker client
 	t.Run("broken docker client", func(t *testing.T) {
 
-		GetDockerClientMu.Lock()
+		getDockerClientMu.Lock()
 		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 			cctx := context.Background()
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 			return &cctx, cli, errors.New("error injected for testing")
 		}
-		GetDockerClientMu.Unlock()
+		getDockerClientMu.Unlock()
 
 		// test checkFeederContainers with broken docker client
 		t.Run("checkFeederContainers", func(t *testing.T) {
@@ -105,13 +103,13 @@ func TestContainers(t *testing.T) {
 	t.Run("invalid docker client", func(t *testing.T) {
 
 		// prep invalid testing docker client
-		GetDockerClientMu.Lock()
+		getDockerClientMu.Lock()
 		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 			cctx := context.Background()
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 			return &cctx, cli, nil
 		}
-		GetDockerClientMu.Unlock()
+		getDockerClientMu.Unlock()
 		TestDaemon.Stop(t) // make client invalid
 
 		// test checkFeederContainers with invalid client
@@ -181,13 +179,13 @@ func TestContainers(t *testing.T) {
 
 		// prep test env docker client
 		TestDaemon.Start(t)
-		GetDockerClientMu.Lock()
+		getDockerClientMu.Lock()
 		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 			cctx := context.Background()
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 			return &cctx, cli, nil
 		}
-		GetDockerClientMu.Unlock()
+		getDockerClientMu.Unlock()
 
 		// start feed-in container - will fail, no init
 		t.Run("start feed-in container no init", func(t *testing.T) {
@@ -331,19 +329,19 @@ func TestContainers(t *testing.T) {
 
 		// prep test env docker client
 		TestDaemon.Start(t)
-		GetDockerClientMu.Lock()
+		getDockerClientMu.Lock()
 		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
 			cctx := context.Background()
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
 			return &cctx, cli, nil
 		}
-		GetDockerClientMu.Unlock()
+		getDockerClientMu.Unlock()
 
 		// get docker client
 		t.Log("get docker client to inspect container")
-		GetDockerClientMu.RLock()
+		getDockerClientMu.RLock()
 		ctx, cli, err := GetDockerClient()
-		GetDockerClientMu.RUnlock()
+		getDockerClientMu.RUnlock()
 		require.NoError(t, err)
 
 		// pull test image
