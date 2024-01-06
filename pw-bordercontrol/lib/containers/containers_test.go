@@ -557,6 +557,7 @@ func TestContainers(t *testing.T) {
 			}
 
 			msg := nats.NewMsg("pw_bordercontrol.testing.KickFeederHandler")
+			msg.Data = []byte(TestFeederAPIKey.String())
 			KickFeederHandler(msg)
 
 			wg.Wait()
