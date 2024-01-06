@@ -364,7 +364,7 @@ func TestContainers(t *testing.T) {
 		t.Run("build feed-in image", func(t *testing.T) {
 			dir, err := os.Getwd()
 			require.NoError(t, err)
-			fmt.Println(dir)
+			t.Log(dir)
 
 			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, "https://github.com/plane-watch/pw-bordercontrol.git#mn_patch_20240103", "Dockerfile.feeder")
 			require.NoError(t, err)
