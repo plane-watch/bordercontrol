@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -362,11 +363,13 @@ func TestContainers(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("build feed-in image", func(t *testing.T) {
-			dir, err := os.Getwd()
+			pwd, err := os.Getwd()
 			require.NoError(t, err)
-			t.Log(dir)
 
-			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, "https://github.com/plane-watch/pw-bordercontrol.git#mn_patch_20240103", "Dockerfile.feeder")
+			buildContext := filepath.Join(pwd, "../../../pw-feed-in/")
+			t.Log(buildContext)
+
+			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, buildContext, "Dockerfile.feeder")
 			require.NoError(t, err)
 			fmt.Println(lastLine)
 
