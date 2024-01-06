@@ -2,6 +2,7 @@ package nats_io
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,6 +13,11 @@ import (
 
 	natsserver "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+)
+
+var (
+	testInstanceName = "pw_bordercontrol_testing"
+	testVersion      = "0.0.0 (aabbccd), 2024-01-06T11:53:19Z"
 )
 
 func RunTestServer() (*natsserver.Server, error) {
@@ -98,12 +104,80 @@ func TestNats(t *testing.T) {
 
 			conf := NatsConfig{
 				Url:       tmpListener.Addr().String(),
-				Instance:  "pw_bordercontrol_testing",
-				Version:   "testver",
+				Instance:  testInstanceName,
+				Version:   testVersion,
 				StartTime: time.Now(),
 			}
 			err = conf.Init()
 			require.Error(t, err)
+		})
+
+		t.Run("ensure not initialised", func(t *testing.T) {
+			require.False(t, isInitialised())
+		})
+
+		t.Run("working", func(t *testing.T) {
+			// get host & port for testing
+			conf := NatsConfig{
+				Url:       ns.ClientURL(),
+				Instance:  testInstanceName,
+				Version:   testVersion,
+				StartTime: time.Now(),
+			}
+			err = conf.Init()
+			require.Error(t, err)
+		})
+
+		t.Run("ensure initialised", func(t *testing.T) {
+			require.True(t, isInitialised())
+		})
+	})
+
+	t.Run("test functions after initialise", func(t *testing.T) {
+
+		t.Run("GetInstance", func(t *testing.T) {
+			i, e := GetInstance()
+			require.NoError(t, e)
+			require.Equal(t, testInstanceName, i)
+		})
+
+		t.Run("ThisInstance", func(t *testing.T) {
+
+			t.Run("named", func(t *testing.T) {
+				meantForThisInstance, thisInstanceName, err := ThisInstance(testInstanceName)
+				require.NoError(t, err)
+				require.True(t, meantForThisInstance)
+				require.Equal(t, testInstanceName, thisInstanceName)
+			})
+
+			t.Run("wildcard", func(t *testing.T) {
+				meantForThisInstance, thisInstanceName, err := ThisInstance("*")
+				require.NoError(t, err)
+				require.True(t, meantForThisInstance)
+				require.Equal(t, testInstanceName, thisInstanceName)
+			})
+
+			t.Run("regex", func(t *testing.T) {
+				meantForThisInstance, thisInstanceName, err := ThisInstance(fmt.Sprintf("%s.*", testInstanceName[:6]))
+				require.NoError(t, err)
+				require.True(t, meantForThisInstance)
+				require.Equal(t, testInstanceName, thisInstanceName)
+			})
+
+			t.Run("not this instance, named", func(t *testing.T) {
+				meantForThisInstance, thisInstanceName, err := ThisInstance(fmt.Sprintf("not-%s", testInstanceName))
+				require.NoError(t, err)
+				require.False(t, meantForThisInstance)
+				require.Equal(t, testInstanceName, thisInstanceName)
+			})
+
+			t.Run("not this instance, regex", func(t *testing.T) {
+				meantForThisInstance, thisInstanceName, err := ThisInstance(fmt.Sprintf("^not-%s.*", testInstanceName))
+				require.NoError(t, err)
+				require.False(t, meantForThisInstance)
+				require.Equal(t, testInstanceName, thisInstanceName)
+			})
+
 		})
 
 	})
