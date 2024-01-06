@@ -4,7 +4,9 @@ import (
 	"pw_bordercontrol/lib/feedprotocol"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,5 +39,21 @@ func TestGetProtocolFromLastToken(t *testing.T) {
 	_, err = getProtocolFromLastToken("x.x.x.x.gopher")
 	require.Error(t, err)
 	require.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
+}
+
+func TestParseApiKeyFromMsgData(t *testing.T) {
+
+	u := uuid.New()
+
+	msg := nats.NewMsg("x.x.x.x")
+	msg.Data = []byte(u.String())
+	apiKey, err := parseApiKeyFromMsgData(msg)
+	assert.NoError(t, err)
+	assert.Equal(t, u, apiKey)
+
+	msg = nats.NewMsg("x.x.x.x")
+	msg.Data = []byte("not an api key")
+	_, err = parseApiKeyFromMsgData(msg)
+	assert.Error(t, err)
 
 }
