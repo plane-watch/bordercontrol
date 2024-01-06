@@ -75,13 +75,21 @@ type startContainerResponse struct {
 	ContainerID         string // feed-in container ID
 }
 
-// the following function is variable-ized so it can be overridden for unit testing
-var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-	// set up docker client
-	cctx := context.Background()
-	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	return &cctx, cli, err
-}
+// the following functions are variable-ized so it can be overridden for unit testing
+var (
+	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+		// set up docker client
+		cctx := context.Background()
+		cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		return &cctx, cli, err
+	}
+	NatsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+		return nats_io.ThisInstance(sentToInstance)
+	}
+	NatsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+		return original.RespondMsg(reply)
+	}
+)
 
 func RebuildFeedInImageHandler(msg *nats.Msg) {
 	// handles request from nats to rebuild feed-in image
@@ -128,7 +136,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 
 	// reply
 	log.Debug().Msg("sending reply")
-	err = msg.RespondMsg(reply)
+	err = NatsRespondMsg(msg, reply)
 	if err != nil {
 		log.Err(err).Str("subj", natsSubjFeedInImageRebuild).Msg("could not respond")
 	}
