@@ -78,10 +78,11 @@ jobs:
           push: false
           file: ./Dockerfile.bordercontrol
       -
-        name: Build feeder
+        name: Build feed-in
         uses: docker/build-push-action@v5
         with:
           push: false
+          context: ./pw-feed-in
           file: ./Dockerfile.feeder
       -
         name: Build mlat-server
