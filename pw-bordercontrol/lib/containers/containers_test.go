@@ -193,12 +193,6 @@ func TestContainers(t *testing.T) {
 			require.Equal(t, "container manager has not been initialised", err.Error())
 		})
 
-		t.Run("KickFeeder", func(t *testing.T) {
-			err := KickFeeder(uuid.New())
-			require.Error(t, err)
-			require.Equal(t, "container manager has not been initialised", err.Error())
-		})
-
 		// start feed-in container - will fail, no init
 		t.Run("start feed-in container no init", func(t *testing.T) {
 			fic := FeedInContainer{
@@ -368,7 +362,7 @@ func TestContainers(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("build feed-in image", func(t *testing.T) {
-			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, "https://github.com/plane-watch/pw-bordercontrol.git#mn_patch_20240103", "pw-feed-in/Dockerfile.feeder")
+			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, "https://github.com/plane-watch/pw-bordercontrol.git#mn_patch_20240103", "Dockerfile.feeder")
 			require.NoError(t, err)
 			fmt.Println(lastLine)
 		})
