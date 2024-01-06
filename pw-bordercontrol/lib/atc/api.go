@@ -94,21 +94,30 @@ func authenticate(server *Server) (authToken string, err error) {
 }
 
 func GetFeeders(server *Server) (feeders Feeders, err error) {
+	// TODO: Once NATS supports feeder_code (https://github.com/plane-watch/pw-pipeline/pull/235),
+	//       Update this function to attempt NATS first and fail back to ATC API if NATS fails.
+	return GetFeedersFromATC(server)
 
+}
+
+func GetFeedersFromATC(server *Server) (feeders Feeders, err error) {
+
+	// authenticate to ATC
 	authToken, err := authenticate(server)
 	if err != nil {
 		return feeders, err
 	}
 
+	// prep url
 	atcUrl := server.Url.JoinPath("/api/v1/feeders.json")
 
+	// perform api request
 	req, err := http.NewRequest("GET", atcUrl.String(), nil)
 	if err != nil {
 		return feeders, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authToken)
-
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
@@ -116,15 +125,14 @@ func GetFeeders(server *Server) (feeders Feeders, err error) {
 	}
 	defer response.Body.Close()
 
+	// get response
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return feeders, err
 	}
 
-	// fmt.Println("response Body:", string(body))
-
+	// unmarshal json if response ok
 	if response.StatusCode == 200 {
-
 		err := json.Unmarshal(body, &feeders)
 		if err != nil {
 			return feeders, err
@@ -134,5 +142,6 @@ func GetFeeders(server *Server) (feeders Feeders, err error) {
 		return feeders, errors.New(errStr)
 	}
 
+	// return results
 	return feeders, nil
 }
