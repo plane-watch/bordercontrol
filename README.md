@@ -115,7 +115,6 @@ Any updated containers will be rebuilt and recreated.
 
 This can be done via rebuilding the `feed-in-builder` container, or a NATS request to `pw_bordercontrol.stunnel.reloadcertkey` with the body containing the NATS instance or wildcard (`*`) for all instances.
 
-
 * From the root of the repository, run: `docker compose build --pull feed-in-builder`.
 * via NATS: `nats req --timeout=2m pw_bordercontrol.feedinimage.rebuild "*"`
 
