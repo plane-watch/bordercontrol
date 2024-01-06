@@ -83,10 +83,10 @@ var (
 		cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		return &cctx, cli, err
 	}
-	NatsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+	natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
 		return nats_io.ThisInstance(sentToInstance)
 	}
-	NatsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 		return original.RespondMsg(reply)
 	}
 )
@@ -103,7 +103,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 		Logger()
 
 	// get nats instance of this bordercontrol
-	forUs, inst, err := nats_io.ThisInstance(string(msg.Data))
+	forUs, inst, err := natsThisInstance(string(msg.Data))
 	if err != nil {
 		log.Err(err).Msg("could not get nats instance")
 	}
@@ -136,7 +136,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 
 	// reply
 	log.Debug().Msg("sending reply")
-	err = NatsRespondMsg(msg, reply)
+	err = natsRespondMsg(msg, reply)
 	if err != nil {
 		log.Err(err).Str("subj", natsSubjFeedInImageRebuild).Msg("could not respond")
 	}

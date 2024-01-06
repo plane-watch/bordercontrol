@@ -231,31 +231,6 @@ func TestContainers(t *testing.T) {
 			require.Equal(t, "container manager has not been initialised", err.Error())
 		})
 
-		t.Run("RebuildFeedInImageHandler", func(t *testing.T) {
-
-			wg := sync.WaitGroup{}
-
-			// override functions for testing
-			NatsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
-				return true, sentToInstance, nil
-			}
-			wg.Add(1)
-			NatsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-				require.Equal(t, string(original.Data), reply.Header.Get("instance"))
-				t.Log(string(reply.Data))
-				wg.Done()
-				return nil
-			}
-
-			//
-			msg := nats.NewMsg("pw_bordercontrol.testing.RebuildFeedInImageHandler")
-			msg.Data = []byte("testinstance")
-			RebuildFeedInImageHandler(msg)
-
-			wg.Wait()
-
-		})
-
 		// start feed-in container - will fail, no init
 		t.Run("start feed-in container no init", func(t *testing.T) {
 			fic := FeedInContainer{
@@ -501,6 +476,31 @@ func TestContainers(t *testing.T) {
 		t.Run("check prom metrics gauge funcs", func(t *testing.T) {
 			require.Equal(t, float64(1), promMetricFeederContainersImageCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
 			require.Equal(t, float64(0), promMetricFeederContainersImageNotCurrentGaugeFunc(TestFeedInImageNameFirst, TestFeedInContainerPrefix))
+		})
+
+		t.Run("RebuildFeedInImageHandler", func(t *testing.T) {
+
+			wg := sync.WaitGroup{}
+
+			// override functions for testing
+			NatsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+				return true, sentToInstance, nil
+			}
+			wg.Add(1)
+			NatsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+				require.Equal(t, string(original.Data), reply.Header.Get("instance"))
+				t.Log(string(reply.Data))
+				wg.Done()
+				return nil
+			}
+
+			//
+			msg := nats.NewMsg("pw_bordercontrol.testing.RebuildFeedInImageHandler")
+			msg.Data = []byte("testinstance")
+			RebuildFeedInImageHandler(msg)
+
+			wg.Wait()
+
 		})
 
 		t.Run("running ContainerManager.Close()", func(t *testing.T) {
