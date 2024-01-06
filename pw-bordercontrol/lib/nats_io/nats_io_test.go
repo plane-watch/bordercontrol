@@ -14,6 +14,7 @@ import (
 
 func RunTestServer() (*natsserver.Server, error) {
 
+	// get host & port for testing
 	tmpListener, err := nettest.NewLocalListener("tcp4")
 	if err != nil {
 		return &natsserver.Server{}, err
@@ -23,7 +24,9 @@ func RunTestServer() (*natsserver.Server, error) {
 	if err != nil {
 		return &natsserver.Server{}, err
 	}
+	tmpListener.Close()
 
+	// create nats server
 	server, err := natsserver.NewServer(&natsserver.Options{
 		ServerName: "bordercontrol_test_server",
 		Host:       natsHost,
@@ -32,12 +35,12 @@ func RunTestServer() (*natsserver.Server, error) {
 	if err != nil {
 		return &natsserver.Server{}, err
 	}
-	server.Start()
 
+	// start nats server
+	server.Start()
 	if !server.ReadyForConnections(time.Second * 5) {
 		panic("NATS server didn't start")
 	}
-
 	return server, nil
 }
 
