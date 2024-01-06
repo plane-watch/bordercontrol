@@ -125,7 +125,7 @@ func TestNats(t *testing.T) {
 				StartTime: time.Now(),
 			}
 			err = conf.Init()
-			require.Error(t, err)
+			require.NoError(t, err)
 		})
 
 		t.Run("ensure initialised", func(t *testing.T) {
