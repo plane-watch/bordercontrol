@@ -25,7 +25,7 @@ var (
 	TestDaemonDockerSocket = "/run/containerd/containerd.sock"
 
 	TestFeedInImageNameFirst   = "wardsco/sleep:latest"
-	TestFeedInImageNameSecond  = "itisfoundation/sleeper:latest"
+	TestFeedInImageNameSecond  = "test-feed-in"
 	TestFeedInContainerPrefix  = "test-feed-in-"
 	TestFeedInContainerNetwork = "bridge"
 
@@ -65,9 +65,9 @@ func TestContainers(t *testing.T) {
 	require.NoError(t, err)
 	TestDaemon.Start(t) // start test docker daemon
 	t.Cleanup(func() {  // defer cleanup of test docker daemon
-		TestDaemon.Cleanup(t)
 		TestDaemon.Stop(t)
 		TestDaemon.Kill()
+		TestDaemon.Cleanup(t)
 		os.RemoveAll(tmpDir)
 	})
 
@@ -186,6 +186,18 @@ func TestContainers(t *testing.T) {
 			return &cctx, cli, nil
 		}
 		getDockerClientMu.Unlock()
+
+		t.Run("RebuildFeedInImage", func(t *testing.T) {
+			_, err := RebuildFeedInImage("", "", "")
+			require.Error(t, err)
+			require.Equal(t, "container manager has not been initialised", err.Error())
+		})
+
+		t.Run("KickFeeder", func(t *testing.T) {
+			err := KickFeeder(uuid.New())
+			require.Error(t, err)
+			require.Equal(t, "container manager has not been initialised", err.Error())
+		})
 
 		// start feed-in container - will fail, no init
 		t.Run("start feed-in container no init", func(t *testing.T) {
@@ -350,21 +362,16 @@ func TestContainers(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { imageircFirst.Close() })
 
-		// pull test image
-		t.Logf("pull test image: %s", TestFeedInImageNameSecond)
-		imageircSecond, err := cli.ImagePull(*ctx, TestFeedInImageNameSecond, types.ImagePullOptions{})
-		require.NoError(t, err)
-		t.Cleanup(func() { imageircSecond.Close() })
-
 		// load test image
 		t.Logf("load test image: %s", TestFeedInImageNameFirst)
 		_, err = cli.ImageLoad(*ctx, imageircFirst, false)
 		require.NoError(t, err)
 
-		// load test image
-		t.Logf("load test image: %s", TestFeedInImageNameSecond)
-		_, err = cli.ImageLoad(*ctx, imageircSecond, false)
-		require.NoError(t, err)
+		t.Run("build feed-in image", func(t *testing.T) {
+			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, "https://github.com/plane-watch/pw-bordercontrol.git#mn_patch_20240103", "pw-feed-in/Dockerfile.feeder")
+			require.NoError(t, err)
+			fmt.Println(lastLine)
+		})
 
 		var cid string
 
