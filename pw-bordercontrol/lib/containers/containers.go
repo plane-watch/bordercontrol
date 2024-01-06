@@ -113,7 +113,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 
 	// perform build
 	log.Debug().Msg("performing build")
-	lastLine, err := RebuildFeedInImage(feedInImageName, feedInImageBuildContext, feedInImageBuildContextDockerfile, msg)
+	lastLine, err := RebuildFeedInImage(feedInImageName, feedInImageBuildContext, feedInImageBuildContextDockerfile)
 	if err != nil {
 		log.Err(err).Msg("could not build feed-in image")
 		reply.Header.Add("result", "error")
@@ -132,7 +132,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 	}
 }
 
-func RebuildFeedInImage(imageName, buildContext, dockerfile string, msg *nats.Msg) (lastLine string, err error) {
+func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine string, err error) {
 
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
