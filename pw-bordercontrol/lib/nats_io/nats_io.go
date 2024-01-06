@@ -54,7 +54,7 @@ func (conf *NatsConfig) Init() error {
 	if natsConfig.Instance == "" {
 		natsConfig.Instance, err = os.Hostname()
 		if err != nil {
-			log.Fatal().Err(err).Msg("could not determine hostname")
+			log.Err(err).Msg("could not determine hostname")
 			return err
 		}
 	}
@@ -63,7 +63,7 @@ func (conf *NatsConfig) Init() error {
 	if conf.Url != "" {
 		nc, err = nats.Connect(conf.Url)
 		if err != nil {
-			log.Fatal().Err(err).Msg("error connecting to NATS")
+			log.Err(err).Msg("error connecting to NATS")
 			return err
 		}
 	}
