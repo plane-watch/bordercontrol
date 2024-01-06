@@ -3,6 +3,7 @@ package nats_io
 import (
 	"errors"
 	"os"
+	"regexp"
 	"sync"
 	"time"
 
@@ -22,7 +23,7 @@ var (
 	initialisedMu sync.RWMutex
 
 	// custom errors
-	ErrStatsNotInitialised = errors.New("stats not initialised")
+	ErrNatsNotInitialised = errors.New("nats not initialised")
 )
 
 type NatsConfig struct {
@@ -85,13 +86,35 @@ func (conf *NatsConfig) Init() {
 }
 
 func GetInstance() (instance string, err error) {
+	// returns this bordercontrol's instance name
 	if !isInitialised() {
-		err = ErrStatsNotInitialised
+		err = ErrNatsNotInitialised
 	}
 	return natsConfig.Instance, err
 }
 
+func ThisInstance(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+	// returns meantForThisInstance = true if sentToInstance matches this instance
+	// returns thisInstanceName = the name of this instance
+	// sentToInstance supports regex
+
+	if !isInitialised() {
+		return meantForThisInstance, thisInstanceName, ErrNatsNotInitialised
+	}
+
+	thisInstanceName = natsConfig.Instance
+	if sentToInstance == "*" {
+		return true, thisInstanceName, err
+	} else if sentToInstance == thisInstanceName {
+		return true, thisInstanceName, err
+	} else {
+		meantForThisInstance, err = regexp.MatchString(sentToInstance, natsConfig.Instance)
+		return meantForThisInstance, thisInstanceName, err
+	}
+}
+
 func IsConnected() bool {
+	// returns true if connected to nats server
 	if !isInitialised() {
 		return false
 	}
@@ -99,8 +122,9 @@ func IsConnected() bool {
 }
 
 func Sub(subj string, handler func(msg *nats.Msg)) error {
+	// subscribes to a subject "subj", and calls function "handler" with msg as argument
 	if !isInitialised() {
-		return ErrStatsNotInitialised
+		return ErrNatsNotInitialised
 	}
 
 	_, err := nc.Subscribe(subj, handler)
@@ -114,7 +138,7 @@ func Sub(subj string, handler func(msg *nats.Msg)) error {
 }
 
 func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
-	// when subj is received, signal sig is sent to channel ch
+	// when "subj" is received, signal "sig" is sent to channel "ch"
 	log := log.With().Str("subj", subj).Logger()
 	return Sub(subj, func(msg *nats.Msg) {
 		if string(msg.Data) == "*" || string(msg.Data) == natsConfig.Instance {
@@ -127,20 +151,24 @@ func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 }
 
 func PingHandler(msg *nats.Msg) {
+	// handles ping requests
 	log := log.With().Str("subj", msg.Subject).Logger()
 
+	// get instance
 	inst, err := GetInstance()
 	if err != nil {
 		log.Err(err).Msg("could not get NATS instance")
 	}
 	log = log.With().Str("instance", inst).Logger()
 
+	// prep reply
 	reply := nats.NewMsg(msg.Subject)
 	reply.Header.Add("instance", inst)
 	reply.Header.Add("version", natsConfig.Version)
 	reply.Header.Add("uptime", time.Since(natsConfig.StartTime).String())
 	reply.Data = []byte("pong")
 
+	// send reply
 	err = msg.RespondMsg(reply)
 	if err != nil {
 		log.Err(err).Msg("could not reply to nats req")

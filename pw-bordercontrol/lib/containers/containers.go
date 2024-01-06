@@ -49,15 +49,18 @@ var (
 )
 
 const (
+	// nats subjects
 	natsSubjFeedInImageRebuild = "pw_bordercontrol.feedinimage.rebuild"
 	natsSubjFeederKick         = "pw_bordercontrol.feeder.kick"
 )
 
+// struct to hold error from docker image build process
 type ErrorLine struct {
 	Error       string      `json:"error"`
 	ErrorDetail ErrorDetail `json:"errorDetail"`
 }
 
+// struct to hold error from docker image build process
 type ErrorDetail struct {
 	Message string `json:"message"`
 }
@@ -79,7 +82,9 @@ var GetDockerClient = func() (ctx *context.Context, cli *client.Client, err erro
 }
 
 func RebuildFeedInImageHandler(msg *nats.Msg) {
+	// handles request from nats to rebuild feed-in image
 
+	// update log context
 	log := log.With().
 		Str("subj", natsSubjFeedInImageRebuild).
 		Str("context", feedInImageBuildContext).
@@ -87,16 +92,17 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 		Str("image", feedInImageName).
 		Logger()
 
-	inst, err := nats_io.GetInstance()
+	// get nats instance of this bordercontrol
+	forUs, inst, err := nats_io.ThisInstance(string(msg.Data))
 	if err != nil {
 		log.Err(err).Msg("could not get nats instance")
 	}
 
+	// update log context
 	log = log.With().Str("instance", inst).Logger()
 
-	if string(msg.Data) == "*" || string(msg.Data) == inst {
-		log.Debug().Msg("performing build")
-	} else {
+	// only respond if our instance named or wildcard
+	if !forUs {
 		log.Debug().Msg("ignoring, not for this instance")
 		return
 	}

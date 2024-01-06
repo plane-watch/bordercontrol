@@ -50,27 +50,29 @@ type (
 )
 
 func authenticate(server *Server) (authToken string, err error) {
+	// authenticate to ATC HTTP API
 
+	// prep url
 	atcUrl := server.Url.JoinPath("api/user/sign_in")
 
+	// prep creds & marshal into JSON
 	creds := atcUser{
 		User: atcCredentials{
 			Email:    server.Username,
 			Password: server.Password,
 		},
 	}
-
 	credsJson, err := json.Marshal(creds)
 	if err != nil {
 		return authToken, err
 	}
 
+	// perform API request
 	req, err := http.NewRequest("POST", atcUrl.String(), bytes.NewBuffer(credsJson))
 	if err != nil {
 		return authToken, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
@@ -78,13 +80,16 @@ func authenticate(server *Server) (authToken string, err error) {
 	}
 	defer response.Body.Close()
 
+	// if status is 200 (OK)...
 	if response.StatusCode == 200 {
 
+		// get auth token from response header
 		authToken = response.Header.Get("Authorization")
 		if authToken == "" {
 			return authToken, errors.New("No authorization token returned")
 		}
 
+		// if status is not OK, log error
 	} else {
 		errStr := fmt.Sprintf("ATC API response status: %s", response.Status)
 		return authToken, errors.New(errStr)
@@ -101,6 +106,7 @@ func GetFeeders(server *Server) (feeders Feeders, err error) {
 }
 
 func GetFeedersFromATC(server *Server) (feeders Feeders, err error) {
+	// return all feeder data from ATC HTTP API
 
 	// authenticate to ATC
 	authToken, err := authenticate(server)
