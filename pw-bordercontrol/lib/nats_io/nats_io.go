@@ -158,7 +158,12 @@ func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 	// when "subj" is received, signal "sig" is sent to channel "ch"
 	log := log.With().Str("subj", subj).Logger()
 	return Sub(subj, func(msg *nats.Msg) {
-		if string(msg.Data) == "*" || string(msg.Data) == natsConfig.Instance {
+		meantForThisInstance, _, err := ThisInstance(string(msg.Data))
+		if err != nil {
+			log.Err(err).Msg("error subscribing")
+			return
+		}
+		if meantForThisInstance {
 			ch <- sig
 			msg.Ack()
 		} else {

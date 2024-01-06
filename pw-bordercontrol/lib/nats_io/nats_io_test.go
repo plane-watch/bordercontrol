@@ -3,9 +3,11 @@ package nats_io
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ var (
 	testInstanceName   = "pw_bordercontrol_testing"
 	testVersion        = "0.0.0 (aabbccd), 2024-01-06T11:53:19Z"
 	testSubject        = "pw_bordercontrol.testing.test"
+	testSubjectToChan  = "pw_bordercontrol.testing.testchan"
 	testMsgHeaderName  = "testHeaderName"
 	testMsgHeaderValue = "testHeaderValue"
 	testMsgData        = "The quick brown fox jumped over the lazy dog 1234567890 times."
@@ -201,8 +204,6 @@ func TestNats(t *testing.T) {
 			wg.Add(1)
 			Sub(testSubject, func(msg *nats.Msg) {
 
-				t.Log("received")
-
 				h := msg.Header.Get(testMsgHeaderName)
 				assert.Equal(t, testMsgHeaderValue, h)
 
@@ -211,7 +212,6 @@ func TestNats(t *testing.T) {
 
 				require.NoError(t, msg.Ack())
 
-				t.Log("done")
 				wg.Done()
 			})
 
@@ -226,6 +226,42 @@ func TestNats(t *testing.T) {
 			require.NoError(t, err)
 
 			// wait for sub function to complete
+			wg.Wait()
+
+		})
+
+		t.Run("SignalSendOnSubj", func(t *testing.T) {
+
+			// test prep
+			wg := sync.WaitGroup{}
+			ch := make(chan os.Signal)
+
+			// subscribe
+			err := SignalSendOnSubj(testSubjectToChan, syscall.SIGINFO, ch)
+			require.NoError(t, err)
+
+			// wait for nats
+			time.Sleep(time.Second)
+
+			// send test req
+			wg.Add(1)
+			go func(t *testing.T) {
+				testMsg := nats.NewMsg(testSubjectToChan)
+				testMsg.Data = []byte("*")
+				_, err := testNatsClient.RequestMsg(testMsg, time.Second*5)
+				require.NoError(t, err)
+				wg.Done()
+			}(t)
+
+			// check channel
+			wg.Add(1)
+			go func(t *testing.T) {
+				sig := <-ch
+				require.Equal(t, syscall.SIGINFO, sig)
+				wg.Done()
+			}(t)
+
+			// wait for tests
 			wg.Wait()
 
 		})
