@@ -33,6 +33,9 @@ var (
 	natsSub = func(subj string, handler func(msg *nats.Msg)) error {
 		return nats_io.Sub(subj, handler)
 	}
+	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+		return original.RespondMsg(reply)
+	}
 )
 
 type perFeederPerProtocolMetrics struct {
@@ -186,7 +189,7 @@ func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 	reply.Data = jb
 
 	// send reply
-	err = msg.RespondMsg(reply)
+	err = natsRespondMsg(msg, reply)
 	if err != nil {
 		log.Err(err).Msg("could not respond to nats msg")
 	}
@@ -272,7 +275,7 @@ func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 		reply.Data = jb
 
 		// send reply
-		err = msg.RespondMsg(reply)
+		err = natsRespondMsg(msg, reply)
 		if err != nil {
 			log.Err(err).Msg("could not respond to nats msg")
 		}
@@ -365,7 +368,7 @@ func natsSubjFeederMetricsHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedpro
 		reply.Data = jb
 
 		// send reply
-		err = msg.RespondMsg(reply)
+		err = natsRespondMsg(msg, reply)
 		if err != nil {
 			log.Err(err).Msg("could not respond to nats msg")
 		}
@@ -408,7 +411,7 @@ func natsSubjFeederConnectedHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedp
 		reply.Header.Add("instance", natsInstance)
 
 		// send reply
-		err := msg.RespondMsg(reply)
+		err := natsRespondMsg(msg, reply)
 		if err != nil {
 			log.Err(err).Msg("could not respond to nats msg")
 		}

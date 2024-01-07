@@ -55,5 +55,20 @@ func TestParseApiKeyFromMsgData(t *testing.T) {
 	msg.Data = []byte("not an api key")
 	_, err = parseApiKeyFromMsgData(msg)
 	assert.Error(t, err)
+}
+
+func TestNatsSubjFeedersMetricsHandler(t *testing.T) {
+
+	// override function for testing
+	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+
+		t.Log(reply.Header)
+		t.Log(reply.Data)
+
+		return nil
+	}
+
+	msg := nats.NewMsg("")
+	natsSubjFeedersMetricsHandler(msg)
 
 }
