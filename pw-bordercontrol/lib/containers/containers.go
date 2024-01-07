@@ -440,10 +440,15 @@ func (conf *ContainerManager) Init() {
 func (conf *ContainerManager) Close() {
 	// stop goroutines associated with container manager
 
+	log.Trace().Msg("conf.stopMu.Lock()")
 	conf.stopMu.Lock()
+	log.Trace().Msg("conf.stop = true")
 	conf.stop = true
+	log.Trace().Msg("conf.stopMu.Unlock()")
 	conf.stopMu.Unlock()
+	log.Trace().Msg("conf.stopC <- true")
 	conf.stopC <- true
+	log.Trace().Msg("conf.wg.Wait()")
 	conf.wg.Wait()
 
 	// unregister prom metrics
