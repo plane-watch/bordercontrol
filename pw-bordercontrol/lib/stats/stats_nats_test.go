@@ -2,6 +2,7 @@ package stats
 
 import (
 	"pw_bordercontrol/lib/feedprotocol"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -59,16 +60,19 @@ func TestParseApiKeyFromMsgData(t *testing.T) {
 
 func TestNatsSubjFeedersMetricsHandler(t *testing.T) {
 
-	// override function for testing
-	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+	wg := sync.WaitGroup{}
 
+	// override function for testing
+	wg.Add(1)
+	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 		t.Log(reply.Header)
 		t.Log(reply.Data)
-
+		wg.Done()
 		return nil
 	}
 
 	msg := nats.NewMsg("")
 	natsSubjFeedersMetricsHandler(msg)
+	wg.Wait()
 
 }
