@@ -414,7 +414,7 @@ func (conf *ContainerManager) Init() {
 			feedInContainerPrefix:    conf.FeedInContainerPrefix,
 			checkFeederContainerSigs: chanSkipDelay,
 			logger:                   conf.Logger,
-			stop:                     conf.stopC,
+			stop:                     &conf.stopC,
 		}
 
 		// run forever
@@ -515,7 +515,7 @@ type checkFeederContainersConfig struct {
 	feedInContainerPrefix    string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
 	checkFeederContainerSigs chan os.Signal // Channel to receive signals. Received signal will skip sleeps and cause containers to be checked/recreated immediately.
 	logger                   zerolog.Logger // Logging context
-	stop                     chan bool
+	stop                     *chan bool
 }
 
 func checkFeederContainers(conf checkFeederContainersConfig) error {
@@ -607,7 +607,7 @@ ContainerLoop:
 		break
 	case <-time.After(sleepTime * time.Second):
 		log.Trace().Msg("finished sleeping")
-	case <-conf.stop:
+	case <-*conf.stop:
 		log.Trace().Msg("received from stop chan")
 	}
 
