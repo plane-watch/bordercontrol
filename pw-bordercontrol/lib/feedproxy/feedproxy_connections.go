@@ -656,7 +656,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		ctx:                         c.ctx,
 	}
 
-	// handle data from feeder client to feed-in container
+	// handle data from feeder client to server (feed-in container, mux, etc)
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
@@ -666,7 +666,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		c.cancel()
 	}()
 
-	// handle data from server container to feeder client (if required, no point doing this for BEAST)
+	// handle data from server to feeder client (if required, no point doing this for BEAST)
 	switch c.ConnectionProtocol {
 	case feedprotocol.MLAT:
 		c.wg.Add(1)
@@ -682,6 +682,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	// wait for context closure (inner or outer)
 	select {
 	case <-ctx.Done(): // if outer, then close inner
+		log.Debug().Msg("context closure, closing connections")
 		c.cancel()
 	case <-c.ctx.Done(): // if inner, then do nothing (don't close outer!)
 	}
