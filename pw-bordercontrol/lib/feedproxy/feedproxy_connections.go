@@ -615,7 +615,7 @@ func (c *ProxyConnection) Start() error {
 		return err
 	}
 
-	log.Info().Msg(fmt.Sprintf("connected to %s", dstContainerName))
+	log.Info().Msg(fmt.Sprintf("%s connected", c.ConnectionProtocol.Name()))
 
 	// write any outstanding data
 	_, err = connOut.Write(buf[:bytesRead])
