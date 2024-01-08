@@ -662,7 +662,9 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		defer c.wg.Done()
 		err := protocolProxy(&protoProxyConf, clientToServer)
 		if err != nil {
-			log.Err(err).Msg("feeder connection error")
+			if err.Error() != "EOF" { // don't bother logging EOF here
+				log.Err(err).Msg("feeder connection error")
+			}
 		}
 
 		// cancel context, causing related connections to close, and this ProxyConnection to close
