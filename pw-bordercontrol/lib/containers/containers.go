@@ -168,31 +168,23 @@ func (conf *ContainerManager) Run() error {
 		for {
 			var err error
 
+			sleepTime, err = checkFeederContainers(checkFeederContainersConf)
+			if err != nil {
+				log.Err(err).Msgf("error checking %s containers", feedInImageName)
+			}
+
 			select {
 			// die if context closed
 			case <-ctx.Done():
 				log.Debug().Msg("stopped checkFeederContainers")
 				return
-			default:
-				sleepTime, err = checkFeederContainers(checkFeederContainersConf)
-			}
-
-			if err != nil {
-				log.Err(err).Msgf("error checking %s containers", feedInImageName)
-			} else {
-
-				select {
-				// die if context closed
-				case <-ctx.Done():
-					return
-				// skep delay if signal sent (or nats msg received, which sends a signal anyway)
-				case s := <-chanSkipDelay:
-					log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
-					continue
-				// otherwise sleep for however long we need to
-				case <-time.After(sleepTime):
-					continue
-				}
+			// skep delay if signal sent (or nats msg received, which sends a signal anyway)
+			case s := <-chanSkipDelay:
+				log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
+				continue
+			// otherwise sleep for however long we need to
+			case <-time.After(sleepTime):
+				continue
 			}
 		}
 	}()
