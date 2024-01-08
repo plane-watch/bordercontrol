@@ -877,6 +877,8 @@ func TestFeedProxy(t *testing.T) {
 
 			lastAuthCheck := time.Now()
 
+			ctx := context.Background()
+
 			conf := protocolProxyConfig{
 				clientConn:   conn2,
 				serverConn:   conn3,
@@ -885,6 +887,8 @@ func TestFeedProxy(t *testing.T) {
 
 				lastAuthCheck:               &lastAuthCheck,
 				feederValidityCheckInterval: time.Second * 5,
+
+				ctx: ctx,
 			}
 
 			wg.Add(1)
