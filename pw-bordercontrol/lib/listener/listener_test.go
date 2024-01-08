@@ -22,4 +22,9 @@ func TestListener(t *testing.T) {
 
 	})
 
+	t.Run("NewListener 0.0.0.0", func(t *testing.T) {
+		_, err := NewListener(":12345c", feedprotocol.MLAT, "test-feed-in")
+		assert.Error(t, err)
+
+	})
 }
