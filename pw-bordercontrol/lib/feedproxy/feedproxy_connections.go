@@ -679,6 +679,13 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		}()
 	}
 
+	// wait for context closure (inner or outer)
+	select {
+	case <-ctx.Done(): // if outer, then close inner
+		c.cancel()
+	case <-c.ctx.Done(): // if inner, then do nothing (don't close outer!)
+	}
+
 	// wait for goroutines to finish
 	c.wg.Wait()
 
