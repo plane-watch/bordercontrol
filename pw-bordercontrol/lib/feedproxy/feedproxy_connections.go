@@ -467,6 +467,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		return ErrNotInitialised
 	}
 
+	// set up inner context
 	c.ctx, c.cancel = context.WithCancel(ctx)
 
 	// update log context
@@ -685,10 +686,10 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		}()
 	}
 
-	// wait for context closure (inner or outer)
+	// wait for context closure (either inner or outer)
 	select {
 	case <-ctx.Done(): // if outer, then close inner
-		log.Debug().Msg("context closure, closing connections")
+		log.Debug().Msg("shutting down connection")
 		c.cancel()
 	case <-c.ctx.Done(): // if inner, then do nothing (don't close outer!)
 	}

@@ -419,6 +419,8 @@ type listenConfig struct {
 func listener(ctx context.Context, conf *listenConfig) error {
 	// incoming connection listener
 
+	wg := sync.WaitGroup{}
+
 	// get protocol name
 	protoName, err := feedprotocol.GetName(conf.listenProto)
 	if err != nil {
@@ -485,8 +487,13 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		}
 
 		// initiate proxying of the connection
-		go proxyConnStartWrapper(&proxyConn, ctx)
+		wg.Add(1)
+		go func() {
+			wg.Done()
+			proxyConnStartWrapper(&proxyConn, ctx)
+		}()
 
 	}
+	wg.Wait()
 	return nil
 }
