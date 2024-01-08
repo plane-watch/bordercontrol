@@ -376,7 +376,9 @@ func runServer(cliContext *cli.Context) error {
 		// listen until context close
 		for {
 			err := listener(ctx, prepListenerConfig(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix")))
-			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
+			if err != nil {
+				log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
+			}
 			select {
 			case <-ctx.Done(): // exit on context closure
 				return
@@ -392,7 +394,9 @@ func runServer(cliContext *cli.Context) error {
 		// listen until context close
 		for {
 			err := listener(ctx, prepListenerConfig(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix")))
-			log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
+			if err != nil {
+				log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
+			}
 			select {
 			case <-ctx.Done(): // exit on context closure
 				return
@@ -444,7 +448,7 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		// wait for context closure
 		_ = <-ctx.Done()
 		// let user know what's happenning
-		log.Info().Msg("quitting")
+		log.Info().Msg("listener shutting down")
 		// close stunnelListener, which will cause any .Accept() to throw net.ErrClosed
 		err := stunnelListener.Close()
 		if err != nil {
@@ -459,7 +463,6 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		conn, err := stunnelListener.Accept()
 		if errors.Is(err, net.ErrClosed) {
 			// if network connection has been closed, then ctx has likely been cancelled, meaning we should quit
-			log.Info().Msg("network connection closed")
 			return nil
 		} else if err != nil {
 			log.Warn().AnErr("err", err).Msg("error accepting connection")
