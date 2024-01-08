@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -343,28 +345,55 @@ func runServer(cliContext *cli.Context) error {
 
 	wg := sync.WaitGroup{}
 
+	// set up context for clean exit
+	ctx := context.Background()
+	ctx, cleanExit := context.WithCancel(ctx)
+
+	// set up channel to catch SIGTERM
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+
+	// handle SIGTERM
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// wait for SIGTERM
+		_ = <-sigTermChan
+		log.Info().Msg("received SIGTERM")
+		// close main context
+		cleanExit()
+	}()
+
 	// start listening for incoming BEAST connections
 	wg.Add(1)
 	go func() {
-		// listen forever
+		defer wg.Done()
+		// listen until context close
 		for {
 			err := listener(prepListenerConfig(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix")))
 			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
-			time.Sleep(time.Second) // if there's a problem, slow down restarting
+			select {
+			case <-ctx.Done(): // exit on context closure
+				return
+			case <-time.After(time.Second): // if there's a problem, slow down restarting
+			}
 		}
-		wg.Done()
 	}()
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
 	go func() {
-		// listen forever
+		defer wg.Done()
+		// listen until context close
 		for {
 			err := listener(prepListenerConfig(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix")))
 			log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
-			time.Sleep(time.Second) // if there's a problem, slow down restarting
+			select {
+			case <-ctx.Done(): // exit on context closure
+				return
+			case <-time.After(time.Second): // if there's a problem, slow down restarting
+			}
 		}
-		wg.Done()
 	}()
 
 	// serve forever
@@ -377,12 +406,9 @@ type listenConfig struct {
 	listenProto           feedprotocol.Protocol // Protocol handled by the listener
 	listenAddr            net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
 	feedInContainerPrefix string
-
-	stop   bool
-	stopMu sync.RWMutex
 }
 
-func listener(conf *listenConfig) error {
+func listener(ctx context.Context, conf *listenConfig) error {
 	// incoming connection listener
 
 	// get protocol name
@@ -413,37 +439,42 @@ func listener(conf *listenConfig) error {
 	for {
 
 		// quit if directed
-		conf.stopMu.RLock()
-		if conf.stop {
-			conf.stopMu.RUnlock()
-			return nil
-		}
-		conf.stopMu.RUnlock()
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("quitting")
+		default:
 
-		// accept incoming connection
-		conn, err := stunnelListener.Accept()
-		if err != nil {
-			log.Err(err).Msg("error accepting connection")
-			return err
-		}
+			// set deadline
+			err := stunnelListener.(*net.TCPListener).SetDeadline(time.Now().Add(time.Millisecond * 500))
+			if err != nil {
+				return err
+			}
 
-		// prep proxy config
-		connNum, err := feedproxyGetConnectionNumberWrapper()
-		if err != nil {
-			log.Err(err).Msg("could not get connection number")
-			return err
-		}
-		proxyConn := feedproxy.ProxyConnection{
-			Connection:                  conn,
-			ConnectionProtocol:          conf.listenProto,
-			ConnectionNumber:            connNum,
-			FeedInContainerPrefix:       conf.feedInContainerPrefix,
-			Logger:                      log,
-			FeederValidityCheckInterval: time.Second * 60,
-		}
+			// accept incoming connection
+			conn, err := stunnelListener.Accept()
+			if err != nil {
+				log.Warn().AnErr("err", err).Msg("error accepting connection")
+				continue
+			}
 
-		// initiate proxying of the connection
-		go proxyConnStartWrapper(&proxyConn)
+			// prep proxy config
+			connNum, err := feedproxyGetConnectionNumberWrapper()
+			if err != nil {
+				log.Warn().AnErr("err", err).Msg("could not get connection number")
+				continue
+			}
+			proxyConn := feedproxy.ProxyConnection{
+				Connection:                  conn,
+				ConnectionProtocol:          conf.listenProto,
+				ConnectionNumber:            connNum,
+				FeedInContainerPrefix:       conf.feedInContainerPrefix,
+				Logger:                      log,
+				FeederValidityCheckInterval: time.Second * 60,
+			}
+
+			// initiate proxying of the connection
+			go proxyConnStartWrapper(&proxyConn)
+		}
 	}
 
 	return nil
