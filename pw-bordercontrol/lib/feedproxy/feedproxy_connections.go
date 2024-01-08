@@ -666,7 +666,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 			log.Err(err).Msg("feeder connection error")
 		}
 
-		// cancel context
+		// cancel context, causing related connections to close, and this ProxyConnection to close
 		c.cancel()
 	}()
 
@@ -681,7 +681,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 				log.Err(err).Msg("feeder connection error")
 			}
 
-			// cancel context
+			// cancel context, causing related connections to close, and this ProxyConnection to close
 			c.cancel()
 		}()
 	}
@@ -689,7 +689,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	// wait for context closure (either inner or outer)
 	select {
 	case <-ctx.Done(): // if outer, then close inner
-		log.Debug().Msg("shutting down connection")
+		log.Info().Msg("shutting down connection")
 		c.cancel()
 	case <-c.ctx.Done(): // if inner, then do nothing (don't close outer!)
 	}
