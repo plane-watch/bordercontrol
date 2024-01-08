@@ -1,6 +1,7 @@
 package nats_io
 
 import (
+	"context"
 	"errors"
 	"os"
 	"regexp"
@@ -16,14 +17,22 @@ const (
 )
 
 var (
-	nc         *nats.Conn
-	natsConfig NatsConfig
+	// module wide variable for nats connection
+	nc *nats.Conn
 
+	// module wide variable (+mutex) to track whether nats subsystem has been initialised
 	initialised   bool
 	initialisedMu sync.RWMutex
 
+	// module wide variable for nats subsystem context
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+
+	// module wide variable to hold nats config
+	natsConfig *NatsConfig
+
 	// custom errors
-	ErrNatsNotInitialised = errors.New("nats not initialised")
+	ErrNotInitialised = errors.New("nats not initialised")
 )
 
 type NatsConfig struct {
@@ -44,11 +53,36 @@ func isInitialised() bool {
 	return initialised
 }
 
+func (c *NatsConfig) Close(ctx context.Context) error {
+
+	// return error is not initialised
+	if !isInitialised() {
+		return ErrNotInitialised
+	}
+
+	// close nats connection
+	nc.Close()
+
+	// cancel the context
+	ctxCancel()
+
+	// set initialised to false
+	initialisedMu.Lock()
+	initialised = false
+	initialisedMu.Unlock()
+
+	return nil
+}
+
 func (conf *NatsConfig) Init() error {
 
-	natsConfig = *conf
+	// set up context
+	ctx = context.Background()
+	ctx, ctxCancel = context.WithCancel(ctx)
 
 	var err error
+
+	natsConfig = conf
 
 	// prep nats instance name
 	if natsConfig.Instance == "" {
@@ -95,7 +129,7 @@ func (conf *NatsConfig) Init() error {
 func GetInstance() (instance string, err error) {
 	// returns this bordercontrol's instance name
 	if !isInitialised() {
-		err = ErrNatsNotInitialised
+		err = ErrNotInitialised
 	}
 	return natsConfig.Instance, err
 }
@@ -106,7 +140,7 @@ func ThisInstance(sentToInstance string) (meantForThisInstance bool, thisInstanc
 	// sentToInstance supports regex
 
 	if !isInitialised() {
-		return meantForThisInstance, thisInstanceName, ErrNatsNotInitialised
+		return meantForThisInstance, thisInstanceName, ErrNotInitialised
 	}
 
 	thisInstanceName = natsConfig.Instance
@@ -140,7 +174,7 @@ func Sub(subj string, handler func(msg *nats.Msg)) error {
 
 	// error if not initialised
 	if !isInitialised() {
-		return ErrNatsNotInitialised
+		return ErrNotInitialised
 	}
 
 	// subscribe

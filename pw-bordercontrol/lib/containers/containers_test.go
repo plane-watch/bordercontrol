@@ -41,12 +41,14 @@ var (
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
+
+	ErrTesting = errors.New("error injected for testing")
 )
 
 func TestGetDockerClient(t *testing.T) {
 	getDockerClientMu.RLock()
 	defer getDockerClientMu.RUnlock()
-	_, cli, err := GetDockerClient()
+	cli, err := getDockerClient()
 	require.NoError(t, err)
 	err = cli.Close()
 	require.NoError(t, err)
@@ -78,17 +80,16 @@ func TestContainers(t *testing.T) {
 	t.Run("broken docker client", func(t *testing.T) {
 
 		getDockerClientMu.Lock()
-		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-			cctx := context.Background()
+		getDockerClient = func() (cli *client.Client, err error) {
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-			return &cctx, cli, errors.New("error injected for testing")
+			return cli, ErrTesting
 		}
 		getDockerClientMu.Unlock()
 
 		// test checkFeederContainers with broken docker client
 		t.Run("checkFeederContainers", func(t *testing.T) {
 			checkFeederContainersConf := checkFeederContainersConfig{}
-			err := checkFeederContainers(checkFeederContainersConf)
+			_, err := checkFeederContainers(checkFeederContainersConf)
 			require.Error(t, err)
 			require.Equal(t, "error injected for testing", err.Error())
 		})
@@ -96,7 +97,7 @@ func TestContainers(t *testing.T) {
 		// test startFeederContainers with broken docker client
 		t.Run("startFeederContainers", func(t *testing.T) {
 			startFeederContainersConf := startFeederContainersConfig{}
-			err := startFeederContainers(startFeederContainersConf)
+			_, err := startFeederContainers(startFeederContainersConf, FeedInContainer{})
 			require.Error(t, err)
 			require.Equal(t, "error injected for testing", err.Error())
 		})
@@ -107,10 +108,9 @@ func TestContainers(t *testing.T) {
 
 		// prep invalid testing docker client
 		getDockerClientMu.Lock()
-		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-			cctx := context.Background()
+		getDockerClient = func() (cli *client.Client, err error) {
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-			return &cctx, cli, nil
+			return cli, nil
 		}
 		getDockerClientMu.Unlock()
 		TestDaemon.Stop(t) // make client invalid
@@ -118,7 +118,7 @@ func TestContainers(t *testing.T) {
 		// test checkFeederContainers with invalid client
 		t.Run("checkFeederContainers", func(t *testing.T) {
 			checkFeederContainersConf := checkFeederContainersConfig{}
-			err := checkFeederContainers(checkFeederContainersConf)
+			_, err := checkFeederContainers(checkFeederContainersConf)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Cannot connect to the Docker daemon at")
 		})
@@ -137,17 +137,6 @@ func TestContainers(t *testing.T) {
 				logger:                     log.Logger,
 			}
 
-			// prep waitgroup to wait for goroutine
-			wg := sync.WaitGroup{}
-
-			// start startFeederContainers in background
-			wg.Add(1)
-			go func(t *testing.T) {
-				err := startFeederContainers(startFeederContainersConf)
-				require.NoError(t, err)
-				wg.Done()
-			}(t)
-
 			// send request to start container
 			fic := FeedInContainer{
 				Lat:        TestFeederLatitude,
@@ -157,36 +146,23 @@ func TestContainers(t *testing.T) {
 				FeederCode: TestFeederCode,
 				Addr:       TestFeederAddr,
 			}
-			select {
-			case containersToStartRequests <- fic:
-				t.Log("sent to containersToStartRequests")
-			case <-time.After(time.Second * 31):
-				require.Fail(t, "timeout sending to chan containersToStartRequests")
-			}
 
-			// receive response for start container
-			select {
-			case r := <-containersToStartResponses:
-				require.Error(t, r.Err)
-				require.Contains(t, r.Err.Error(), "Cannot connect to the Docker daemon at")
-			case <-time.After(time.Second * 31):
-				require.Fail(t, "timeout receiving from chan containersToStartResponses")
-			}
+			_, err := startFeederContainers(startFeederContainersConf, fic)
 
-			// wait for goroutine to finish
-			wg.Wait()
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Cannot connect to the Docker daemon at")
+
 		})
 	})
 
 	t.Run("working docker client, no init", func(t *testing.T) {
-
 		// prep test env docker client
+		ctx = context.Background()
 		TestDaemon.Start(t)
 		getDockerClientMu.Lock()
-		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-			cctx := context.Background()
+		getDockerClient = func() (cli *client.Client, err error) {
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-			return &cctx, cli, nil
+			return cli, nil
 		}
 		getDockerClientMu.Unlock()
 
@@ -308,7 +284,7 @@ func TestContainers(t *testing.T) {
 			}
 
 			select {
-			case containersToStartResponses <- startContainerResponse{Err: errors.New("error injected for testing")}:
+			case containersToStartResponses <- startContainerResponse{Err: ErrTesting}:
 				t.Log("received from containersToStartResponses")
 			case <-time.After(time.Second * 31):
 				require.Fail(t, "timeout receiving from containersToStartResponses")
@@ -339,29 +315,28 @@ func TestContainers(t *testing.T) {
 		// prep test env docker client
 		TestDaemon.Start(t)
 		getDockerClientMu.Lock()
-		GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
-			cctx := context.Background()
+		getDockerClient = func() (cli *client.Client, err error) {
 			cli = TestDaemon.NewClientT(t, client.WithAPIVersionNegotiation())
-			return &cctx, cli, nil
+			return cli, nil
 		}
 		getDockerClientMu.Unlock()
 
 		// get docker client
 		t.Log("get docker client to inspect container")
 		getDockerClientMu.RLock()
-		ctx, cli, err := GetDockerClient()
+		cli, err := getDockerClient()
 		getDockerClientMu.RUnlock()
 		require.NoError(t, err)
 
 		// pull test image
 		t.Logf("pull test image: %s", TestFeedInImageNameFirst)
-		imageircFirst, err := cli.ImagePull(*ctx, TestFeedInImageNameFirst, types.ImagePullOptions{})
+		imageircFirst, err := cli.ImagePull(ctx, TestFeedInImageNameFirst, types.ImagePullOptions{})
 		require.NoError(t, err)
 		t.Cleanup(func() { imageircFirst.Close() })
 
 		// load test image
 		t.Logf("load test image: %s", TestFeedInImageNameFirst)
-		_, err = cli.ImageLoad(*ctx, imageircFirst, false)
+		_, err = cli.ImageLoad(ctx, imageircFirst, false)
 		require.NoError(t, err)
 
 		t.Run("build feed-in image", func(t *testing.T) {
@@ -397,7 +372,7 @@ func TestContainers(t *testing.T) {
 
 		// inspect container
 		t.Run("inspect container", func(t *testing.T) {
-			ct, err = cli.ContainerInspect(*ctx, cid)
+			ct, err = cli.ContainerInspect(ctx, cid)
 			require.NoError(t, err)
 		})
 
@@ -506,7 +481,7 @@ func TestContainers(t *testing.T) {
 		// ensure out-of-date container has been removed
 		time.Sleep(time.Second * 3) // wait for container to be removed by checkFeederContainers
 		t.Run("ensure out-of-date container has been removed", func(t *testing.T) {
-			cl, err := cli.ContainerList(*ctx, types.ContainerListOptions{})
+			cl, err := cli.ContainerList(ctx, types.ContainerListOptions{})
 			require.NoError(t, err, "expected no error from docker")
 			for _, c := range cl {
 				if c.ID == cid {

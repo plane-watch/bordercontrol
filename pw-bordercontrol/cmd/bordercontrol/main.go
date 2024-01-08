@@ -274,14 +274,14 @@ func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInCo
 	}
 }
 
-func runServer(ctx *cli.Context) error {
+func runServer(cliContext *cli.Context) error {
 
 	// Set logging level
-	logging.SetLoggingLevel(ctx)
+	logging.SetLoggingLevel(cliContext)
 
 	// initial logging
 	log.Info().Msg(banner) // show awesome banner
-	log.Info().Str("version", ctx.App.Version).Msg("bordercontrol starting")
+	log.Info().Str("version", cliContext.App.Version).Msg("bordercontrol starting")
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
 	// if debug then show some extra goodies
@@ -293,9 +293,9 @@ func runServer(ctx *cli.Context) error {
 
 	// connect to nats for control/stats/etc
 	natsConf := nats_io.NatsConfig{
-		Url:       ctx.String("natsurl"),
-		Instance:  ctx.String("natsinstance"),
-		Version:   ctx.App.Version,
+		Url:       cliContext.String("natsurl"),
+		Instance:  cliContext.String("natsinstance"),
+		Version:   cliContext.App.Version,
 		StartTime: startTime,
 	}
 	err := natsConf.Init()
@@ -307,13 +307,13 @@ func runServer(ctx *cli.Context) error {
 	stunnel.Init(syscall.SIGHUP)
 
 	// load SSL cert/key
-	err = stunnel.LoadCertAndKeyFromFile(ctx.String("cert"), ctx.String("key"))
+	err = stunnel.LoadCertAndKeyFromFile(cliContext.String("cert"), cliContext.String("key"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
 	}
 
 	// start statistics manager
-	err = stats.Init(ctx.String("listenapi"))
+	err = stats.Init(cliContext.String("listenapi"))
 	if err != nil {
 		log.Err(err).Msg("could not start statistics manager")
 		return err
@@ -321,22 +321,22 @@ func runServer(ctx *cli.Context) error {
 
 	// initialise feedproxy
 	feedProxyConf := feedproxy.FeedProxyConfig{
-		UpdateFrequency: time.Minute * time.Duration(ctx.Int("atcupdatefreq")),
-		ATCUrl:          ctx.String("atcurl"),
-		ATCUser:         ctx.String("atcuser"),
-		ATCPass:         ctx.String("atcpass"),
+		UpdateFrequency: time.Minute * time.Duration(cliContext.Int("atcupdatefreq")),
+		ATCUrl:          cliContext.String("atcurl"),
+		ATCUser:         cliContext.String("atcuser"),
+		ATCPass:         cliContext.String("atcpass"),
 	}
 	feedproxy.Init(&feedProxyConf)
 
 	// initialise container manager
 	ContainerManager := containers.ContainerManager{
-		FeedInImageName:                    ctx.String("feedinimage"),
-		FeedInImageBuildContext:            ctx.String("feedinimagecontext"),
-		FeedInImageBuildContextDockerfile:  ctx.String("feedinimagedockerfile"),
-		FeedInContainerPrefix:              ctx.String("feedincontainerprefix"),
-		FeedInContainerNetwork:             ctx.String("feedincontainernetwork"),
+		FeedInImageName:                    cliContext.String("feedinimage"),
+		FeedInImageBuildContext:            cliContext.String("feedinimagecontext"),
+		FeedInImageBuildContextDockerfile:  cliContext.String("feedinimagedockerfile"),
+		FeedInContainerPrefix:              cliContext.String("feedincontainerprefix"),
+		FeedInContainerNetwork:             cliContext.String("feedincontainernetwork"),
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
-		PWIngestSink:                       ctx.String("pwingestpublish"),
+		PWIngestSink:                       cliContext.String("pwingestpublish"),
 		Logger:                             log.Logger,
 	}
 	ContainerManager.Init()
@@ -348,7 +348,7 @@ func runServer(ctx *cli.Context) error {
 	go func() {
 		// listen forever
 		for {
-			err := listener(prepListenerConfig(ctx.String("listenbeast"), feedprotocol.BEAST, ctx.String("feedincontainerprefix")))
+			err := listener(prepListenerConfig(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix")))
 			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
 			time.Sleep(time.Second) // if there's a problem, slow down restarting
 		}
@@ -360,7 +360,7 @@ func runServer(ctx *cli.Context) error {
 	go func() {
 		// listen forever
 		for {
-			err := listener(prepListenerConfig(ctx.String("listenmlat"), feedprotocol.MLAT, ctx.String("feedincontainerprefix")))
+			err := listener(prepListenerConfig(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix")))
 			log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
 			time.Sleep(time.Second) // if there's a problem, slow down restarting
 		}

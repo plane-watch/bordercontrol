@@ -72,13 +72,13 @@ func TestNats(t *testing.T) {
 		t.Run("GetInstance", func(t *testing.T) {
 			_, err := GetInstance()
 			require.Error(t, err)
-			require.Equal(t, ErrNatsNotInitialised.Error(), err.Error())
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 		t.Run("ThisInstance", func(t *testing.T) {
 			_, _, err := ThisInstance("*")
 			require.Error(t, err)
-			require.Equal(t, ErrNatsNotInitialised.Error(), err.Error())
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 		t.Run("IsConnected", func(t *testing.T) {
@@ -88,7 +88,7 @@ func TestNats(t *testing.T) {
 		t.Run("Sub", func(t *testing.T) {
 			err := Sub("test", func(msg *nats.Msg) {})
 			require.Error(t, err)
-			require.Equal(t, ErrNatsNotInitialised.Error(), err.Error())
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 		t.Run("PingHandler", func(t *testing.T) {

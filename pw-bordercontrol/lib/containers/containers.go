@@ -48,6 +48,16 @@ var (
 	feedInContainerPrefix string
 
 	getDockerClientMu sync.RWMutex
+
+	// module wide variable for container subsystem context
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+
+	// custom errors
+	ErrNotInitialised            = errors.New("container manager not initialised")
+	ErrContextCancelled          = errors.New("context cancelled")
+	ErrTimeoutContainerStartReq  = errors.New("timeout waiting to submit container start request")
+	ErrTimeoutContainerStartResp = errors.New("timeout waiting for container start response")
 )
 
 const (
@@ -77,11 +87,10 @@ type startContainerResponse struct {
 
 // the following functions are variable-ized so it can be overridden for unit testing
 var (
-	GetDockerClient = func() (ctx *context.Context, cli *client.Client, err error) {
+	getDockerClient = func() (cli *client.Client, err error) {
 		// set up docker client
-		cctx := context.Background()
 		cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-		return &cctx, cli, err
+		return cli, err
 	}
 	natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
 		return nats_io.ThisInstance(sentToInstance)
@@ -149,15 +158,14 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
-		err := errors.New("container manager has not been initialised")
-		return lastLine, err
+		return lastLine, ErrNotInitialised
 	}
 
 	log.Debug().Msg("starting rebuild feed-in image")
 
 	// get docker client
 	getDockerClientMu.RLock()
-	ctx, cli, err := GetDockerClient()
+	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
 	if err != nil {
 		log.Err(err).Msg("error getting docker client")
@@ -183,7 +191,7 @@ func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine st
 		Remove:     true,
 		PullParent: true,
 	}
-	res, err := cli.ImageBuild(*ctx, tar, opts)
+	res, err := cli.ImageBuild(ctx, tar, opts)
 	if err != nil {
 		log.Err(err).Msg("perform image build")
 		return lastLine, err
@@ -227,7 +235,7 @@ func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContaine
 
 	// set up docker client
 	getDockerClientMu.RLock()
-	dockerCtx, cli, err := GetDockerClient()
+	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
 	if err != nil {
 		panic(err)
@@ -239,7 +247,7 @@ func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContaine
 	filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 	// find containers
-	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filters})
 	if err != nil {
 		panic(err)
 	}
@@ -261,7 +269,7 @@ func promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInConta
 
 	// set up docker client
 	getDockerClientMu.RLock()
-	dockerCtx, cli, err := GetDockerClient()
+	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
 	if err != nil {
 		panic(err)
@@ -273,7 +281,7 @@ func promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInConta
 	filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 	// find containers
-	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filters})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filters})
 	if err != nil {
 		panic(err)
 	}
@@ -322,40 +330,48 @@ type ContainerManager struct {
 	SignalSkipContainerRecreationDelay syscall.Signal // Signal that will skip container recreation delay.
 	PWIngestSink                       string         // URL to pass to the --sink flag of pw-ingest in feed-in container.
 	Logger                             zerolog.Logger // Logging context to use
-
-	// facility to stop goroutines
-	stop   bool           // set to false (using below mutex for safety) to stop goroutines
-	stopMu sync.RWMutex   // mutex for above bool
-	stopC  chan bool      // channel to stop checkFeederContainers
-	wg     sync.WaitGroup // waitgroup for sync
+	wg                                 sync.WaitGroup // waitgroup to track running goroutines
 }
 
-func (conf *ContainerManager) Init() {
+func initNats() error {
+	// initialise nats if nats subsystem has a connection
+	if nats_io.IsConnected() {
+		err := nats_io.Sub(natsSubjFeedInImageRebuild, RebuildFeedInImageHandler)
+		if err != nil {
+			return err
+		}
+		err = nats_io.Sub(natsSubjFeederKick, KickFeederHandler)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (conf *ContainerManager) Init() error {
 	// start goroutines associated with container manager
 
 	log.Info().Msg("starting feed-in container manager")
 
-	conf.stopC = make(chan bool) // prep channel to stop checkFeederContainers
+	// prepare context
+	ctx = context.Background()
+	ctx, ctxCancel = context.WithCancel(ctx)
 
 	// TODO: check feed-in image exists
 	// TODO: check feed-in network exists
 
+	// store globals
+	// TODO: could probably store these in a context?
 	signalSkipContainerRecreationDelay = conf.SignalSkipContainerRecreationDelay
 	feedInImageName = conf.FeedInImageName
 	feedInImageBuildContext = conf.FeedInImageBuildContext
 	feedInImageBuildContextDockerfile = conf.FeedInImageBuildContextDockerfile
 	feedInContainerPrefix = conf.FeedInContainerPrefix
 
-	// nats
-	if nats_io.IsConnected() {
-		err := nats_io.Sub(natsSubjFeedInImageRebuild, RebuildFeedInImageHandler)
-		if err != nil {
-			log.Fatal().Str("subj", natsSubjFeedInImageRebuild).Err(err).Msg("subscribe failed")
-		}
-		err = nats_io.Sub(natsSubjFeederKick, KickFeederHandler)
-		if err != nil {
-			log.Fatal().Str("subj", natsSubjFeederKick).Err(err).Msg("subscribe failed")
-		}
+	// initialise nats if nats subsystem has a connection
+	err := initNats()
+	if err != nil {
+		return err
 	}
 
 	// register prom metrics
@@ -386,20 +402,16 @@ func (conf *ContainerManager) Init() {
 			logger:                     conf.Logger,
 		}
 
-		// run forever
+		// run until context cancelled
 		for {
-			_ = startFeederContainers(startFeederContainersConf)
-			// no sleep here as this goroutune needs to be relaunched after each container start
-
-			// if requested to stop, then don't loop any more
-			conf.stopMu.RLock()
-			if conf.stop {
-				conf.stopMu.RUnlock()
-				log.Debug().Msg("stopped startFeederContainers")
+			select {
+			case <-ctx.Done():
 				conf.wg.Done()
 				return
-			} else {
-				conf.stopMu.RUnlock()
+			case containerToStart := <-containersToStartRequests:
+				response, err := startFeederContainers(startFeederContainersConf, containerToStart)
+				response.Err = err
+				containersToStartResponses <- response
 			}
 		}
 	}()
@@ -414,41 +426,46 @@ func (conf *ContainerManager) Init() {
 			feedInContainerPrefix:    conf.FeedInContainerPrefix,
 			checkFeederContainerSigs: chanSkipDelay,
 			logger:                   conf.Logger,
-			stop:                     &conf.stopC,
 		}
 
-		// run forever
-		for {
-			_ = checkFeederContainers(checkFeederContainersConf)
-			// no sleep here as this goroutune needs to be relaunched after each container kill
+		// initial sleepTime
+		sleepTime := time.Second * 30
 
-			// if requested to stop, then don't loop any more
-			conf.stopMu.RLock()
-			if conf.stop {
-				conf.stopMu.RUnlock()
-				log.Debug().Msg("stopped checkFeederContainers")
-				conf.wg.Done()
-				return
+		// run until context cancelled
+		for {
+			var err error
+			sleepTime, err = checkFeederContainers(checkFeederContainersConf)
+			if err != nil {
+				log.Err(err).Msgf("error checking %s containers", feedInImageName)
 			} else {
-				conf.stopMu.RUnlock()
+				select {
+				case s := <-chanSkipDelay:
+					log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
+					continue
+				case <-time.After(sleepTime):
+					continue
+				case <-ctx.Done():
+					conf.wg.Done()
+					return
+				}
 			}
 		}
 	}()
 	containerManagerInitialised = true
+	return nil
 }
 
 func (conf *ContainerManager) Close() {
 	// stop goroutines associated with container manager
 
-	log.Trace().Msg("conf.stopMu.Lock()")
-	conf.stopMu.Lock()
-	log.Trace().Msg("conf.stop = true")
-	conf.stop = true
-	log.Trace().Msg("conf.stopMu.Unlock()")
-	conf.stopMu.Unlock()
-	log.Trace().Msg("conf.stopC <- true")
-	conf.stopC <- true
-	log.Trace().Msg("conf.wg.Wait()")
+	// cancel context
+	ctxCancel()
+
+	// close chans
+	close(containersToStartRequests)
+	close(containersToStartResponses)
+
+	// wait for goroutines
 	conf.wg.Wait()
 
 	// unregister prom metrics
@@ -460,6 +477,9 @@ func (conf *ContainerManager) Close() {
 	if !ok {
 		log.Error().Msg("could not unregister promMetricFeederContainersImageNotCurrent")
 	}
+
+	// reset vars
+	containerManagerInitialised = false
 
 	log.Info().Msg("stopped feed-in container manager")
 }
@@ -478,25 +498,26 @@ func (feedInContainer *FeedInContainer) Start() (containerID string, err error) 
 
 	// ensure container manager has been initialised
 	if !containerManagerInitialised {
-		err := errors.New("container manager has not been initialised")
-		return containerID, err
+		return containerID, ErrNotInitialised
 	}
 
 	// request start of the feed-in container with submission timeout
 	select {
+	case <-ctx.Done():
+		return containerID, ErrContextCancelled
 	case containersToStartRequests <- *feedInContainer:
 	case <-time.After(5 * time.Second):
-		err := errors.New("5s timeout waiting to submit container start request")
-		return containerID, err
+		return containerID, ErrTimeoutContainerStartReq
 	}
 
 	// wait for request to be actioned
 	var startedContainer startContainerResponse
 	select {
+	case <-ctx.Done():
+		return containerID, ErrContextCancelled
 	case startedContainer = <-containersToStartResponses:
 	case <-time.After(30 * time.Second):
-		err := errors.New("30s timeout waiting for container start request to be fulfilled")
-		return containerID, err
+		return containerID, ErrTimeoutContainerStartResp
 	}
 
 	// check for start errors
@@ -523,15 +544,14 @@ type checkFeederContainersConfig struct {
 	stop                     *chan bool
 }
 
-func checkFeederContainers(conf checkFeederContainersConfig) error {
+func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Duration, err error) {
 	// Checks feed-in containers are running the latest image. If they aren't remove them.
 	// They will be recreated using the latest image when the client reconnects.
 
 	// TODO: One instance of this goroutine per region/mux would be good.
 
 	var (
-		containerRemoved bool          // was a container removed this run
-		sleepTime        time.Duration // how long to sleep for between runs
+		containerRemoved bool // was a container removed this run
 	)
 
 	log := conf.logger.With().
@@ -543,11 +563,11 @@ func checkFeederContainers(conf checkFeederContainersConfig) error {
 	// set up docker client
 	log.Trace().Msg("set up docker client")
 	getDockerClientMu.RLock()
-	dockerCtx, cli, err := GetDockerClient()
+	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
-		return err
+		return time.Second, err
 	}
 	defer cli.Close()
 
@@ -558,10 +578,10 @@ func checkFeederContainers(conf checkFeederContainersConfig) error {
 
 	// find containers
 	log.Trace().Msg("find containers")
-	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
-		return err
+		return time.Second, err
 	}
 
 	// for each container...
@@ -584,7 +604,7 @@ ContainerLoop:
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
 			log.Info().Msg("out of date feed-in container being killed for recreation")
-			err := cli.ContainerRemove(*dockerCtx, container.ID, types.ContainerRemoveOptions{Force: true})
+			err := cli.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 			if err != nil {
 				log.Err(err).Msg("error killing out of date feed-in container")
 			} else {
@@ -599,24 +619,13 @@ ContainerLoop:
 	// determine how long to sleep
 	if containerRemoved {
 		// if a container has been removed, only wait 30 seconds
-		sleepTime = 30
+		sleepTime = 30 * time.Second
 	} else {
 		// if no containers have been removed, wait 5 minutes before checking again
-		sleepTime = 300
+		sleepTime = 300 * time.Second
 	}
 
-	// sleep unless/until siguser1 is caught
-	select {
-	case s := <-conf.checkFeederContainerSigs:
-		log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
-		break
-	case <-time.After(sleepTime * time.Second):
-		log.Trace().Msg("finished sleeping")
-	case <-*conf.stop:
-		log.Trace().Msg("received from stop chan")
-	}
-
-	return nil
+	return sleepTime, err
 }
 
 func getFeedInContainerName(apiKey uuid.UUID) string {
@@ -634,7 +643,7 @@ type startFeederContainersConfig struct {
 	logger                     zerolog.Logger              // Logging context
 }
 
-func startFeederContainers(conf startFeederContainersConfig) error {
+func startFeederContainers(conf startFeederContainersConfig, containerToStart FeedInContainer) (startContainerResponse, error) {
 	// reads startContainerRequests from channel containersToStartRequests and starts container
 	// responds via channel containersToStartResponses
 
@@ -648,23 +657,23 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 	// set up docker client
 	log.Trace().Msg("set up docker client")
 	getDockerClientMu.RLock()
-	dockerCtx, cli, err := GetDockerClient()
+	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
 	if err != nil {
 		log.Err(err).Msg("error creating docker client")
-		return err
+		return startContainerResponse{}, err
 	}
 	defer cli.Close()
 
 	// read from channel (this blocks until a request comes in)
-	var containerToStart FeedInContainer
-	select {
-	case containerToStart = <-conf.containersToStartRequests:
-		log.Trace().Msg("received from containersToStartRequests")
-	case <-time.After(time.Second * 5):
-		log.Trace().Msg("timeout receiving from containersToStartRequests")
-		return nil
-	}
+	// var containerToStart FeedInContainer
+	// select {
+	// case containerToStart = <-conf.containersToStartRequests:
+	// 	log.Trace().Msg("received from containersToStartRequests")
+	// case <-time.After(time.Second * 5):
+	// 	log.Trace().Msg("timeout receiving from containersToStartRequests")
+	// 	return nil
+	// }
 
 	// prep response object
 	response := startContainerResponse{}
@@ -687,7 +696,7 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 	filterFeedIn.Add("status", "running")
 
 	// find container
-	containers, err := cli.ContainerList(*dockerCtx, types.ContainerListOptions{Filters: filterFeedIn})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding feed-in container")
 	}
@@ -756,10 +765,10 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 		}
 
 		// create feed-in container
-		resp, err := cli.ContainerCreate(*dockerCtx, &containerConfig, &containerHostConfig, &networkingConfig, nil, response.ContainerName)
+		resp, err := cli.ContainerCreate(ctx, &containerConfig, &containerHostConfig, &networkingConfig, nil, response.ContainerName)
 		if err != nil {
 			log.Err(err).Msg("could not create feed-in container")
-			response.Err = err
+			return startContainerResponse{}, err
 		} else {
 			log.Debug().Str("container_id", resp.ID).Msg("created feed-in container")
 		}
@@ -767,20 +776,20 @@ func startFeederContainers(conf startFeederContainersConfig) error {
 		response.ContainerID = resp.ID
 
 		// start container
-		if err := cli.ContainerStart(*dockerCtx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 			log.Err(err).Msg("could not start feed-in container")
-			response.Err = err
+			return startContainerResponse{}, err
 		} else {
 			log.Debug().Str("container_id", resp.ID).Msg("started feed-in container")
 		}
 
 	}
 
-	// send response
-	conf.containersToStartResponses <- response
+	// // send response
+	// conf.containersToStartResponses <- response
 
 	// log.Trace().Msg("finished")
-	return nil
+	return response, err
 }
 
 func KickFeederHandler(msg *nats.Msg) {
@@ -830,7 +839,7 @@ func KickFeeder(apiKey uuid.UUID) error {
 
 	// get docker client
 	getDockerClientMu.RLock()
-	ctx, cli, err := GetDockerClient()
+	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
 	if err != nil {
 		return err
@@ -848,7 +857,7 @@ func KickFeeder(apiKey uuid.UUID) error {
 	filters.Add("name", containerName)
 
 	// find container
-	containers, err := cli.ContainerList(*ctx, types.ContainerListOptions{
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
 		All:     true,
 		Filters: filters,
 	})
@@ -865,7 +874,7 @@ func KickFeeder(apiKey uuid.UUID) error {
 
 	// kill container
 	log.Info().Msg("killing feed-in container")
-	err = cli.ContainerRemove(*ctx, containers[0].ID, types.ContainerRemoveOptions{
+	err = cli.ContainerRemove(ctx, containers[0].ID, types.ContainerRemoveOptions{
 		Force: true,
 	})
 	if err != nil {
