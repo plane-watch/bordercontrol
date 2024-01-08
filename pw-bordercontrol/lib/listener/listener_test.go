@@ -1,6 +1,8 @@
 package listener
 
 import (
+	"context"
+	"net"
 	"pw_bordercontrol/lib/feedprotocol"
 	"testing"
 
@@ -16,15 +18,60 @@ func TestListener(t *testing.T) {
 	require.NoError(t, err)
 	tmpListener.Close()
 
-	t.Run("NewListener invalid port", func(t *testing.T) {
-		_, err := NewListener("0.0.0.0:12345c", feedprotocol.MLAT, "test-feed-in")
-		assert.Error(t, err)
+	var listener *listener
+
+	t.Run("NewListener", func(t *testing.T) {
+
+		t.Run("invalid port", func(t *testing.T) {
+			_, err := NewListener("0.0.0.0:12345c", feedprotocol.MLAT, "test-feed-in")
+			assert.Error(t, err)
+
+		})
+
+		t.Run("0.0.0.0", func(t *testing.T) {
+			_, err := NewListener(":", feedprotocol.MLAT, "test-feed-in")
+			require.Error(t, err)
+		})
+
+		// override func for testing (remove TLS/SSL)
+		stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
+			return net.Listen(network, laddr)
+		}
+
+		t.Run("ok", func(t *testing.T) {
+			listener, err := NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+			require.NoError(t, err)
+		})
+	})
+
+	t.Run("Run", func(t *testing.T) {
+
+		t.Run("invalid protocol", func(t *testing.T) {
+
+			listenerInvalidProto := listener
+			listenerInvalidProto.Protocol = feedprotocol.Protocol(0)
+
+			ctx := context.Background()
+			err := listenerInvalidProto.Run(ctx)
+			require.Error(t, err)
+		})
+
+		t.Run("addr in use", func(t *testing.T) {
+			nl, err := nettest.NewLocalListener("tcp4")
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				nl.Close()
+			})
+
+			listenerAddrInUse, err := NewListener(nl.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+			require.NoError(t, err)
+
+			ctx := context.Background()
+			err = listenerAddrInUse.Run(ctx)
+			require.Error(t, err)
+
+		})
 
 	})
 
-	t.Run("NewListener 0.0.0.0", func(t *testing.T) {
-		_, err := NewListener(":12345c", feedprotocol.MLAT, "test-feed-in")
-		assert.Error(t, err)
-
-	})
 }
