@@ -458,7 +458,7 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		}
 	}()
 
-	// handle incoming connections
+	// handle incoming connections until stunnelListener is closed (or has other error)
 	for {
 
 		// accept incoming connection
@@ -468,14 +468,14 @@ func listener(ctx context.Context, conf *listenConfig) error {
 			// break out of for loop so we can wait for connections to close
 			break
 		} else if err != nil {
-			log.Warn().AnErr("err", err).Msg("error accepting connection")
+			log.Err(err).Msg("error accepting connection")
 			continue
 		}
 
 		// prep proxy config
 		connNum, err := feedproxyGetConnectionNumberWrapper()
 		if err != nil {
-			log.Warn().AnErr("err", err).Msg("could not get connection number")
+			log.Err(err).Msg("could not get connection number")
 			continue
 		}
 		proxyConn := feedproxy.ProxyConnection{
@@ -502,6 +502,8 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		}()
 
 	}
+
+	// wait for connections to close
 	wg.Wait()
 	return nil
 }
