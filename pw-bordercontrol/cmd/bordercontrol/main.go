@@ -186,8 +186,8 @@ var (
 	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
 		return stunnel.NewListener(network, laddr)
 	}
-	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection) error {
-		return f.Start()
+	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection, ctx context.Context) error {
+		return f.Start(ctx)
 	}
 	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
 		return feedproxy.GetConnectionNumber()
@@ -213,10 +213,10 @@ func main() {
 	// run & final exit
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Err(err).Msg("Finished with error")
+		log.Err(err).Msg("finished with error")
 		os.Exit(1)
 	} else {
-		log.Info().Msg("Finished without error")
+		log.Info().Msg("finished without error")
 		os.Exit(0)
 	}
 }
@@ -448,7 +448,7 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		// wait for context closure
 		_ = <-ctx.Done()
 		// let user know what's happenning
-		log.Info().Msg("listener shutting down")
+		log.Info().Msg("shutting down listener")
 		// close stunnelListener, which will cause any .Accept() to throw net.ErrClosed
 		err := stunnelListener.Close()
 		if err != nil {
@@ -485,7 +485,7 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		}
 
 		// initiate proxying of the connection
-		go proxyConnStartWrapper(&proxyConn)
+		go proxyConnStartWrapper(&proxyConn, ctx)
 
 	}
 	return nil

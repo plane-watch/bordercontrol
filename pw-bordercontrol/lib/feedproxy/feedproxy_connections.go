@@ -1,6 +1,7 @@
 package feedproxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -316,15 +317,15 @@ const (
 )
 
 type protocolProxyConfig struct {
-	clientConn                  net.Conn          // Client-side connection (feeder out on the internet).
-	serverConn                  net.Conn          // Server-side connection (feed-in container or mlat server).
-	connNum                     uint              // Connection number (used for statistics and stuff).
-	clientApiKey                uuid.UUID         // Client's API Key (from stunnel SNI).
-	mgmt                        *goRoutineManager // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
-	lastAuthCheck               *time.Time        // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
-	lastAuthCheckMu             sync.RWMutex      // mutex for lastAuthCheck to prevent data race
-	log                         zerolog.Logger    // Log. This allows the proxy to inherit a logging context.
-	feederValidityCheckInterval time.Duration     // How often to check the feeder is still valid.
+	clientConn                  net.Conn        // Client-side connection (feeder out on the internet).
+	serverConn                  net.Conn        // Server-side connection (feed-in container or mlat server).
+	connNum                     uint            // Connection number (used for statistics and stuff).
+	clientApiKey                uuid.UUID       // Client's API Key (from stunnel SNI).
+	lastAuthCheck               *time.Time      // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
+	lastAuthCheckMu             sync.RWMutex    // mutex for lastAuthCheck to prevent data race
+	log                         zerolog.Logger  // Log. This allows the proxy to inherit a logging context.
+	feederValidityCheckInterval time.Duration   // How often to check the feeder is still valid.
+	ctx                         context.Context // connection context
 }
 
 func feederStillValid(conf *protocolProxyConfig) bool {
@@ -351,7 +352,7 @@ func feederStillValid(conf *protocolProxyConfig) bool {
 	return true
 }
 
-func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) {
+func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 	// proxies connection between client to server
 
 	var (
@@ -388,45 +389,47 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) {
 	for {
 
 		// quit if directed
-		if conf.mgmt.CheckForStop() {
-			break
-		}
+		select {
+		case <-conf.ctx.Done():
+			log.Debug().Msg("context closure")
+			return nil
+		default:
 
-		// read from feeder client
-		err := connA.SetReadDeadline(time.Now().Add(time.Second * 2))
-		if err != nil {
-			log.Err(err).Msgf("error setting read deadline on %s connection", connAName)
-			break
-		}
-		bytesRead, err := connA.Read(buf)
-		if err != nil {
-			if !errors.Is(err, os.ErrDeadlineExceeded) {
-				log.Err(err).Msgf("error reading from %s", connAName)
-				break
-			}
-		} else {
-
-			// write to server
-			err := connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
+			// read from feeder client
+			err := connA.SetReadDeadline(time.Now().Add(time.Second * 1))
 			if err != nil {
-				log.Err(err).Msgf("error setting write deadline on %s connection", connBName)
+				log.Err(err).Msgf("error setting read deadline on %s connection", connAName)
 				break
 			}
-			_, err = connB.Write(buf[:bytesRead])
+			bytesRead, err := connA.Read(buf)
 			if err != nil {
-				log.Err(err).Msgf("error writing to %s", connBName)
-				break
+				if !errors.Is(err, os.ErrDeadlineExceeded) {
+					log.Err(err).Msgf("error reading from %s", connAName)
+					break
+				}
+			} else {
+
+				// write to server
+				err := connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
+				if err != nil {
+					log.Err(err).Msgf("error setting write deadline on %s connection", connBName)
+					break
+				}
+				_, err = connB.Write(buf[:bytesRead])
+				if err != nil {
+					log.Err(err).Msgf("error writing to %s", connBName)
+					break
+				}
+
+				// update stats
+				incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead))
 			}
 
-			// update stats
-			incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead))
+			// check feeder is still valid
+			if !feederStillValid(conf) {
+				break
+			}
 		}
-
-		// check feeder is still valid
-		if !feederStillValid(conf) {
-			break
-		}
-
 	}
 }
 
@@ -438,10 +441,11 @@ type ProxyConnection struct {
 	Logger                      zerolog.Logger        // logger context to use
 	FeederValidityCheckInterval time.Duration         // how often to check feeder is still valid in atc
 
-	stop   bool
-	stopMu sync.RWMutex
-
 	protoProxyConf protocolProxyConfig // config for protocol proxy goroutines
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func (c *ProxyConnection) Stop() error {
@@ -451,18 +455,19 @@ func (c *ProxyConnection) Stop() error {
 		return ErrNotInitialised
 	}
 
-	c.stopMu.Lock()
-	defer c.stopMu.Unlock()
-	c.stop = true
+	c.cancel()
+
 	return nil
 }
 
-func (c *ProxyConnection) Start() error {
+func (c *ProxyConnection) Start(ctx context.Context) error {
 	// Starts proxying incoming connection. Will create feed-in container if required.
 
 	if !isInitialised() {
 		return ErrNotInitialised
 	}
+
+	c.ctx, c.cancel = context.WithCancel(ctx)
 
 	// update log context
 	log := c.Logger.With().
@@ -477,7 +482,6 @@ func (c *ProxyConnection) Start() error {
 		clientDetails    feederClient
 		lastAuthCheck    time.Time
 		err              error
-		wg               sync.WaitGroup
 		dstContainerName string
 	)
 
@@ -646,58 +650,36 @@ func (c *ProxyConnection) Start() error {
 		serverConn:                  connOut,
 		connNum:                     c.ConnectionNumber,
 		clientApiKey:                clientDetails.clientApiKey,
-		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log,
 		feederValidityCheckInterval: c.FeederValidityCheckInterval,
 	}
 
 	// handle data from feeder client to feed-in container
-	wg.Add(1)
+	c.wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer c.wg.Done()
 		protocolProxy(&protoProxyConf, clientToServer)
 
-		// tell other goroutine to exit
-		protoProxyConf.mgmt.Stop()
-
-		// stop proxy
-		c.stopMu.Lock()
-		defer c.stopMu.Unlock()
-		c.stop = true
+		// cancel context
+		c.cancel()
 	}()
 
 	// handle data from server container to feeder client (if required, no point doing this for BEAST)
 	switch c.ConnectionProtocol {
 	case feedprotocol.MLAT:
-		wg.Add(1)
+		c.wg.Add(1)
 		go func() {
-			defer wg.Done()
+			defer c.wg.Done()
 			protocolProxy(&protoProxyConf, serverToClient)
 
-			// tell other goroutine to exit
-			protoProxyConf.mgmt.Stop()
-
-			// stop proxy
-			c.stopMu.Lock()
-			defer c.stopMu.Unlock()
-			c.stop = true
+			// cancel context
+			c.cancel()
 		}()
 	}
 
-	// "listen" for .Stop()
-	for {
-		c.stopMu.RLock()
-		if c.stop {
-			c.stopMu.RUnlock()
-			protoProxyConf.mgmt.Stop()
-			break
-		}
-		c.stopMu.RUnlock()
-	}
-
 	// wait for goroutines to finish
-	wg.Wait()
+	c.wg.Wait()
 
 	return nil
 }
