@@ -328,7 +328,7 @@ type protocolProxyConfig struct {
 	ctx                         context.Context // connection context
 }
 
-func feederStillValid(conf *protocolProxyConfig) bool {
+func feederStillValid(conf *protocolProxyConfig) error {
 	// checks feeder is still valid every feederValidityCheckInterval
 
 	// if validity check interval has been reached
@@ -338,8 +338,7 @@ func feederStillValid(conf *protocolProxyConfig) bool {
 
 		// check still valid
 		if !isValidApiKey(conf.clientApiKey) {
-			log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-			return false
+			return ErrFeederNoLongerValid
 		}
 
 		// if still valid, reset lastAuthCheck time to now
@@ -349,7 +348,7 @@ func feederStillValid(conf *protocolProxyConfig) bool {
 	} else {
 		conf.lastAuthCheckMu.RUnlock()
 	}
-	return true
+	return nil
 }
 
 func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
@@ -398,36 +397,37 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 			// read from feeder client
 			err := connA.SetReadDeadline(time.Now().Add(time.Second * 1))
 			if err != nil {
-				log.Err(err).Msgf("error setting read deadline on %s connection", connAName)
-				break
+				return err
 			}
 			bytesRead, err := connA.Read(buf)
 			if err != nil {
+				// don't close connection on read deadline exceeded - client may have nothing to send...
 				if !errors.Is(err, os.ErrDeadlineExceeded) {
-					log.Err(err).Msgf("error reading from %s", connAName)
-					break
+					return err
 				}
 			} else {
 
 				// write to server
 				err := connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
 				if err != nil {
-					log.Err(err).Msgf("error setting write deadline on %s connection", connBName)
-					break
+					return err
 				}
 				_, err = connB.Write(buf[:bytesRead])
 				if err != nil {
-					log.Err(err).Msgf("error writing to %s", connBName)
-					break
+					return err
 				}
 
 				// update stats
-				incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead))
+				err = incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead))
+				if err != nil {
+					return err
+				}
 			}
 
 			// check feeder is still valid
-			if !feederStillValid(conf) {
-				break
+			err = feederStillValid(conf)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -660,7 +660,10 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
-		protocolProxy(&protoProxyConf, clientToServer)
+		err := protocolProxy(&protoProxyConf, clientToServer)
+		if err != nil {
+			log.Err(err).Msg("feeder connection error")
+		}
 
 		// cancel context
 		c.cancel()
@@ -672,7 +675,10 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
-			protocolProxy(&protoProxyConf, serverToClient)
+			err := protocolProxy(&protoProxyConf, serverToClient)
+			if err != nil {
+				log.Err(err).Msg("feeder connection error")
+			}
 
 			// cancel context
 			c.cancel()
@@ -688,6 +694,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	}
 
 	// wait for goroutines to finish
+	log.Debug().Msg("finishing")
 	c.wg.Wait()
 
 	return nil

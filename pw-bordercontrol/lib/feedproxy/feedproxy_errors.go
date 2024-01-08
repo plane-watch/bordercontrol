@@ -13,6 +13,7 @@ var (
 	ErrConnectionLimitExceeded = errors.New("connection limit exceeded")
 	ErrUnsupportedProtocol     = errors.New("unsupported protocol")
 	ErrFeederNotFound          = errors.New("feeder not found")
+	ErrFeederNoLongerValid     = errors.New("feeder no longer valid")
 )
 
 func ErrConnectingTooFrequently(maxIncomingConnectionRequestsPerSrcIP, maxIncomingConnectionRequestSeconds int) error {
