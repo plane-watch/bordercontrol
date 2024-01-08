@@ -62,14 +62,14 @@ var (
 				Category: "Network",
 				Name:     "listenbeast",
 				Usage:    "Address and TCP port to listen on for BEAST connections",
-				Value:    "0.0.0.0:12345", // insert Spaceballs joke here
+				Value:    ":12345", // insert Spaceballs joke here
 				EnvVars:  []string{"BC_LISTEN_BEAST"},
 			},
 			&cli.StringFlag{
 				Category: "Network",
 				Name:     "listenmlat",
 				Usage:    "Address and TCP port to listen on for MLAT connections",
-				Value:    "0.0.0.0:12346",
+				Value:    ":12346",
 				EnvVars:  []string{"BC_LISTEN_MLAT"},
 			},
 			&cli.StringFlag{
