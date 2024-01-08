@@ -810,6 +810,8 @@ func TestFeedProxy(t *testing.T) {
 			connNum, err := GetConnectionNumber()
 			assert.NoError(t, err)
 
+			ctx := context.Background()
+
 			lastAuthCheck := time.Now()
 
 			conf := protocolProxyConfig{
@@ -817,6 +819,7 @@ func TestFeedProxy(t *testing.T) {
 				serverConn:   conn3,
 				connNum:      connNum,
 				clientApiKey: TestFeederAPIKey,
+				ctx:          ctx,
 
 				lastAuthCheck:               &lastAuthCheck,
 				feederValidityCheckInterval: time.Second * 5,
