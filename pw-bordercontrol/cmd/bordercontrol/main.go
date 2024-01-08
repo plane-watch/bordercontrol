@@ -264,7 +264,7 @@ func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInCo
 	// prep listener config
 	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
 	if ip == nil {
-		log.Fatal().Str("proto", proto.Name()).Str("addr", listenAddr).Msg("invalid listen address")
+		ip = net.IPv4(0, 0, 0, 0) // 0.0.0.0
 	}
 	port, err := strconv.Atoi(strings.Split(listenAddr, ":")[1])
 	if err != nil {
