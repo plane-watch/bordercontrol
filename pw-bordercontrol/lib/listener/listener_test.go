@@ -86,9 +86,10 @@ func TestListener(t *testing.T) {
 		t.Run("working", func(t *testing.T) {
 
 			var (
-				wg     sync.WaitGroup
-				ctx    context.Context
-				cancel context.CancelFunc
+				wg       sync.WaitGroup
+				ctx      context.Context
+				cancelMu sync.RWMutex
+				cancel   context.CancelFunc
 			)
 
 			wg.Add(1)
@@ -97,7 +98,9 @@ func TestListener(t *testing.T) {
 				listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
 				require.NoError(t, err)
 
+				cancelMu.Lock()
 				ctx, cancel = context.WithCancel(context.Background())
+				cancelMu.Unlock()
 
 				err := listener.Run(ctx)
 				require.NoError(t, err)
@@ -110,7 +113,9 @@ func TestListener(t *testing.T) {
 				conn.Close()
 			})
 
+			cancelMu.RLock()
 			cancel()
+			cancelMu.RUnlock()
 
 			wg.Wait()
 
