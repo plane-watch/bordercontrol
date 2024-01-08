@@ -435,46 +435,43 @@ func listener(ctx context.Context, conf *listenConfig) error {
 	}
 	defer stunnelListener.Close()
 
+	// handle closure
+	go func() {
+		// quit if directed
+		_ = <-ctx.Done()
+		log.Info().Msg("quitting")
+		err := stunnelListener.Close()
+		log.Err(err).Msg("error closing listener")
+	}()
+
 	// handle incoming connections
 	for {
 
-		// quit if directed
-		select {
-		case <-ctx.Done():
-			log.Info().Msg("quitting")
-		default:
-
-			// set deadline
-			err := stunnelListener.(*net.TCPListener).SetDeadline(time.Now().Add(time.Millisecond * 500))
-			if err != nil {
-				return err
-			}
-
-			// accept incoming connection
-			conn, err := stunnelListener.Accept()
-			if err != nil {
-				log.Warn().AnErr("err", err).Msg("error accepting connection")
-				continue
-			}
-
-			// prep proxy config
-			connNum, err := feedproxyGetConnectionNumberWrapper()
-			if err != nil {
-				log.Warn().AnErr("err", err).Msg("could not get connection number")
-				continue
-			}
-			proxyConn := feedproxy.ProxyConnection{
-				Connection:                  conn,
-				ConnectionProtocol:          conf.listenProto,
-				ConnectionNumber:            connNum,
-				FeedInContainerPrefix:       conf.feedInContainerPrefix,
-				Logger:                      log,
-				FeederValidityCheckInterval: time.Second * 60,
-			}
-
-			// initiate proxying of the connection
-			go proxyConnStartWrapper(&proxyConn)
+		// accept incoming connection
+		conn, err := stunnelListener.Accept()
+		if err != nil {
+			log.Warn().AnErr("err", err).Msg("error accepting connection")
+			continue
 		}
+
+		// prep proxy config
+		connNum, err := feedproxyGetConnectionNumberWrapper()
+		if err != nil {
+			log.Warn().AnErr("err", err).Msg("could not get connection number")
+			continue
+		}
+		proxyConn := feedproxy.ProxyConnection{
+			Connection:                  conn,
+			ConnectionProtocol:          conf.listenProto,
+			ConnectionNumber:            connNum,
+			FeedInContainerPrefix:       conf.feedInContainerPrefix,
+			Logger:                      log,
+			FeederValidityCheckInterval: time.Second * 60,
+		}
+
+		// initiate proxying of the connection
+		go proxyConnStartWrapper(&proxyConn)
+
 	}
 
 	return nil
