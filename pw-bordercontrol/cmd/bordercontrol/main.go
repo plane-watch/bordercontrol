@@ -436,13 +436,17 @@ func listener(ctx context.Context, conf *listenConfig) error {
 	}
 	defer stunnelListener.Close()
 
-	// handle closure
+	// handle context closure
 	go func() {
-		// quit if directed
+		// wait for context closure
 		_ = <-ctx.Done()
+		// let user know what's happenning
 		log.Info().Msg("quitting")
+		// close stunnelListener, which will cause any .Accept() to throw net.ErrClosed
 		err := stunnelListener.Close()
-		log.Err(err).Msg("error closing listener")
+		if err != nil {
+			log.Err(err).Msg("error closing listener")
+		}
 	}()
 
 	// handle incoming connections
