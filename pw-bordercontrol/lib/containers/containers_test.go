@@ -91,7 +91,7 @@ func TestContainers(t *testing.T) {
 			checkFeederContainersConf := checkFeederContainersConfig{}
 			_, err := checkFeederContainers(checkFeederContainersConf)
 			require.Error(t, err)
-			require.Equal(t, ErrTesting, err.Error())
+			require.Equal(t, ErrTesting.Error(), err.Error())
 		})
 
 		// test startFeederContainers with broken docker client
@@ -99,7 +99,7 @@ func TestContainers(t *testing.T) {
 			startFeederContainersConf := startFeederContainersConfig{}
 			_, err := startFeederContainers(startFeederContainersConf, FeedInContainer{})
 			require.Error(t, err)
-			require.Equal(t, ErrTesting, err.Error())
+			require.Equal(t, ErrTesting.Error(), err.Error())
 		})
 
 	})
@@ -275,7 +275,7 @@ func TestContainers(t *testing.T) {
 			go func(t *testing.T) {
 				_, err = fic.Start()
 				require.Error(t, err)
-				require.Equal(t, ErrTesting, err.Error())
+				require.Equal(t, ErrTesting.Error(), err.Error())
 				wg.Done()
 			}(t)
 
