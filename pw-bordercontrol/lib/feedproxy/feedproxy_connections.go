@@ -698,8 +698,8 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	}
 
 	// wait for goroutines to finish
-	log.Debug().Msg("finishing")
 	c.wg.Wait()
+	log.Info().Msg(fmt.Sprintf("%s disconnected", c.ConnectionProtocol.Name()))
 
 	return nil
 }
