@@ -490,9 +490,15 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		// initiate proxying of the connection
 		wg.Add(1)
 		go func() {
-			wg.Done()
+			defer wg.Done()
 			err := proxyConnStartWrapper(&proxyConn, ctx)
-			log.Err(err).Msg("error proxying connection")
+			if err != nil {
+				log.Err(err).
+					Str("proto", proxyConn.ConnectionProtocol.Name()).
+					Str("src", conn.RemoteAddr().String()).
+					Uint("connnum", connNum).
+					Msg("error proxying connection")
+			}
 		}()
 
 	}
