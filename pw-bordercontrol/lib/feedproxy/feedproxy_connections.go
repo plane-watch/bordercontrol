@@ -355,8 +355,8 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 	// proxies connection between client to server
 
 	var (
-		connA, connB          net.Conn
-		connAName, connBName  string
+		connA, connB net.Conn
+		// connAName, connBName  string
 		incrementByteCounters func(uuid uuid.UUID, connNum uint, bytes uint64) error
 	)
 
@@ -365,32 +365,31 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 	case clientToServer:
 		connA = conf.clientConn
 		connB = conf.serverConn
-		connAName = "client"
-		connBName = "server"
+		// connAName = "client"
+		// connBName = "server"
 		incrementByteCounters = func(uuid uuid.UUID, connNum uint, bytes uint64) error {
 			return statsIncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytes), 0)
 		}
 	case serverToClient:
 		connA = conf.serverConn
 		connB = conf.clientConn
-		connAName = "server"
-		connBName = "client"
+		// connAName = "server"
+		// connBName = "client"
 		incrementByteCounters = func(uuid uuid.UUID, connNum uint, bytes uint64) error {
 			return statsIncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytes))
 		}
 	}
 
 	// human readable direction
-	directionStr := fmt.Sprintf("%s to %s", connAName, connBName)
+	// directionStr := fmt.Sprintf("%s to %s", connAName, connBName)
 
-	log := conf.log.With().Str("proxy", directionStr).Logger()
+	// log := conf.log.With().Str("proxy", directionStr).Logger()
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
 		// quit if directed
 		select {
 		case <-conf.ctx.Done():
-			log.Debug().Msg("context closure")
 			return nil
 		default:
 
@@ -678,7 +677,9 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 			defer c.wg.Done()
 			err := protocolProxy(&protoProxyConf, serverToClient)
 			if err != nil {
-				log.Err(err).Msg("feeder connection error")
+				if err.Error() != "EOF" { // don't bother logging EOF here
+					log.Err(err).Msg("feeder connection error")
+				}
 			}
 
 			// cancel context, causing related connections to close, and this ProxyConnection to close
