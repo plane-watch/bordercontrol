@@ -129,7 +129,7 @@ func (conf *NatsConfig) Init() error {
 func GetInstance() (instance string, err error) {
 	// returns this bordercontrol's instance name
 	if !isInitialised() {
-		return instance, err
+		return instance, ErrNotInitialised
 	}
 	return natsConfig.Instance, err
 }
