@@ -92,6 +92,11 @@ func TestListener(t *testing.T) {
 				cancel   context.CancelFunc
 			)
 
+			// get temp listener addr
+			tmpListener, err := nettest.NewLocalListener("tcp4")
+			require.NoError(t, err)
+			tmpListener.Close()
+
 			wg.Add(1)
 			go func(t *testing.T) {
 
