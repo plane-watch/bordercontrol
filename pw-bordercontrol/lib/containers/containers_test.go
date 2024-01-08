@@ -106,6 +106,9 @@ func TestContainers(t *testing.T) {
 
 	t.Run("invalid docker client", func(t *testing.T) {
 
+		// test context
+		ctx = context.Background()
+
 		// prep invalid testing docker client
 		getDockerClientMu.Lock()
 		getDockerClient = func() (cli *client.Client, err error) {
