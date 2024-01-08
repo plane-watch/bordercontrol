@@ -193,7 +193,11 @@ func TestContainers(t *testing.T) {
 		// start feed-in container - will fail, submit timeout
 		t.Run("start feed-in container submit timeout", func(t *testing.T) {
 			// prep test env
-			containerManagerInitialised = true
+
+			initialisedMu.Lock()
+			initialised = true
+			initialisedMu.Unlock()
+
 			containersToStartRequests = make(chan FeedInContainer)
 			containersToStartResponses = make(chan startContainerResponse)
 
@@ -210,14 +214,21 @@ func TestContainers(t *testing.T) {
 			_, err = fic.Start()
 			require.Error(t, err)
 			require.Equal(t, ErrTimeoutContainerStartReq.Error(), err.Error())
-			containerManagerInitialised = false
+
+			initialisedMu.Lock()
+			initialised = false
+			initialisedMu.Unlock()
 		})
 
 		// start feed-in container - will fail, start timeout
 		t.Run("start feed-in container start timeout", func(t *testing.T) {
 
 			// prep test env
-			containerManagerInitialised = true
+
+			initialisedMu.Lock()
+			initialised = true
+			initialisedMu.Unlock()
+
 			containersToStartRequests = make(chan FeedInContainer)
 			containersToStartResponses = make(chan startContainerResponse)
 
@@ -250,13 +261,20 @@ func TestContainers(t *testing.T) {
 
 			wg.Wait()
 
-			containerManagerInitialised = false
+			initialisedMu.Lock()
+			initialised = false
+			initialisedMu.Unlock()
+
 		})
 
 		// start feed-in container - will fail, error starting
 		t.Run("start feed-in container err starting", func(t *testing.T) {
 			// prep test env
-			containerManagerInitialised = true
+
+			initialisedMu.Lock()
+			initialised = true
+			initialisedMu.Unlock()
+
 			containersToStartRequests = make(chan FeedInContainer)
 			containersToStartResponses = make(chan startContainerResponse)
 
@@ -295,7 +313,10 @@ func TestContainers(t *testing.T) {
 
 			wg.Wait()
 
-			containerManagerInitialised = false
+			initialisedMu.Lock()
+			initialised = false
+			initialisedMu.Unlock()
+
 		})
 
 	})
@@ -310,7 +331,8 @@ func TestContainers(t *testing.T) {
 		Logger:                             log.Logger,
 	}
 	t.Run("running ContainerManager.Init()", func(t *testing.T) {
-		cm.Init()
+		err := cm.Run()
+		require.NoError(t, err)
 	})
 
 	t.Run("working client after init", func(t *testing.T) {
@@ -455,7 +477,8 @@ func TestContainers(t *testing.T) {
 		})
 
 		t.Run("running ContainerManager.Close()", func(t *testing.T) {
-			cm.Close()
+			err := cm.Stop()
+			require.NoError(t, err)
 		})
 
 		// init container manager with new feed in image
@@ -468,9 +491,12 @@ func TestContainers(t *testing.T) {
 			Logger:                             log.Logger,
 		}
 		t.Run("running ContainerManager.Init() with new feed-in image", func(t *testing.T) {
-			cm.Init()
+			err := cm.Run()
+			require.NoError(t, err)
 		})
-		t.Cleanup(func() { cm.Close() })
+		t.Cleanup(func() {
+			cm.Stop()
+		})
 
 		t.Run("check prom metrics gauge funcs", func(t *testing.T) {
 			require.Equal(t, float64(0), promMetricFeederContainersImageCurrentGaugeFunc(TestFeedInImageNameSecond, TestFeedInContainerPrefix))

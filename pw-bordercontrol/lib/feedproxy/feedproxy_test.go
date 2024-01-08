@@ -1,6 +1,7 @@
 package feedproxy
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/url"
@@ -63,8 +64,9 @@ func TestFeedProxy(t *testing.T) {
 		})
 
 		t.Run("ProxyConnection.Start", func(t *testing.T) {
+			ctx := context.Background()
 			c := ProxyConnection{}
-			err := c.Start()
+			err := c.Start(ctx)
 			assert.Error(t, err)
 			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
@@ -503,8 +505,12 @@ func TestFeedProxy(t *testing.T) {
 					FeedInContainerPrefix:       "test-feed-in-",
 					FeederValidityCheckInterval: time.Second * 5,
 				}
+
+				ctx := context.Background()
+
 				t.Log("listener starts proxy")
-				err = c.Start()
+				err = c.Start(ctx)
+
 				t.Log("proxy returns")
 				assert.NoError(t, err)
 
@@ -705,8 +711,11 @@ func TestFeedProxy(t *testing.T) {
 					FeedInContainerPrefix:       "test-feed-in-",
 					FeederValidityCheckInterval: time.Second * 5,
 				}
+
+				ctx := context.Background()
+
 				t.Log("listener starts proxy")
-				err = c.Start()
+				err = c.Start(ctx)
 				t.Log("proxy returns")
 				assert.NoError(t, err)
 
@@ -809,7 +818,6 @@ func TestFeedProxy(t *testing.T) {
 				connNum:      connNum,
 				clientApiKey: TestFeederAPIKey,
 
-				mgmt:                        &goRoutineManager{},
 				lastAuthCheck:               &lastAuthCheck,
 				feederValidityCheckInterval: time.Second * 5,
 			}
@@ -829,8 +837,6 @@ func TestFeedProxy(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
 			assert.Equal(t, []byte(testData), buf)
-
-			conf.mgmt.Stop()
 
 			wg.Wait()
 
@@ -874,7 +880,6 @@ func TestFeedProxy(t *testing.T) {
 				connNum:      connNum,
 				clientApiKey: TestFeederAPIKey,
 
-				mgmt:                        &goRoutineManager{},
 				lastAuthCheck:               &lastAuthCheck,
 				feederValidityCheckInterval: time.Second * 5,
 			}
@@ -894,8 +899,6 @@ func TestFeedProxy(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(testData), n)
 			assert.Equal(t, []byte(testData), buf)
-
-			conf.mgmt.Stop()
 
 			wg.Wait()
 
@@ -952,21 +955,4 @@ func TestFeedProxy(t *testing.T) {
 		time.Sleep(time.Second * 15)
 	})
 
-}
-
-func TestGoRoutineManager(t *testing.T) {
-
-	g := goRoutineManager{}
-
-	g.mu.Lock()
-	assert.Equal(t, false, g.stop)
-	g.mu.Unlock()
-
-	g.Stop()
-
-	g.mu.Lock()
-	assert.Equal(t, true, g.stop)
-	g.mu.Unlock()
-
-	assert.Equal(t, true, g.CheckForStop())
 }
