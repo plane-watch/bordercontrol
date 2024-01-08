@@ -5,6 +5,7 @@ import (
 	"net"
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/feedproxy"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -84,13 +85,24 @@ func TestListener(t *testing.T) {
 
 		t.Run("working", func(t *testing.T) {
 
-			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
-			require.NoError(t, err)
+			var (
+				wg     sync.WaitGroup
+				ctx    context.Context
+				cancel context.CancelFunc
+			)
 
-			ctx, cancel := context.WithCancel(context.Background())
+			wg.Add(1)
+			go func(t *testing.T) {
 
-			err := listener.Run(ctx)
-			require.NoError(t, err)
+				listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+				require.NoError(t, err)
+
+				ctx, cancel = context.WithCancel(context.Background())
+
+				err := listener.Run(ctx)
+				require.NoError(t, err)
+				wg.Done()
+			}(t)
 
 			t.Run("client connection", func(t *testing.T) {
 				conn, err := net.Dial("tcp4", tmpListener.Addr().String())
@@ -99,6 +111,8 @@ func TestListener(t *testing.T) {
 			})
 
 			cancel()
+
+			wg.Wait()
 
 		})
 
