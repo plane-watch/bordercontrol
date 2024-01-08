@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"net"
 	"os"
@@ -139,10 +140,13 @@ func TestListener(t *testing.T) {
 		feedInContainerPrefix: "test-feed-in-",
 	}
 
+	// prep context
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// start listener
 	wg.Add(1)
 	go func(t *testing.T) {
-		err := listener(&conf)
+		err := listener(ctx, &conf)
 		assert.NoError(t, err)
 		_ = <-stopListener
 		wg.Done()
@@ -151,9 +155,7 @@ func TestListener(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// stop after this connection
-	conf.stopMu.Lock()
-	conf.stop = true
-	conf.stopMu.Unlock()
+	cancel()
 
 	// connect
 	clientConn, err := net.Dial("tcp", l.Addr().String())

@@ -370,7 +370,7 @@ func runServer(cliContext *cli.Context) error {
 		defer wg.Done()
 		// listen until context close
 		for {
-			err := listener(prepListenerConfig(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix")))
+			err := listener(ctx, prepListenerConfig(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix")))
 			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
 			select {
 			case <-ctx.Done(): // exit on context closure
@@ -386,7 +386,7 @@ func runServer(cliContext *cli.Context) error {
 		defer wg.Done()
 		// listen until context close
 		for {
-			err := listener(prepListenerConfig(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix")))
+			err := listener(ctx, prepListenerConfig(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix")))
 			log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
 			select {
 			case <-ctx.Done(): // exit on context closure
