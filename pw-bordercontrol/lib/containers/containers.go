@@ -439,14 +439,14 @@ func (conf *ContainerManager) Init() error {
 				log.Err(err).Msgf("error checking %s containers", feedInImageName)
 			} else {
 				select {
+				case <-ctx.Done():
+					conf.wg.Done()
+					return
 				case s := <-chanSkipDelay:
 					log.Info().Str("signal", s.String()).Msg("caught signal, proceeding immediately")
 					continue
 				case <-time.After(sleepTime):
 					continue
-				case <-ctx.Done():
-					conf.wg.Done()
-					return
 				}
 			}
 		}
