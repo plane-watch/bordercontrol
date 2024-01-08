@@ -653,6 +653,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log,
 		feederValidityCheckInterval: c.FeederValidityCheckInterval,
+		ctx:                         c.ctx,
 	}
 
 	// handle data from feeder client to feed-in container
