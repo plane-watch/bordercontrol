@@ -18,7 +18,7 @@ func TestListener(t *testing.T) {
 
 	t.Run("NewListener invalid port", func(t *testing.T) {
 		_, err := NewListener("0.0.0.0:12345c", feedprotocol.MLAT, "test-feed-in")
-		assert.NoError(t, err)
+		assert.Error(t, err)
 
 	})
 
