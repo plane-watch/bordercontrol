@@ -91,7 +91,7 @@ func TestContainers(t *testing.T) {
 			checkFeederContainersConf := checkFeederContainersConfig{}
 			_, err := checkFeederContainers(checkFeederContainersConf)
 			require.Error(t, err)
-			require.Equal(t, "error injected for testing", err.Error())
+			require.Equal(t, ErrTesting, err.Error())
 		})
 
 		// test startFeederContainers with broken docker client
@@ -99,7 +99,7 @@ func TestContainers(t *testing.T) {
 			startFeederContainersConf := startFeederContainersConfig{}
 			_, err := startFeederContainers(startFeederContainersConf, FeedInContainer{})
 			require.Error(t, err)
-			require.Equal(t, "error injected for testing", err.Error())
+			require.Equal(t, ErrTesting, err.Error())
 		})
 
 	})
@@ -172,7 +172,7 @@ func TestContainers(t *testing.T) {
 		t.Run("RebuildFeedInImage", func(t *testing.T) {
 			_, err := RebuildFeedInImage("", "", "")
 			require.Error(t, err)
-			require.Equal(t, "container manager has not been initialised", err.Error())
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 		// start feed-in container - will fail, no init
@@ -187,7 +187,7 @@ func TestContainers(t *testing.T) {
 			}
 			_, err = fic.Start()
 			require.Error(t, err)
-			require.Equal(t, "container manager has not been initialised", err.Error())
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 		// start feed-in container - will fail, submit timeout
@@ -209,7 +209,7 @@ func TestContainers(t *testing.T) {
 			t.Log("waiting for timeout (~5 secs)...")
 			_, err = fic.Start()
 			require.Error(t, err)
-			require.Equal(t, "5s timeout waiting to submit container start request", err.Error())
+			require.Equal(t, ErrTimeoutContainerStartReq.Error(), err.Error())
 			containerManagerInitialised = false
 		})
 
@@ -237,7 +237,7 @@ func TestContainers(t *testing.T) {
 				t.Log("waiting for timeout (~30 secs)...")
 				_, err = fic.Start()
 				require.Error(t, err)
-				require.Equal(t, "30s timeout waiting for container start request to be fulfilled", err.Error())
+				require.Equal(t, ErrTimeoutContainerStartResp.Error(), err.Error())
 				wg.Done()
 			}(t)
 
@@ -275,7 +275,7 @@ func TestContainers(t *testing.T) {
 			go func(t *testing.T) {
 				_, err = fic.Start()
 				require.Error(t, err)
-				require.Equal(t, "error injected for testing", err.Error())
+				require.Equal(t, ErrTesting, err.Error())
 				wg.Done()
 			}(t)
 
