@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"pw_bordercontrol/lib/feedprotocol"
+	"pw_bordercontrol/lib/feedproxy"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,21 @@ func TestListener(t *testing.T) {
 	tmpListener, err := nettest.NewLocalListener("tcp4")
 	require.NoError(t, err)
 	tmpListener.Close()
+
+	// override func for testing (remove TLS/SSL)
+	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
+		return net.Listen(network, laddr)
+	}
+
+	// override func for testing (no error)
+	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection, ctx context.Context) error {
+		return nil
+	}
+
+	// override func for testing (return number, no error)
+	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
+		return 123, nil
+	}
 
 	var listener *listener
 
@@ -32,11 +48,6 @@ func TestListener(t *testing.T) {
 			_, err := NewListener(":", feedprotocol.MLAT, "test-feed-in")
 			require.Error(t, err)
 		})
-
-		// override func for testing (remove TLS/SSL)
-		stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
-			return net.Listen(network, laddr)
-		}
 
 		t.Run("ok", func(t *testing.T) {
 			listener, err := NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
@@ -69,6 +80,22 @@ func TestListener(t *testing.T) {
 			ctx := context.Background()
 			err = listenerAddrInUse.Run(ctx)
 			require.Error(t, err)
+		})
+
+		t.Run("working", func(t *testing.T) {
+
+			ctx, cancel := context.WithCancel(context.Background())
+
+			err := listener.Run(ctx)
+			require.NoError(t, err)
+
+			t.Run("client connection", func(t *testing.T) {
+				conn, err := net.Dial("tcp4", tmpListener.Addr().String())
+				require.NoError(t, err)
+				conn.Close()
+			})
+
+			cancel()
 
 		})
 
