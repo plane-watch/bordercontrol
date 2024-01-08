@@ -211,9 +211,13 @@ func main() {
 	logging.ConfigureForCli()
 
 	// run & final exit
-	if err := app.Run(os.Args); nil != err {
-		log.Err(err).Msg("Finishing with an error")
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Err(err).Msg("Finished with error")
 		os.Exit(1)
+	} else {
+		log.Info().Msg("Finished without error")
+		os.Exit(0)
 	}
 }
 
@@ -398,10 +402,7 @@ func runServer(cliContext *cli.Context) error {
 	}()
 
 	// serve until context closure
-	log.Info().Msg("waiting for routines to finish...")
 	wg.Wait()
-	log.Info().Msg("bye")
-
 	return nil
 }
 
