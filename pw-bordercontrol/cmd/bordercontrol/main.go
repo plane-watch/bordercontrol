@@ -346,7 +346,7 @@ func runServer(cliContext *cli.Context) error {
 		PWIngestSink:                       cliContext.String("pwingestpublish"),
 		Logger:                             log.Logger,
 	}
-	ContainerManager.Init()
+	ContainerManager.Run()
 
 	wg := sync.WaitGroup{}
 
@@ -407,6 +407,12 @@ func runServer(cliContext *cli.Context) error {
 
 	// serve until context closure
 	wg.Wait()
+
+	// stop container manager
+	err = ContainerManager.Stop()
+	if err != nil {
+		log.Err(err).Msg("error stopping container manager")
+	}
 	return nil
 }
 
