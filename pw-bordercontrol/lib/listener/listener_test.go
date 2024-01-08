@@ -50,7 +50,7 @@ func TestListener(t *testing.T) {
 		})
 
 		t.Run("ok", func(t *testing.T) {
-			listener, err := NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
 			require.NoError(t, err)
 		})
 	})
