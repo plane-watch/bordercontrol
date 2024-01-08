@@ -2,15 +2,11 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"runtime"
 	"runtime/debug"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -18,6 +14,7 @@ import (
 	"pw_bordercontrol/lib/containers"
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/feedproxy"
+	"pw_bordercontrol/lib/listener"
 	"pw_bordercontrol/lib/logging"
 	"pw_bordercontrol/lib/nats_io"
 	"pw_bordercontrol/lib/stats"
@@ -182,16 +179,6 @@ var (
 
 	startTime time.Time // When app was started. To calculate uptime.
 
-	// allow override of these functions to simplify testing
-	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
-		return stunnel.NewListener(network, laddr)
-	}
-	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection, ctx context.Context) error {
-		return f.Start(ctx)
-	}
-	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
-		return feedproxy.GetConnectionNumber()
-	}
 )
 
 func main() {
@@ -257,27 +244,6 @@ func logNumGoroutines(freq time.Duration, stopChan chan bool) {
 		case <-stopChan:
 			return
 		}
-	}
-}
-
-func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string) *listenConfig {
-	// prep listener config
-	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
-	if ip == nil {
-		ip = net.IPv4(0, 0, 0, 0) // 0.0.0.0
-	}
-	port, err := strconv.Atoi(strings.Split(listenAddr, ":")[1])
-	if err != nil {
-		log.Fatal().Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("invalid listen port")
-	}
-	return &listenConfig{
-		listenProto: proto,
-		listenAddr: net.TCPAddr{
-			IP:   ip,
-			Port: port,
-			Zone: "",
-		},
-		feedInContainerPrefix: feedInContainerPrefix,
 	}
 }
 
@@ -375,7 +341,11 @@ func runServer(cliContext *cli.Context) error {
 		defer wg.Done()
 		// listen until context close
 		for {
-			err := listener(ctx, prepListenerConfig(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix")))
+			l, err := listener.NewListener(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"))
+			if err != nil {
+				log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Str("addr", cliContext.String("listenbeast")).Msg("error creating listener")
+			}
+			err = l.Run(ctx)
 			if err != nil {
 				log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
 			}
@@ -393,7 +363,11 @@ func runServer(cliContext *cli.Context) error {
 		defer wg.Done()
 		// listen until context close
 		for {
-			err := listener(ctx, prepListenerConfig(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix")))
+			l, err := listener.NewListener(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"))
+			if err != nil {
+				log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Str("addr", cliContext.String("listenmlat")).Msg("error creating listener")
+			}
+			err = l.Run(ctx)
 			if err != nil {
 				log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
 			}
@@ -413,103 +387,5 @@ func runServer(cliContext *cli.Context) error {
 	if err != nil {
 		log.Err(err).Msg("error stopping container manager")
 	}
-	return nil
-}
-
-type listenConfig struct {
-	listenProto           feedprotocol.Protocol // Protocol handled by the listener
-	listenAddr            net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
-	feedInContainerPrefix string
-}
-
-func listener(ctx context.Context, conf *listenConfig) error {
-	// incoming connection listener
-
-	wg := sync.WaitGroup{}
-
-	// get protocol name
-	protoName, err := feedprotocol.GetName(conf.listenProto)
-	if err != nil {
-		return err
-	}
-
-	// update log context
-	log := log.With().
-		Str("proto", protoName).
-		Int("port", conf.listenAddr.Port).
-		Logger()
-
-	// start TLS server
-	log.Info().Msg("starting listener")
-	stunnelListener, err := stunnelNewListenerWrapper(
-		"tcp",
-		fmt.Sprintf("%s:%d", conf.listenAddr.IP.String(), conf.listenAddr.Port),
-	)
-	if err != nil {
-		log.Err(err).Msg("error staring listener")
-		return err
-	}
-	defer stunnelListener.Close()
-
-	// handle context closure
-	go func() {
-		// wait for context closure
-		_ = <-ctx.Done()
-		// let user know what's happenning
-		log.Info().Msg("shutting down listener")
-		// close stunnelListener, which will cause any .Accept() to throw net.ErrClosed
-		err := stunnelListener.Close()
-		if err != nil {
-			log.Err(err).Msg("error closing listener")
-		}
-	}()
-
-	// handle incoming connections until stunnelListener is closed (or has other error)
-	for {
-
-		// accept incoming connection
-		conn, err := stunnelListener.Accept()
-		if errors.Is(err, net.ErrClosed) {
-			// if network connection has been closed, then ctx has likely been cancelled, meaning we should quit
-			// break out of for loop so we can wait for connections to close
-			break
-		} else if err != nil {
-			log.Err(err).Msg("error accepting connection")
-			continue
-		}
-
-		// prep proxy config
-		connNum, err := feedproxyGetConnectionNumberWrapper()
-		if err != nil {
-			log.Err(err).Msg("could not get connection number")
-			continue
-		}
-		proxyConn := feedproxy.ProxyConnection{
-			Connection:                  conn,
-			ConnectionProtocol:          conf.listenProto,
-			ConnectionNumber:            connNum,
-			FeedInContainerPrefix:       conf.feedInContainerPrefix,
-			Logger:                      log,
-			FeederValidityCheckInterval: time.Second * 60,
-		}
-
-		// initiate proxying of the connection
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := proxyConnStartWrapper(&proxyConn, ctx)
-			if err != nil {
-				log.Err(err).
-					Str("proto", proxyConn.ConnectionProtocol.Name()).
-					Str("src", conn.RemoteAddr().String()).
-					Uint("connnum", connNum).
-					Msg("error proxying connection")
-			}
-		}()
-
-	}
-
-	// wait for connections to close
-	wg.Wait()
 	return nil
 }
