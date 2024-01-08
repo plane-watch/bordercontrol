@@ -398,7 +398,9 @@ func runServer(cliContext *cli.Context) error {
 	}()
 
 	// serve until context closure
+	log.Info().Msg("waiting for routines to finish...")
 	wg.Wait()
+	log.Info().Msg("bye")
 
 	return nil
 }
@@ -482,6 +484,5 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		go proxyConnStartWrapper(&proxyConn)
 
 	}
-
 	return nil
 }
