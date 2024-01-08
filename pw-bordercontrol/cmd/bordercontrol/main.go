@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -449,6 +450,11 @@ func listener(ctx context.Context, conf *listenConfig) error {
 
 		// accept incoming connection
 		conn, err := stunnelListener.Accept()
+		if errors.Is(err, net.ErrClosed) {
+			// if network connection has been closed, then ctx has likely been cancelled, meaning we should quit
+			log.Info().Msg("network connection closed")
+			return nil
+		} else {
 		if err != nil {
 			log.Warn().AnErr("err", err).Msg("error accepting connection")
 			continue
