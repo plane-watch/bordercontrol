@@ -59,11 +59,11 @@ func TestListener(t *testing.T) {
 
 		t.Run("invalid protocol", func(t *testing.T) {
 
-			listenerInvalidProto := listener
-			listenerInvalidProto.Protocol = feedprotocol.Protocol(0)
+			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.Protocol(0), "test-feed-in")
+			require.NoError(t, err)
 
 			ctx := context.Background()
-			err := listenerInvalidProto.Run(ctx)
+			err := listener.Run(ctx)
 			require.Error(t, err)
 		})
 
@@ -83,6 +83,9 @@ func TestListener(t *testing.T) {
 		})
 
 		t.Run("working", func(t *testing.T) {
+
+			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
 
