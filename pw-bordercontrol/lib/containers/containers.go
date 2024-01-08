@@ -137,6 +137,7 @@ func (conf *ContainerManager) Run() error {
 			select {
 			// die if context closed
 			case <-ctx.Done():
+				log.Debug().Msg("stopped startFeederContainers")
 				return
 			// otherwise....
 			case containerToStart := <-containersToStartRequests:
@@ -170,6 +171,7 @@ func (conf *ContainerManager) Run() error {
 			select {
 			// die if context closed
 			case <-ctx.Done():
+				log.Debug().Msg("stopped checkFeederContainers")
 				return
 			default:
 				sleepTime, err = checkFeederContainers(checkFeederContainersConf)
