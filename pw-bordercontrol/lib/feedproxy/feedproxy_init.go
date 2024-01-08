@@ -56,3 +56,9 @@ func Init(c *FeedProxyConfig) error {
 
 	return nil
 }
+
+func isInitialised() bool {
+	initialisedMu.RLock()
+	defer initialisedMu.RUnlock()
+	return initialised
+}
