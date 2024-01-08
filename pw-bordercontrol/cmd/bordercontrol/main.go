@@ -465,7 +465,8 @@ func listener(ctx context.Context, conf *listenConfig) error {
 		conn, err := stunnelListener.Accept()
 		if errors.Is(err, net.ErrClosed) {
 			// if network connection has been closed, then ctx has likely been cancelled, meaning we should quit
-			return nil
+			// break out of for loop so we can wait for connections to close
+			break
 		} else if err != nil {
 			log.Warn().AnErr("err", err).Msg("error accepting connection")
 			continue
