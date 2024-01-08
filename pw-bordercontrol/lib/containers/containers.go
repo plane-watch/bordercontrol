@@ -390,6 +390,7 @@ func (conf *ContainerManager) Init() error {
 	// start goroutine to create feed-in containers
 	conf.wg.Add(1)
 	go func() {
+		defer conf.wg.Done()
 
 		// prep config
 		startFeederContainersConf := startFeederContainersConfig{
@@ -408,7 +409,6 @@ func (conf *ContainerManager) Init() error {
 			select {
 			// die if context closed
 			case <-ctx.Done():
-				conf.wg.Done()
 				return
 			// otherwise....
 			case containerToStart := <-containersToStartRequests:
@@ -422,6 +422,7 @@ func (conf *ContainerManager) Init() error {
 	// start goroutine to check feed-in containers
 	conf.wg.Add(1)
 	go func() {
+		defer conf.wg.Done()
 
 		// prep config
 		checkFeederContainersConf := checkFeederContainersConfig{
@@ -441,7 +442,6 @@ func (conf *ContainerManager) Init() error {
 			select {
 			// die if context closed
 			case <-ctx.Done():
-				conf.wg.Done()
 				return
 			default:
 				sleepTime, err = checkFeederContainers(checkFeederContainersConf)
@@ -454,7 +454,6 @@ func (conf *ContainerManager) Init() error {
 				select {
 				// die if context closed
 				case <-ctx.Done():
-					conf.wg.Done()
 					return
 				// skep delay if signal sent (or nats msg received, which sends a signal anyway)
 				case s := <-chanSkipDelay:
