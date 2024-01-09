@@ -46,10 +46,10 @@ type keypairReloader struct {
 	keyPath  string
 }
 
-func Init(reloadSignal os.Signal) {
+func Init(parentContext context.Context, reloadSignal os.Signal) error {
 
 	// prepares context
-	ctx, cancelCtx = context.WithCancel(context.Background())
+	ctx, cancelCtx = context.WithCancel(parentContext)
 
 	// prep waitgroup for signal catching goroutine
 	signalCatcherWg = sync.WaitGroup{}
@@ -61,13 +61,18 @@ func Init(reloadSignal os.Signal) {
 	if nats_io.IsConnected() {
 		err := nats_io.SignalSendOnSubj(natsSubjReloadCertKey, reloadSignal, signalChan)
 		if err != nil {
-			log.Fatal().Str("subj", natsSubjReloadCertKey).Err(err).Msg("subscribe failed")
+			log.Err(err).Str("subj", natsSubjReloadCertKey).Err(err).Msg("subscribe failed")
+			return err
 		}
 	}
 
 	initialisedMu.Lock()
 	defer initialisedMu.Unlock()
 	initialised = true
+
+	log.Info().Msg("started stunnel subsystem")
+
+	return nil
 }
 
 func Close() error {
@@ -86,9 +91,12 @@ func Close() error {
 	// wait for goroutines to exit
 	signalCatcherWg.Wait()
 
+	// set initialised to false
 	initialisedMu.Lock()
 	defer initialisedMu.Unlock()
 	initialised = false
+
+	log.Info().Msg("stopped stunnel subsystem")
 
 	return nil
 
@@ -164,6 +172,7 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 			select {
 			// if context cancelled, then end this goroutine
 			case <-ctx.Done():
+				log.Info().Msg("shutting down TLS certificate and key reloader")
 				return
 			// if signal caught, then reload certificates if they exist
 			case <-signalChan:

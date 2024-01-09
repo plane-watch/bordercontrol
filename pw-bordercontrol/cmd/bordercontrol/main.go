@@ -249,6 +249,12 @@ func logNumGoroutines(freq time.Duration, stopChan chan bool) {
 
 func runServer(cliContext *cli.Context) error {
 
+	wg := sync.WaitGroup{}
+
+	// set up context for clean exit
+	ctx := context.Background()
+	ctx, cleanExit := context.WithCancel(ctx)
+
 	// Set logging level
 	logging.SetLoggingLevel(cliContext)
 
@@ -277,7 +283,10 @@ func runServer(cliContext *cli.Context) error {
 	}
 
 	// initialise ssl/tls subsystem
-	stunnel.Init(syscall.SIGHUP)
+	err = stunnel.Init(ctx, syscall.SIGHUP)
+	if err != nil {
+		log.Fatal().Err(err).Msg("error starting stunnel subsystem")
+	}
 
 	// load SSL cert/key
 	err = stunnel.LoadCertAndKeyFromFile(cliContext.String("cert"), cliContext.String("key"))
@@ -288,8 +297,7 @@ func runServer(cliContext *cli.Context) error {
 	// start statistics manager
 	err = stats.Init(cliContext.String("listenapi"))
 	if err != nil {
-		log.Err(err).Msg("could not start statistics manager")
-		return err
+		log.Fatal().Err(err).Msg("could not start statistics manager")
 	}
 
 	// initialise feedproxy
@@ -313,12 +321,6 @@ func runServer(cliContext *cli.Context) error {
 		Logger:                             log.Logger,
 	}
 	ContainerManager.Run()
-
-	wg := sync.WaitGroup{}
-
-	// set up context for clean exit
-	ctx := context.Background()
-	ctx, cleanExit := context.WithCancel(ctx)
 
 	// set up channel to catch SIGTERM
 	sigTermChan := make(chan os.Signal)
@@ -387,5 +389,9 @@ func runServer(cliContext *cli.Context) error {
 	if err != nil {
 		log.Err(err).Msg("error stopping container manager")
 	}
+
+	// stop ssl/tls subsystem
+	stunnel.Close()
+
 	return nil
 }
