@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -696,7 +697,9 @@ func Init(addr string) error {
 func Close() error {
 
 	log.Trace().Msg("srv.Close")
-	err := srv.Close()
+
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	err := srv.Shutdown(ctx)
 	if err != nil {
 		log.Err(err).Msg("error closing stats http server")
 	}
