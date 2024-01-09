@@ -14,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 )
@@ -36,16 +35,16 @@ var (
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 	// request metrics
 	res, err := http.Get(requestURL)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, res.StatusCode)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode)
 	bodyBytes, err := io.ReadAll(res.Body)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return string(bodyBytes)
 }
 
 func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) {
 	for _, expectedMetric := range expectedMetrics {
-		assert.Equal(t,
+		require.Equal(t,
 			1,
 			strings.Count(body, expectedMetric),
 			fmt.Sprintf(`expected to find: "%s"`, expectedMetric),
@@ -60,7 +59,7 @@ func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) 
 
 func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []string) {
 	for _, notExpectedMetric := range notExpectedMetrics {
-		assert.Equal(t,
+		require.Equal(t,
 			0,
 			strings.Count(body, notExpectedMetric),
 			fmt.Sprintf(`expected not to find: "%s"`, notExpectedMetric),
@@ -125,25 +124,24 @@ func TestStats(t *testing.T) {
 	// get listenable address
 	testListener, err := nettest.NewLocalListener("tcp")
 	if err != nil {
-		assert.Fail(t, "error creating test listener")
-		t.FailNow()
+		require.Fail(t, "error creating test listener")
 	}
 	testAddr := testListener.Addr().String()
 	testListener.Close()
 
 	t.Run("test statsInitialised false", func(t *testing.T) {
-		assert.False(t, statsInitialised())
+		require.False(t, statsInitialised())
 	})
 
 	t.Run("test GetNumConnections ErrStatsNotInitialised", func(t *testing.T) {
 		_, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("test IncrementByteCounters ErrStatsNotInitialised", func(t *testing.T) {
 		err := IncrementByteCounters(TestFeederAPIKey, 0, 1, 1)
-		assert.Error(t, err)
-		assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+		require.Error(t, err)
+		require.Equal(t, ErrNotInitialised.Error(), err.Error())
 	})
 
 	t.Run("test RegisterFeeder ErrStatsNotInitialised", func(t *testing.T) {
@@ -153,20 +151,20 @@ func TestStats(t *testing.T) {
 			ApiKey:     TestFeederAPIKey,
 		}
 		err := RegisterFeeder(f)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("test UnregisterConnection ErrStatsNotInitialised", func(t *testing.T) {
 		conn := Connection{}
 		err := conn.UnregisterConnection()
-		assert.Error(t, err)
-		assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+		require.Error(t, err)
+		require.Equal(t, ErrNotInitialised.Error(), err.Error())
 	})
 
 	t.Run("test RegisterConnection ErrStatsNotInitialised", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
-		assert.Error(t, err)
-		assert.Equal(t, ErrNotInitialised, err)
+		require.Error(t, err)
+		require.Equal(t, ErrNotInitialised, err)
 	})
 
 	// initialising stats subsystem - no nats
@@ -176,20 +174,20 @@ func TestStats(t *testing.T) {
 		c := TestConnBEAST
 		c.Proto = feedprotocol.Protocol(0)
 		err := c.UnregisterConnection()
-		assert.Error(t, err)
-		assert.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
+		require.Error(t, err)
+		require.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
 	})
 
 	t.Run("test RegisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
 		c.Proto = feedprotocol.Protocol(0)
 		err := c.RegisterConnection()
-		assert.Error(t, err)
-		assert.Equal(t, feedprotocol.ErrUnknownProtocol, err)
+		require.Error(t, err)
+		require.Equal(t, feedprotocol.ErrUnknownProtocol, err)
 	})
 
 	t.Run("test statsInitialised true", func(t *testing.T) {
-		assert.True(t, statsInitialised())
+		require.True(t, statsInitialised())
 	})
 
 	t.Run("test RegisterFeeder", func(t *testing.T) {
@@ -199,47 +197,47 @@ func TestStats(t *testing.T) {
 			ApiKey:     TestFeederAPIKey,
 		}
 		err := RegisterFeeder(f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test GetNumConnections BEAST 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, i)
+		require.NoError(t, err)
+		require.Equal(t, 0, i)
 	})
 
 	t.Run("test GetNumConnections MLAT 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, i)
+		require.NoError(t, err)
+		require.Equal(t, 0, i)
 	})
 
 	t.Run("test IncrementByteCounters ErrConnNumNotFound", func(t *testing.T) {
 		err := IncrementByteCounters(TestFeederAPIKey, 0, 1, 1)
-		assert.Error(t, err)
-		assert.Equal(t, ErrConnNumNotFound.Error(), err.Error())
+		require.Error(t, err)
+		require.Equal(t, ErrConnNumNotFound.Error(), err.Error())
 	})
 
 	t.Run("test RegisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test GetNumConnections BEAST 1", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
-		assert.NoError(t, err)
-		assert.Equal(t, 1, i)
+		require.NoError(t, err)
+		require.Equal(t, 1, i)
 	})
 
 	t.Run("test RegisterConnection MLAT", func(t *testing.T) {
 		err := TestConnMLAT.RegisterConnection()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test GetNumConnections BEAST 1", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.MLAT)
-		assert.NoError(t, err)
-		assert.Equal(t, 1, i)
+		require.NoError(t, err)
+		require.Equal(t, 1, i)
 	})
 
 	t.Run("test prom metrics zero values", func(t *testing.T) {
@@ -266,96 +264,96 @@ func TestStats(t *testing.T) {
 		// unmarshall json into struct
 		r := &APIResponse{}
 		err := json.Unmarshal([]byte(body), r)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// check struct contents of feeder
 
-		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
-		assert.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
+		require.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
+		require.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
 
 		timeUpdated, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
 
 		// check struct contents of connection 1
-		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
-		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
+		require.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
+		require.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
 
 		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
 		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		srcAddr := net.TCPAddr{
 			IP:   net.ParseIP(srcAddrIP),
 			Port: srcAddrPort,
 		}
-		assert.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
-		assert.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
+		require.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
+		require.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
 
 		dstAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
 		dstAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		dstAddr := net.TCPAddr{
 			IP:   net.ParseIP(dstAddrIP),
 			Port: dstAddrPort,
 		}
-		assert.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
-		assert.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
+		require.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
+		require.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
 
 		timeConnected, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["TimeConnected"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
-		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
-		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
+		require.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
+		require.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
 
 		// check struct contents of connection 2
-		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
-		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
+		require.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
+		require.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
 
 		timeMostRecentConnection, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["MostRecentConnection"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
 		srcAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		srcAddr = net.TCPAddr{
 			IP:   net.ParseIP(srcAddrIP),
 			Port: srcAddrPort,
 		}
-		assert.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
-		assert.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
+		require.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
+		require.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
 
 		dstAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
 		dstAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		dstAddr = net.TCPAddr{
 			IP:   net.ParseIP(dstAddrIP),
 			Port: dstAddrPort,
 		}
-		assert.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
-		assert.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
+		require.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
+		require.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
 
 		timeConnected, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["TimeConnected"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
-		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
-		assert.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
+		require.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
+		require.Equal(t, float64(0), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
 	})
 
 	t.Run("test IncrementByteCounters BEAST", func(t *testing.T) {
 		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, 10, 20)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test IncrementByteCounters MLAT", func(t *testing.T) {
 		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumMLAT, 100, 200)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test prom metrics nonzero values", func(t *testing.T) {
@@ -386,86 +384,86 @@ func TestStats(t *testing.T) {
 		// unmarshall json into struct
 		r := &APIResponse{}
 		err := json.Unmarshal([]byte(body), r)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// check struct contents of feeder
 
-		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
-		assert.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
+		require.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})["Label"])
+		require.Equal(t, TestFeederCode, r.Data.(map[string]interface{})["Code"])
 
 		timeUpdated, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
 
 		// check struct contents of connection 1
-		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
-		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
+		require.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
+		require.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
 
 		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
 		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		srcAddr := net.TCPAddr{
 			IP:   net.ParseIP(srcAddrIP),
 			Port: srcAddrPort,
 		}
-		assert.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
-		assert.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
+		require.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
+		require.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
 
 		dstAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
 		dstAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		dstAddr := net.TCPAddr{
 			IP:   net.ParseIP(dstAddrIP),
 			Port: dstAddrPort,
 		}
-		assert.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
-		assert.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
+		require.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
+		require.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
 
 		timeConnected, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["TimeConnected"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
-		assert.Equal(t, float64(10), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
-		assert.Equal(t, float64(20), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
+		require.Equal(t, float64(10), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
+		require.Equal(t, float64(20), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
 
 		// check struct contents of connection 2
-		assert.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
-		assert.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
+		require.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
+		require.Equal(t, float64(1), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
 
 		timeMostRecentConnection, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["MostRecentConnection"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
 		srcAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		srcAddr = net.TCPAddr{
 			IP:   net.ParseIP(srcAddrIP),
 			Port: srcAddrPort,
 		}
-		assert.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
-		assert.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
+		require.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
+		require.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
 
 		dstAddrIP = r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
 		dstAddrPort = int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		dstAddr = net.TCPAddr{
 			IP:   net.ParseIP(dstAddrIP),
 			Port: dstAddrPort,
 		}
-		assert.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
-		assert.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
+		require.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
+		require.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
 
 		timeConnected, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["TimeConnected"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
-		assert.Equal(t, float64(100), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
-		assert.Equal(t, float64(200), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
+		require.Equal(t, float64(100), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
+		require.Equal(t, float64(200), r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
 	})
 
 	t.Run("test /api/v1/feeders nonzero values", func(t *testing.T) {
@@ -475,132 +473,132 @@ func TestStats(t *testing.T) {
 		// unmarshall json into struct
 		r := &APIResponse{}
 		err := json.Unmarshal([]byte(body), r)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// check struct contents of feeder
 
-		assert.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Label"])
-		assert.Equal(t, TestFeederCode, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Code"])
+		require.Equal(t, TestFeederLabel, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Label"])
+		require.Equal(t, TestFeederCode, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Code"])
 
 		timeUpdated, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["TimeUpdated"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
 
 		// check struct contents of connection 1
-		assert.True(t, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
-		assert.Equal(t, float64(1), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
+		require.True(t, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
+		require.Equal(t, float64(1), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionCount"].(float64))
 
 		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
 		srcAddrIP := r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort := int(r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		srcAddr := net.TCPAddr{
 			IP:   net.ParseIP(srcAddrIP),
 			Port: srcAddrPort,
 		}
-		assert.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
-		assert.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
+		require.Equal(t, TestConnBEAST.SrcAddr.Network(), srcAddr.Network())
+		require.Equal(t, TestConnBEAST.SrcAddr.String(), srcAddr.String())
 
 		dstAddrIP := r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
 		dstAddrPort := int(r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		dstAddr := net.TCPAddr{
 			IP:   net.ParseIP(dstAddrIP),
 			Port: dstAddrPort,
 		}
-		assert.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
-		assert.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
+		require.Equal(t, TestConnBEAST.DstAddr.Network(), dstAddr.Network())
+		require.Equal(t, TestConnBEAST.DstAddr.String(), dstAddr.String())
 
 		timeConnected, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["TimeConnected"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
-		assert.Equal(t, float64(10), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
-		assert.Equal(t, float64(20), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
+		require.Equal(t, float64(10), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesIn"].(float64))
+		require.Equal(t, float64(20), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["BytesOut"].(float64))
 
 		// check struct contents of connection 2
-		assert.True(t, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
-		assert.Equal(t, float64(1), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
+		require.True(t, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["Status"].(bool))
+		require.Equal(t, float64(1), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionCount"].(float64))
 
 		timeMostRecentConnection, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["MostRecentConnection"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
 
 		srcAddrIP = r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort = int(r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		srcAddr = net.TCPAddr{
 			IP:   net.ParseIP(srcAddrIP),
 			Port: srcAddrPort,
 		}
-		assert.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
-		assert.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
+		require.Equal(t, TestConnMLAT.SrcAddr.Network(), srcAddr.Network())
+		require.Equal(t, TestConnMLAT.SrcAddr.String(), srcAddr.String())
 
 		dstAddrIP = r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["IP"].(string)
 		dstAddrPort = int(r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["Dst"].(map[string]interface{})["Port"].(float64))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		dstAddr = net.TCPAddr{
 			IP:   net.ParseIP(dstAddrIP),
 			Port: dstAddrPort,
 		}
-		assert.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
-		assert.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
+		require.Equal(t, TestConnMLAT.DstAddr.Network(), dstAddr.Network())
+		require.Equal(t, TestConnMLAT.DstAddr.String(), dstAddr.String())
 
 		timeConnected, err = time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["TimeConnected"].(string))
-		assert.NoError(t, err)
-		assert.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
+		require.NoError(t, err)
+		require.WithinDuration(t, time.Now(), timeConnected, time.Minute*5)
 
-		assert.Equal(t, float64(100), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
-		assert.Equal(t, float64(200), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
+		require.Equal(t, float64(100), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesIn"].(float64))
+		require.Equal(t, float64(200), r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameMLAT].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumMLAT)].(map[string]interface{})["BytesOut"].(float64))
 	})
 
 	t.Run("test httpRenderStats", func(t *testing.T) {
 		// check
 		testURL := fmt.Sprintf("http://%s/", testAddr)
-		ptf := assert.PanicTestFunc(func() { _ = getMetricsFromTestServer(t, testURL) })
-		assert.NotPanics(t, ptf)
+		ptf := require.PanicTestFunc(func() { _ = getMetricsFromTestServer(t, testURL) })
+		require.NotPanics(t, ptf)
 
 		// increase counters
 		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, 1024, 1024*1024)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = IncrementByteCounters(TestFeederAPIKey, TestConnNumMLAT, 1024*1024*1024, 1024*1024*1024*1024)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// check again
-		assert.NotPanics(t, ptf)
+		require.NotPanics(t, ptf)
 	})
 
 	t.Run("test UnregisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.UnregisterConnection()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test GetNumConnections BEAST 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, i)
+		require.NoError(t, err)
+		require.Equal(t, 0, i)
 	})
 
 	t.Run("test UnregisterConnection MLAT ErrConnNumNotFound", func(t *testing.T) {
 		c := TestConnMLAT
 		c.ConnNum = 3 // connection number that doesn't exist
 		err := c.UnregisterConnection()
-		assert.Error(t, err)
-		assert.Equal(t, ErrConnNumNotFound.Error(), err.Error())
+		require.Error(t, err)
+		require.Equal(t, ErrConnNumNotFound.Error(), err.Error())
 	})
 
 	t.Run("test UnregisterConnection MLAT", func(t *testing.T) {
 		err := TestConnMLAT.UnregisterConnection()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test GetNumConnections MLAT 0", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.MLAT)
-		assert.NoError(t, err)
-		assert.Equal(t, 0, i)
+		require.NoError(t, err)
+		require.Equal(t, 0, i)
 	})
 
 	t.Run("test prom metrics after unregisters", func(t *testing.T) {
@@ -632,8 +630,8 @@ func TestStats(t *testing.T) {
 	t.Run("test /api/v1/feeder after unregisters", func(t *testing.T) {
 		testURL := fmt.Sprintf("http://%s/api/v1/feeder/%s", testAddr, TestFeederAPIKey)
 		res, err := http.Get(testURL)
-		assert.NoError(t, err)
-		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode)
 	})
 
 	t.Run("test statsEvictor", func(t *testing.T) {
@@ -646,11 +644,11 @@ func TestStats(t *testing.T) {
 		}
 		err := RegisterFeeder(f)
 		stats.mu.RLock()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// check stats.Feeders
 		_, ok := stats.Feeders[TestFeederAPIKey]
-		assert.True(t, ok)
+		require.True(t, ok)
 
 		fs := stats.Feeders[TestFeederAPIKey]
 
@@ -669,7 +667,7 @@ func TestStats(t *testing.T) {
 
 		// check stats.Feeders
 		_, ok = stats.Feeders[TestFeederAPIKey]
-		assert.False(t, ok)
+		require.False(t, ok)
 
 	})
 
