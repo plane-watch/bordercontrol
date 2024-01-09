@@ -141,7 +141,7 @@ func TestStats(t *testing.T) {
 	t.Run("test IncrementByteCounters ErrStatsNotInitialised", func(t *testing.T) {
 		err := IncrementByteCounters(TestFeederAPIKey, 0, 1, 1)
 		assert.Error(t, err)
-		assert.Equal(t, ErrStatsNotInitialised.Error(), err.Error())
+		assert.Equal(t, ErrNotInitialised.Error(), err.Error())
 	})
 
 	t.Run("test RegisterFeeder ErrStatsNotInitialised", func(t *testing.T) {
@@ -158,13 +158,13 @@ func TestStats(t *testing.T) {
 		conn := Connection{}
 		err := conn.UnregisterConnection()
 		assert.Error(t, err)
-		assert.Equal(t, ErrStatsNotInitialised.Error(), err.Error())
+		assert.Equal(t, ErrNotInitialised.Error(), err.Error())
 	})
 
 	t.Run("test RegisterConnection ErrStatsNotInitialised", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
 		assert.Error(t, err)
-		assert.Equal(t, ErrStatsNotInitialised, err)
+		assert.Equal(t, ErrNotInitialised, err)
 	})
 
 	// initialising stats subsystem - no nats

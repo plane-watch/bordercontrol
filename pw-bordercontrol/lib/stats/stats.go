@@ -75,6 +75,9 @@ type APIResponse struct {
 }
 
 var (
+	srv     http.Server // web server for stats
+	statsWg sync.WaitGroup
+
 	stats Statistics // feeder statistics
 
 	// regex to match api request for single feeder stats
@@ -92,9 +95,10 @@ var (
 	promFeederDataOutBytesTotal *prometheus.CounterVec
 
 	// custom errors
-	ErrStatsNotInitialised = errors.New("stats not initialised")
-	ErrProtoNotFound       = errors.New("protocol not found")
-	ErrConnNumNotFound     = errors.New("connection number not found")
+	ErrNotInitialised     = errors.New("stats not initialised")
+	ErrAlreadyInitialised = errors.New("stats already initialised")
+	ErrProtoNotFound      = errors.New("protocol not found")
+	ErrConnNumNotFound    = errors.New("connection number not found")
 )
 
 func statsInitialised() bool {
@@ -107,7 +111,7 @@ func statsInitialised() bool {
 func GetNumConnections(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) {
 	// returns the number of connections for a given uuid and protocol
 	if !statsInitialised() {
-		return 0, ErrStatsNotInitialised
+		return 0, ErrNotInitialised
 	}
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
@@ -119,7 +123,7 @@ func IncrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint6
 	// Sets time_last_updated to now
 
 	if !statsInitialised() {
-		return ErrStatsNotInitialised
+		return ErrNotInitialised
 	}
 
 	// ensure feeder exists in stats subsystem
@@ -215,7 +219,7 @@ func RegisterFeeder(f FeederDetails) error {
 	// updates the details of a feeder
 
 	if !statsInitialised() {
-		return ErrStatsNotInitialised
+		return ErrNotInitialised
 	}
 
 	// ensure feeder exists in stats subsystem
@@ -252,7 +256,7 @@ func (conn *Connection) RegisterConnection() error {
 	// To be run when a feeder connects, after authentication.
 
 	if !statsInitialised() {
-		return ErrStatsNotInitialised
+		return ErrNotInitialised
 	}
 
 	if !feedprotocol.IsValid(conn.Proto) {
@@ -319,7 +323,7 @@ func (conn *Connection) UnregisterConnection() error {
 	// To be run when a feeder disconnects.
 
 	if !statsInitialised() {
-		return ErrStatsNotInitialised
+		return ErrNotInitialised
 	}
 
 	// update log context
@@ -613,12 +617,24 @@ func registerPerFeederCounterVecs() error {
 	return nil
 }
 
+func isInitialised() bool {
+	// returns true if Init() has been called, else false
+	initialisedMu.RLock()
+	defer initialisedMu.RUnlock()
+	return initialised
+}
+
 func Init(addr string) error {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
 		Str("addr", addr).
 		Logger()
+
+	// ensyre we're not already initialised
+	if isInitialised() {
+		return ErrAlreadyInitialised
+	}
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
@@ -656,14 +672,34 @@ func Init(addr string) error {
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/metrics/", promhttp.Handler())
 
+	// prep http server
+	srv := http.Server{
+		Addr: addr,
+	}
+
 	// start stats http server
+	statsWg.Add(1)
 	go func() {
+		defer statsWg.Done()
 		log.Info().Str("addr", addr).Msg("starting statistics listener")
-		err := http.ListenAndServe(addr, nil)
+		err := srv.ListenAndServe()
 		if err != nil {
 			log.Panic().AnErr("err", err).Msg("stats server stopped")
 		}
 	}()
+
+	return nil
+}
+
+func Close() error {
+
+	err := srv.Close()
+	if err != nil {
+		log.Err(err).Msg("error closing stats http server")
+	}
+
+	statsWg.Wait()
+	log.Debug().Msg("stats subsystem shut down")
 
 	return nil
 }

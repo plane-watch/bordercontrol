@@ -81,7 +81,7 @@ func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 				w.WriteHeader(http.StatusOK)
 			}
 
-		case fmt.Sprintf("/api/v1/feeders/%s.json", strings.ToLower(TestFeederAPIKeyWorking)):
+		case fmt.Sprintf("/api/v1/feeders/%s.json", strings.ToLower(TestFeederAPIKeyWorking.String())):
 
 			// check request
 			assert.Equal(t, TestAuthToken, r.Header.Get("Authorization"))
@@ -304,7 +304,7 @@ func TestGetFeeders_Working(t *testing.T) {
 
 	expectedFeeders := Feeders{
 		[]Feeder{{
-			ApiKey:     uuid.MustParse(TestFeederAPIKeyWorking),
+			ApiKey:     uuid.MustParse(TestFeederAPIKeyWorking.String()),
 			Label:      TestFeederLabel,
 			Latitude:   TestFeederLatitude,
 			Longitude:  TestFeederLongitude,
