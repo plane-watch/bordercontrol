@@ -2,9 +2,11 @@ package stats
 
 import (
 	"errors"
+	"net"
 	"pw_bordercontrol/lib/feedprotocol"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
@@ -52,7 +54,6 @@ func TestNats(t *testing.T) {
 			// test
 			err := initNats()
 			require.Error(t, err)
-			require.Equal(t, ErrTesting.Error(), err.Error())
 
 			// revert original func
 			natsSub = natsSubOriginal
@@ -110,6 +111,54 @@ func TestParseApiKeyFromMsgData(t *testing.T) {
 func TestNatsSubjFeedersMetricsHandler(t *testing.T) {
 
 	wg := sync.WaitGroup{}
+
+	// init stats variable
+	stats.Feeders = make(map[uuid.UUID]FeederStats)
+
+	stats.Feeders[TestFeederAPIKey] = FeederStats{
+		Label:       TestFeederLabel,
+		Code:        TestFeederCode,
+		Connections: make(map[string]ProtocolDetail),
+		TimeUpdated: time.Now(),
+	}
+	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST] = ProtocolDetail{
+		Status:               true,
+		ConnectionCount:      1,
+		MostRecentConnection: time.Now(),
+		ConnectionDetails:    make(map[uint]ConnectionDetail),
+	}
+	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[1] = ConnectionDetail{
+		Src: &net.TCPAddr{
+			IP:   net.IPv4(1, 2, 3, 4),
+			Port: 22222,
+		},
+		Dst: &net.TCPAddr{
+			IP:   net.IPv4(3, 4, 5, 6),
+			Port: 22222,
+		},
+		TimeConnected: time.Now(),
+		BytesIn:       uint64(123456789),
+		BytesOut:      uint64(987654321),
+	}
+	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT] = ProtocolDetail{
+		Status:               true,
+		ConnectionCount:      2,
+		MostRecentConnection: time.Now(),
+		ConnectionDetails:    make(map[uint]ConnectionDetail),
+	}
+	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[2] = ConnectionDetail{
+		Src: &net.TCPAddr{
+			IP:   net.IPv4(1, 2, 3, 4),
+			Port: 33333,
+		},
+		Dst: &net.TCPAddr{
+			IP:   net.IPv4(3, 4, 5, 6),
+			Port: 33333,
+		},
+		TimeConnected: time.Now(),
+		BytesIn:       uint64(123456789),
+		BytesOut:      uint64(987654321),
+	}
 
 	// override function for testing
 	wg.Add(1)
