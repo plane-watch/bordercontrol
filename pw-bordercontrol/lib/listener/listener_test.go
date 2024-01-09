@@ -7,6 +7,7 @@ import (
 	"pw_bordercontrol/lib/feedproxy"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,20 +21,30 @@ func TestListener(t *testing.T) {
 	require.NoError(t, err)
 	tmpListener.Close()
 
-	// override func for testing (remove TLS/SSL)
+	// copy original function & override for testing (remove TLS/SSL as tested separately)
+	stunnelNewListenerWrapperOriginal := stunnelNewListenerWrapper
 	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
 		return net.Listen(network, laddr)
 	}
 
-	// override func for testing (no error)
+	// copy original function & override for testing (bypass proxy as tested elsewhere)
+	proxyConnStartWrapperOriginal := proxyConnStartWrapper
 	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection, ctx context.Context) error {
 		return nil
 	}
 
-	// override func for testing (return number, no error)
+	// copy original function & override for testing (return number, no error)
+	feedproxyGetConnectionNumberWrapperOriginal := feedproxyGetConnectionNumberWrapper
 	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
 		return 123, nil
 	}
+
+	// revert original functions
+	t.Cleanup(func() {
+		stunnelNewListenerWrapper = stunnelNewListenerWrapperOriginal
+		proxyConnStartWrapper = proxyConnStartWrapperOriginal
+		feedproxyGetConnectionNumberWrapper = feedproxyGetConnectionNumberWrapperOriginal
+	})
 
 	var listener *listener
 
@@ -111,6 +122,9 @@ func TestListener(t *testing.T) {
 				require.NoError(t, err)
 				wg.Done()
 			}(t)
+
+			// wait for listener
+			time.Sleep(time.Second)
 
 			t.Run("client connection", func(t *testing.T) {
 				conn, err := net.Dial("tcp4", tmpListener.Addr().String())
