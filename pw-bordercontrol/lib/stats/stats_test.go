@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -169,7 +170,7 @@ func TestStats(t *testing.T) {
 	})
 
 	// initialising stats subsystem - no nats
-	Init(testAddr)
+	Init(context.Background(), testAddr)
 
 	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
