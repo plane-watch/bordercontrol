@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 )
 
@@ -669,5 +670,10 @@ func TestStats(t *testing.T) {
 		_, ok = stats.Feeders[TestFeederAPIKey]
 		assert.False(t, ok)
 
+	})
+
+	t.Run("Close", func(t *testing.T) {
+		err := Close()
+		require.NoError(t, err)
 	})
 }
