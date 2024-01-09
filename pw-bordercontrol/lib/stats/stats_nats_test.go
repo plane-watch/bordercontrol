@@ -2,6 +2,7 @@ package stats
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"pw_bordercontrol/lib/feedprotocol"
 	"sync"
@@ -203,7 +204,7 @@ func TestMetrics(t *testing.T) {
 		natsRespondMsg = natsRespondMsgOriginal
 	})
 
-	t.Run("natsSubjFeederHandler", func(t *testing.T) {
+	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederMetricsAllProtocols), func(t *testing.T) {
 		// copy original function
 		natsRespondMsgOriginal := natsRespondMsg
 
@@ -216,7 +217,95 @@ func TestMetrics(t *testing.T) {
 			return nil
 		}
 
-		msg := nats.NewMsg("")
+		msg := nats.NewMsg(natsSubjFeederMetricsAllProtocols)
+		msg.Data = []byte(TestFeederAPIKey.String())
+		natsSubjFeederHandler(msg)
+		wg.Wait()
+
+		// restore original function
+		natsRespondMsg = natsRespondMsgOriginal
+	})
+
+	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederMetricsBEAST), func(t *testing.T) {
+		// copy original function
+		natsRespondMsgOriginal := natsRespondMsg
+
+		// override function for testing
+		wg.Add(1)
+		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			t.Log(reply.Header)
+			t.Log(string(reply.Data))
+			wg.Done()
+			return nil
+		}
+
+		msg := nats.NewMsg(natsSubjFeederMetricsBEAST)
+		msg.Data = []byte(TestFeederAPIKey.String())
+		natsSubjFeederHandler(msg)
+		wg.Wait()
+
+		// restore original function
+		natsRespondMsg = natsRespondMsgOriginal
+	})
+
+	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederMetricsMLAT), func(t *testing.T) {
+		// copy original function
+		natsRespondMsgOriginal := natsRespondMsg
+
+		// override function for testing
+		wg.Add(1)
+		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			t.Log(reply.Header)
+			t.Log(string(reply.Data))
+			wg.Done()
+			return nil
+		}
+
+		msg := nats.NewMsg(natsSubjFeederMetricsMLAT)
+		msg.Data = []byte(TestFeederAPIKey.String())
+		natsSubjFeederHandler(msg)
+		wg.Wait()
+
+		// restore original function
+		natsRespondMsg = natsRespondMsgOriginal
+	})
+
+	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederConnectedBEAST), func(t *testing.T) {
+		// copy original function
+		natsRespondMsgOriginal := natsRespondMsg
+
+		// override function for testing
+		wg.Add(1)
+		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			t.Log(reply.Header)
+			t.Log(string(reply.Data))
+			wg.Done()
+			return nil
+		}
+
+		msg := nats.NewMsg(natsSubjFeederConnectedBEAST)
+		msg.Data = []byte(TestFeederAPIKey.String())
+		natsSubjFeederHandler(msg)
+		wg.Wait()
+
+		// restore original function
+		natsRespondMsg = natsRespondMsgOriginal
+	})
+
+	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederConnectedMLAT), func(t *testing.T) {
+		// copy original function
+		natsRespondMsgOriginal := natsRespondMsg
+
+		// override function for testing
+		wg.Add(1)
+		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			t.Log(reply.Header)
+			t.Log(string(reply.Data))
+			wg.Done()
+			return nil
+		}
+
+		msg := nats.NewMsg(natsSubjFeederConnectedMLAT)
 		msg.Data = []byte(TestFeederAPIKey.String())
 		natsSubjFeederHandler(msg)
 		wg.Wait()
