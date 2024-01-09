@@ -169,8 +169,10 @@ func TestStats(t *testing.T) {
 	})
 
 	// initialising stats subsystem - no nats
-	Init(context.Background(), testAddr)
-
+	t.Run("Init (no nats)", func(t *testing.T) {
+		err = Init(context.Background(), testAddr)
+		require.NoError(t, err)
+	})
 	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
 		c.Proto = feedprotocol.Protocol(0)
