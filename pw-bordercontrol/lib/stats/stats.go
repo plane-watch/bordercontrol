@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -77,6 +78,9 @@ type APIResponse struct {
 var (
 	srv     *http.Server // web server for stats
 	statsWg sync.WaitGroup
+
+	ctx       context.Context
+	cancelCtx context.CancelFunc
 
 	stats Statistics // feeder statistics
 
@@ -491,11 +495,15 @@ func statsEvictorInner() {
 }
 
 func statsEvictor() {
-
 	// loop through stats data, evict any feeders that have been inactive for over 60 seconds
 	for {
-		statsEvictorInner()
-		time.Sleep(time.Minute * 1)
+		select {
+		case <-ctx.Done():
+			log.Debug().Msg("stopped stats evictor")
+			return
+		case <-time.After(time.Minute):
+			statsEvictorInner()
+		}
 	}
 }
 
@@ -624,17 +632,20 @@ func isInitialised() bool {
 	return initialised
 }
 
-func Init(addr string) error {
+func Init(parentContext context.Context, addr string) error {
 
 	log := log.With().
 		Strs("func", []string{"stats.go", "statsManager"}).
 		Str("addr", addr).
 		Logger()
 
-	// ensyre we're not already initialised
+	// ensure we're not already initialised
 	if isInitialised() {
 		return ErrAlreadyInitialised
 	}
+
+	// prep context
+	ctx, cancelCtx = context.WithCancel(parentContext)
 
 	statsWg = sync.WaitGroup{}
 
@@ -642,7 +653,11 @@ func Init(addr string) error {
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
 	// start up stats evictor
-	go statsEvictor()
+	statsWg.Add(1)
+	go func() {
+		defer statsWg.Done()
+		statsEvictor()
+	}()
 
 	// register per-feeder prom metrics
 	err := registerPerFeederCounterVecs()
@@ -697,6 +712,11 @@ func Init(addr string) error {
 
 func Close() error {
 
+	// ensure  initialised
+	if !isInitialised() {
+		return ErrNotInitialised
+	}
+
 	log.Trace().Msg("srv.Close")
 	err := srv.Close()
 	if err != nil {
@@ -708,6 +728,10 @@ func Close() error {
 	log.Trace().Msg("statsWg.Wait")
 	statsWg.Wait()
 	log.Debug().Msg("stats subsystem shut down")
+
+	initialisedMu.Lock()
+	defer initialisedMu.Unlock()
+	initialised = false
 
 	return nil
 }
