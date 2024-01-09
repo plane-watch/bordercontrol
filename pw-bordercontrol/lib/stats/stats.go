@@ -717,6 +717,10 @@ func Close() error {
 		return ErrNotInitialised
 	}
 
+	// cancel context
+	cancelCtx()
+
+	// close stats http server
 	log.Trace().Msg("srv.Close")
 	err := srv.Close()
 	if err != nil {
@@ -725,10 +729,12 @@ func Close() error {
 		}
 	}
 
+	// wait for goroutines to finish up
 	log.Trace().Msg("statsWg.Wait")
 	statsWg.Wait()
 	log.Debug().Msg("stats subsystem shut down")
 
+	// reset initialised
 	initialisedMu.Lock()
 	defer initialisedMu.Unlock()
 	initialised = false
