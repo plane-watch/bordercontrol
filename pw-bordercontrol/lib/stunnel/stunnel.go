@@ -1,6 +1,7 @@
 package stunnel
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
@@ -25,6 +26,10 @@ var (
 	kpr        *keypairReloader
 	signalChan chan os.Signal
 
+	ctx             context.Context
+	cancelCtx       context.CancelFunc
+	signalCatcherWg sync.WaitGroup
+
 	natsSubjReloadCertKey = "pw_bordercontrol.stunnel.reloadcertkey"
 
 	initialised   bool
@@ -42,6 +47,13 @@ type keypairReloader struct {
 }
 
 func Init(reloadSignal os.Signal) {
+
+	// prepares context
+	ctx, cancelCtx = context.WithCancel(context.Background())
+
+	// prep waitgroup for signal catching goroutine
+	signalCatcherWg = sync.WaitGroup{}
+
 	// prepares channels to catch signal to reload TLS/SSL cert/key
 	signalChan = make(chan os.Signal, 1)
 	signal.Notify(signalChan, reloadSignal)
@@ -56,6 +68,30 @@ func Init(reloadSignal os.Signal) {
 	initialisedMu.Lock()
 	defer initialisedMu.Unlock()
 	initialised = true
+}
+
+func Close() error {
+
+	// only run if initialised
+	if !isInitialised() {
+		return ErrNotInitialised
+	}
+
+	// close signalChan so we will no longer perform cert/key reload on signal
+	close(signalChan)
+
+	// cancel the context, so any goroutines will exit
+	cancelCtx()
+
+	// wait for goroutines to exit
+	signalCatcherWg.Wait()
+
+	initialisedMu.Lock()
+	defer initialisedMu.Unlock()
+	initialised = false
+
+	return nil
+
 }
 
 func LoadCertAndKeyFromFile(certFile, keyFile string) error {
@@ -121,11 +157,20 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		return nil, err
 	}
 	result.cert = &cert
+	signalCatcherWg.Add(1)
 	go func() {
-		for range signalChan {
-			log.Info().Msg("reloading TLS certificate and key")
-			if err := result.maybeReload(); err != nil {
-				log.Err(err).Msg("error loading TLS certificate, continuing to use old TLS certificate")
+		defer signalCatcherWg.Done()
+		for {
+			select {
+			// if context cancelled, then end this goroutine
+			case <-ctx.Done():
+				return
+			// if signal caught, then reload certificates if they exist
+			case <-signalChan:
+				log.Info().Msg("reloading TLS certificate and key")
+				if err := result.maybeReload(); err != nil {
+					log.Err(err).Msg("error loading TLS certificate, continuing to use old TLS certificate")
+				}
 			}
 		}
 	}()

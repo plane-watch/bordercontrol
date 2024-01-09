@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -23,20 +24,25 @@ func TestStunnel(t *testing.T) {
 
 	// ensure functions that need initialisation throw an error if not initialised
 	t.Run("test not initialised", func(t *testing.T) {
+		t.Run("Close", func(t *testing.T) {
+			err := Close()
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
+		})
 		t.Run("LoadCertAndKeyFromFile", func(t *testing.T) {
 			err := LoadCertAndKeyFromFile("", "")
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("NewListener", func(t *testing.T) {
 			_, err := NewListener("", "")
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("NewKeypairReloader", func(t *testing.T) {
 			_, err := NewKeypairReloader("", "")
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("GenerateSelfSignedTLSCertAndKey", func(t *testing.T) {
 
@@ -46,7 +52,7 @@ func TestStunnel(t *testing.T) {
 			// make temp file for cert
 			tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
 			tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				tmpCertFile.Close()
 				os.Remove(tmpCertFile.Name())
@@ -55,7 +61,7 @@ func TestStunnel(t *testing.T) {
 			// make temp file for key
 			tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
 			tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				tmpKeyFile.Close()
 				os.Remove(tmpKeyFile.Name())
@@ -63,37 +69,37 @@ func TestStunnel(t *testing.T) {
 
 			// finally, test
 			err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("PrepTestEnvironmentTLSCertAndKey", func(t *testing.T) {
 			err := PrepTestEnvironmentTLSCertAndKey()
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("PrepTestEnvironmentTLSListener", func(t *testing.T) {
 			_, err := PrepTestEnvironmentTLSListener()
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("PrepTestEnvironmentTLSClientConfig", func(t *testing.T) {
 			_, err := PrepTestEnvironmentTLSClientConfig("")
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 	})
 
 	// initialise stunnel subsystem, with SIGHUP as signal to reload
 	t.Run("initialise stunnel subsystem", func(t *testing.T) {
 		ptf := assert.PanicTestFunc(func() { Init(syscall.SIGHUP) })
-		assert.NotPanics(t, ptf)
+		require.NotPanics(t, ptf)
 	})
 
 	// ensure now initialised
 	t.Run("isInitialised", func(t *testing.T) {
 		initialisedMu.RLock()
 		t.Cleanup(func() { initialisedMu.RUnlock() })
-		assert.True(t, initialised)
+		require.True(t, initialised)
 	})
 
 	t.Run("test handling of invalid cert/key", func(t *testing.T) {
@@ -104,7 +110,7 @@ func TestStunnel(t *testing.T) {
 		// make temp file for cert
 		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
 		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Cleanup(func() {
 			tmpCertFile.Close()
 			os.Remove(tmpCertFile.Name())
@@ -114,7 +120,7 @@ func TestStunnel(t *testing.T) {
 		// make temp file for key
 		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
 		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Cleanup(func() {
 			tmpKeyFile.Close()
 			os.Remove(tmpKeyFile.Name())
@@ -122,8 +128,8 @@ func TestStunnel(t *testing.T) {
 		t.Logf("created temp key file: %s", tmpKeyFile.Name())
 
 		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
-		assert.Error(t, err)
-		assert.Equal(t, "tls: failed to find any PEM data in certificate input", err.Error())
+		require.Error(t, err)
+		require.Equal(t, "tls: failed to find any PEM data in certificate input", err.Error())
 
 	})
 
@@ -135,20 +141,20 @@ func TestStunnel(t *testing.T) {
 		// make temp file for cert
 		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
 		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tmpCertFile.Close()
 		os.Remove(tmpCertFile.Name())
 
 		// make temp file for key
 		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
 		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tmpKeyFile.Close()
 		os.Remove(tmpKeyFile.Name())
 
 		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no such file or directory")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no such file or directory")
 	})
 
 	// test cert reload
@@ -160,7 +166,7 @@ func TestStunnel(t *testing.T) {
 		// make temp file for cert
 		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
 		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Cleanup(func() {
 			tmpCertFile.Close()
 			os.Remove(tmpCertFile.Name())
@@ -170,7 +176,7 @@ func TestStunnel(t *testing.T) {
 		// make temp file for key
 		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
 		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Cleanup(func() {
 			tmpKeyFile.Close()
 			os.Remove(tmpKeyFile.Name())
@@ -180,12 +186,12 @@ func TestStunnel(t *testing.T) {
 		// generate test environment TLS Cert/Key
 		t.Log("generating self signed TLS cert & key")
 		err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// initialise keypair reloader
 		t.Log("load TLS cert & key")
 		err = LoadCertAndKeyFromFile(tmpCertFile.Name(), tmpKeyFile.Name())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// get copy of original cert
 		kpr.certMu.RLock()
@@ -195,7 +201,7 @@ func TestStunnel(t *testing.T) {
 		// generate new test environment TLS Cert/Key
 		t.Log("generating new self signed TLS cert & key")
 		err = GenerateSelfSignedTLSCertAndKey(tmpKeyFile, tmpCertFile)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// send signal
 		t.Log("trigger cert/key reload")
@@ -230,14 +236,14 @@ func TestStunnel(t *testing.T) {
 
 		t.Log("check in-memory certificates are as-expected")
 		// ensure c1 & c2 different
-		assert.NotEqual(t, c1, c2)
+		require.NotEqual(t, c1, c2)
 		// ensure c2 & c3 are the same (as no files to reload, they were deleted)
-		assert.Equal(t, c2, c3)
+		require.Equal(t, c2, c3)
 	})
 
 	t.Run("prepare for testing connections", func(t *testing.T) {
 		err := PrepTestEnvironmentTLSCertAndKey()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	var listener net.Listener
@@ -246,13 +252,13 @@ func TestStunnel(t *testing.T) {
 	t.Run("prepare test environment listener", func(t *testing.T) {
 		var err error
 		listener, err = PrepTestEnvironmentTLSListener()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("prepare test environment client tls config", func(t *testing.T) {
 		var err error
 		clientTlsConfig, err = PrepTestEnvironmentTLSClientConfig(TestSNI.String())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test client connection", func(t *testing.T) {
@@ -269,27 +275,27 @@ func TestStunnel(t *testing.T) {
 
 			// accept one connection
 			conn, err := listener.Accept()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// read some data
 			n, err := conn.Read(buf)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// check TLS handshake completed
-			assert.True(t, HandshakeComplete(conn), "TLS handshake")
+			require.True(t, HandshakeComplete(conn), "TLS handshake")
 
 			// check SNI
 			sni := GetSNI(conn)
-			assert.Equal(t, TestSNI.String(), sni)
+			require.Equal(t, TestSNI.String(), sni)
 
 			// check received data
-			assert.Equal(t, len(testData), n)
-			assert.Equal(t, testData, string(buf))
+			require.Equal(t, len(testData), n)
+			require.Equal(t, testData, string(buf))
 
 			// write some data
 			n, err = conn.Write(buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 
 			// wait until we're ready to stop
 			_ = <-stopListener
@@ -305,21 +311,21 @@ func TestStunnel(t *testing.T) {
 
 			// dial server
 			conn, err := tls.Dial("tcp", listener.Addr().String(), clientTlsConfig)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// write some data
 			n, err := conn.Write([]byte(testData))
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 
 			// read some data
 			n, err = conn.Read(buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
-			assert.Equal(t, testData, string(buf))
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
+			require.Equal(t, testData, string(buf))
 
 			err = conn.Close()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// stop listener
 			stopListener <- true
@@ -327,6 +333,11 @@ func TestStunnel(t *testing.T) {
 		}(t)
 
 		wg.Wait()
+	})
+
+	t.Run("Close", func(t *testing.T) {
+		err := Close()
+		require.NoError(t, err)
 	})
 
 }
