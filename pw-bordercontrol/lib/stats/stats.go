@@ -636,6 +636,8 @@ func Init(addr string) error {
 		return ErrAlreadyInitialised
 	}
 
+	statsWg = sync.WaitGroup{}
+
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
@@ -693,11 +695,13 @@ func Init(addr string) error {
 
 func Close() error {
 
+	log.Trace().Msg("srv.Close")
 	err := srv.Close()
 	if err != nil {
 		log.Err(err).Msg("error closing stats http server")
 	}
 
+	log.Trace().Msg("statsWg.Wait")
 	statsWg.Wait()
 	log.Debug().Msg("stats subsystem shut down")
 
