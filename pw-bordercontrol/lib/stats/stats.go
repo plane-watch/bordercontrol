@@ -721,8 +721,8 @@ func Close() error {
 	cancelCtx()
 
 	// delete prom metrics
-	promFeederDataInBytesTotal.Delete()
-	promFeederDataOutBytesTotal.Delete()
+	prometheus.Unregister(promFeederDataInBytesTotal)
+	prometheus.Unregister(promFeederDataOutBytesTotal)
 
 	// close stats http server
 	log.Trace().Msg("srv.Close")
