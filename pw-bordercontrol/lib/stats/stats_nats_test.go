@@ -168,7 +168,7 @@ func TestMetrics(t *testing.T) {
 		wg.Add(1)
 		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 			t.Log(reply.Header)
-			t.Log(reply.Data)
+			t.Log(string(reply.Data))
 			wg.Done()
 			return nil
 		}
@@ -189,7 +189,7 @@ func TestMetrics(t *testing.T) {
 		wg.Add(1)
 		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 			t.Log(reply.Header)
-			t.Log(reply.Data)
+			t.Log(string(reply.Data))
 			wg.Done()
 			return nil
 		}
@@ -211,7 +211,7 @@ func TestMetrics(t *testing.T) {
 		wg.Add(1)
 		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 			t.Log(reply.Header)
-			t.Log(reply.Data)
+			t.Log(string(reply.Data))
 			wg.Done()
 			return nil
 		}
