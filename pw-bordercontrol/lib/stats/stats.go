@@ -720,6 +720,10 @@ func Close() error {
 	// cancel context
 	cancelCtx()
 
+	// delete prom metrics
+	promFeederDataInBytesTotal.Delete()
+	promFeederDataOutBytesTotal.Delete()
+
 	// close stats http server
 	log.Trace().Msg("srv.Close")
 	err := srv.Close()
