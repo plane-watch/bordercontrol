@@ -19,7 +19,7 @@ import (
 
 var (
 	// mock feeder details
-	TestFeederAPIKey    = uuid.MustParse("6261B9C8-25C1-4B67-A5A2-51FC688E8A25") // not a real feeder api key, generated with uuidgen
+	TestFeederAPIKey    = uuid.New()
 	TestFeederLabel     = "Test Feeder 123"
 	TestFeederLatitude  = 123.456789
 	TestFeederLongitude = 98.765432
