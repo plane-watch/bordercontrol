@@ -77,219 +77,216 @@ func TestNats(t *testing.T) {
 
 	})
 
-}
+	t.Run("getProtocolFromLastToken", func(t *testing.T) {
+		fp, err := getProtocolFromLastToken("x.x.x.x.beast")
+		require.NoError(t, err)
+		require.Equal(t, feedprotocol.BEAST, fp)
 
-func TestGetProtocolFromLastToken(t *testing.T) {
-	fp, err := getProtocolFromLastToken("x.x.x.x.beast")
-	require.NoError(t, err)
-	require.Equal(t, feedprotocol.BEAST, fp)
+		fp, err = getProtocolFromLastToken("x.x.x.x.mlat")
+		require.NoError(t, err)
+		require.Equal(t, feedprotocol.MLAT, fp)
 
-	fp, err = getProtocolFromLastToken("x.x.x.x.mlat")
-	require.NoError(t, err)
-	require.Equal(t, feedprotocol.MLAT, fp)
-
-	_, err = getProtocolFromLastToken("x.x.x.x.gopher")
-	require.Error(t, err)
-	require.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
-}
-
-func TestParseApiKeyFromMsgData(t *testing.T) {
-
-	u := uuid.New()
-
-	msg := nats.NewMsg("x.x.x.x")
-	msg.Data = []byte(u.String())
-	apiKey, err := parseApiKeyFromMsgData(msg)
-	assert.NoError(t, err)
-	assert.Equal(t, u, apiKey)
-
-	msg = nats.NewMsg("x.x.x.x")
-	msg.Data = []byte("not an api key")
-	_, err = parseApiKeyFromMsgData(msg)
-	assert.Error(t, err)
-}
-
-func TestMetrics(t *testing.T) {
-
-	wg := sync.WaitGroup{}
-
-	// init stats variable
-	stats.Feeders = make(map[uuid.UUID]FeederStats)
-
-	stats.Feeders[TestFeederAPIKey] = FeederStats{
-		Label:       TestFeederLabel,
-		Code:        TestFeederCode,
-		Connections: make(map[string]ProtocolDetail),
-		TimeUpdated: time.Now(),
-	}
-	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST] = ProtocolDetail{
-		Status:               true,
-		ConnectionCount:      1,
-		MostRecentConnection: time.Now(),
-		ConnectionDetails:    make(map[uint]ConnectionDetail),
-	}
-	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[1] = ConnectionDetail{
-		Src: &net.TCPAddr{
-			IP:   net.IPv4(1, 2, 3, 4),
-			Port: 22222,
-		},
-		Dst: &net.TCPAddr{
-			IP:   net.IPv4(3, 4, 5, 6),
-			Port: 22222,
-		},
-		TimeConnected: time.Now(),
-		BytesIn:       uint64(123456789),
-		BytesOut:      uint64(987654321),
-	}
-	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT] = ProtocolDetail{
-		Status:               true,
-		ConnectionCount:      2,
-		MostRecentConnection: time.Now(),
-		ConnectionDetails:    make(map[uint]ConnectionDetail),
-	}
-	stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[2] = ConnectionDetail{
-		Src: &net.TCPAddr{
-			IP:   net.IPv4(1, 2, 3, 4),
-			Port: 33333,
-		},
-		Dst: &net.TCPAddr{
-			IP:   net.IPv4(3, 4, 5, 6),
-			Port: 33333,
-		},
-		TimeConnected: time.Now(),
-		BytesIn:       uint64(123456789),
-		BytesOut:      uint64(987654321),
-	}
-
-	t.Run("natsSubjFeedersMetricsHandler", func(t *testing.T) {
-		// copy original function
-		natsRespondMsgOriginal := natsRespondMsg
-
-		// override function for testing
-		wg.Add(1)
-		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-			t.Log(reply.Header)
-			t.Log(string(reply.Data))
-			wg.Done()
-			return nil
-		}
-
-		msg := nats.NewMsg("")
-		natsSubjFeedersMetricsHandler(msg)
-		wg.Wait()
-
-		// restore original function
-		natsRespondMsg = natsRespondMsgOriginal
+		_, err = getProtocolFromLastToken("x.x.x.x.gopher")
+		require.Error(t, err)
+		require.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
 	})
 
-	t.Run("natsSubjFeederMetricsAllProtocolsHandler", func(t *testing.T) {
-		// copy original function
-		natsRespondMsgOriginal := natsRespondMsg
+	t.Run("parseApiKeyFromMsgData", func(t *testing.T) {
+		u := uuid.New()
 
-		// override function for testing
-		wg.Add(1)
-		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-			t.Log(reply.Header)
-			t.Log(string(reply.Data))
-			wg.Done()
-			return nil
-		}
+		msg := nats.NewMsg("x.x.x.x")
+		msg.Data = []byte(u.String())
+		apiKey, err := parseApiKeyFromMsgData(msg)
+		assert.NoError(t, err)
+		assert.Equal(t, u, apiKey)
 
-		msg := nats.NewMsg("")
-		msg.Data = []byte(TestFeederAPIKey.String())
-		natsSubjFeederMetricsAllProtocolsHandler(msg)
-		wg.Wait()
-
-		// restore original function
-		natsRespondMsg = natsRespondMsgOriginal
+		msg = nats.NewMsg("x.x.x.x")
+		msg.Data = []byte("not an api key")
+		_, err = parseApiKeyFromMsgData(msg)
+		assert.Error(t, err)
 	})
 
-	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederMetricsBEAST), func(t *testing.T) {
-		// copy original function
-		natsRespondMsgOriginal := natsRespondMsg
+	t.Run("test metrics", func(t *testing.T) {
+		wg := sync.WaitGroup{}
 
-		// override function for testing
-		wg.Add(1)
-		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-			t.Log(reply.Header)
-			t.Log(string(reply.Data))
-			wg.Done()
-			return nil
+		// init stats variable
+		stats.Feeders = make(map[uuid.UUID]FeederStats)
+
+		stats.Feeders[TestFeederAPIKey] = FeederStats{
+			Label:       TestFeederLabel,
+			Code:        TestFeederCode,
+			Connections: make(map[string]ProtocolDetail),
+			TimeUpdated: time.Now(),
+		}
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST] = ProtocolDetail{
+			Status:               true,
+			ConnectionCount:      1,
+			MostRecentConnection: time.Now(),
+			ConnectionDetails:    make(map[uint]ConnectionDetail),
+		}
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[1] = ConnectionDetail{
+			Src: &net.TCPAddr{
+				IP:   net.IPv4(1, 2, 3, 4),
+				Port: 22222,
+			},
+			Dst: &net.TCPAddr{
+				IP:   net.IPv4(3, 4, 5, 6),
+				Port: 22222,
+			},
+			TimeConnected: time.Now(),
+			BytesIn:       uint64(123456789),
+			BytesOut:      uint64(987654321),
+		}
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT] = ProtocolDetail{
+			Status:               true,
+			ConnectionCount:      2,
+			MostRecentConnection: time.Now(),
+			ConnectionDetails:    make(map[uint]ConnectionDetail),
+		}
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[2] = ConnectionDetail{
+			Src: &net.TCPAddr{
+				IP:   net.IPv4(1, 2, 3, 4),
+				Port: 33333,
+			},
+			Dst: &net.TCPAddr{
+				IP:   net.IPv4(3, 4, 5, 6),
+				Port: 33333,
+			},
+			TimeConnected: time.Now(),
+			BytesIn:       uint64(123456789),
+			BytesOut:      uint64(987654321),
 		}
 
-		msg := nats.NewMsg(natsSubjFeederMetricsBEAST)
-		msg.Data = []byte(TestFeederAPIKey.String())
-		natsSubjFeederHandler(msg)
-		wg.Wait()
+		t.Run("natsSubjFeedersMetricsHandler", func(t *testing.T) {
+			// copy original function
+			natsRespondMsgOriginal := natsRespondMsg
 
-		// restore original function
-		natsRespondMsg = natsRespondMsgOriginal
-	})
+			// override function for testing
+			wg.Add(1)
+			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+				t.Log(reply.Header)
+				t.Log(string(reply.Data))
+				wg.Done()
+				return nil
+			}
 
-	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederMetricsMLAT), func(t *testing.T) {
-		// copy original function
-		natsRespondMsgOriginal := natsRespondMsg
+			msg := nats.NewMsg("")
+			natsSubjFeedersMetricsHandler(msg)
+			wg.Wait()
 
-		// override function for testing
-		wg.Add(1)
-		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-			t.Log(reply.Header)
-			t.Log(string(reply.Data))
-			wg.Done()
-			return nil
-		}
+			// restore original function
+			natsRespondMsg = natsRespondMsgOriginal
+		})
 
-		msg := nats.NewMsg(natsSubjFeederMetricsMLAT)
-		msg.Data = []byte(TestFeederAPIKey.String())
-		natsSubjFeederHandler(msg)
-		wg.Wait()
+		t.Run("natsSubjFeederMetricsAllProtocolsHandler", func(t *testing.T) {
+			// copy original function
+			natsRespondMsgOriginal := natsRespondMsg
 
-		// restore original function
-		natsRespondMsg = natsRespondMsgOriginal
-	})
+			// override function for testing
+			wg.Add(1)
+			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+				t.Log(reply.Header)
+				t.Log(string(reply.Data))
+				wg.Done()
+				return nil
+			}
 
-	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederConnectedBEAST), func(t *testing.T) {
-		// copy original function
-		natsRespondMsgOriginal := natsRespondMsg
+			msg := nats.NewMsg("")
+			msg.Data = []byte(TestFeederAPIKey.String())
+			natsSubjFeederMetricsAllProtocolsHandler(msg)
+			wg.Wait()
 
-		// override function for testing
-		wg.Add(1)
-		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-			t.Log(reply.Header)
-			t.Log(string(reply.Data))
-			wg.Done()
-			return nil
-		}
+			// restore original function
+			natsRespondMsg = natsRespondMsgOriginal
+		})
 
-		msg := nats.NewMsg(natsSubjFeederConnectedBEAST)
-		msg.Data = []byte(TestFeederAPIKey.String())
-		natsSubjFeederHandler(msg)
-		wg.Wait()
+		t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederMetricsBEAST), func(t *testing.T) {
+			// copy original function
+			natsRespondMsgOriginal := natsRespondMsg
 
-		// restore original function
-		natsRespondMsg = natsRespondMsgOriginal
-	})
+			// override function for testing
+			wg.Add(1)
+			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+				t.Log(reply.Header)
+				t.Log(string(reply.Data))
+				wg.Done()
+				return nil
+			}
 
-	t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederConnectedMLAT), func(t *testing.T) {
-		// copy original function
-		natsRespondMsgOriginal := natsRespondMsg
+			msg := nats.NewMsg(natsSubjFeederMetricsBEAST)
+			msg.Data = []byte(TestFeederAPIKey.String())
+			natsSubjFeederHandler(msg)
+			wg.Wait()
 
-		// override function for testing
-		wg.Add(1)
-		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-			t.Log(reply.Header)
-			t.Log(string(reply.Data))
-			wg.Done()
-			return nil
-		}
+			// restore original function
+			natsRespondMsg = natsRespondMsgOriginal
+		})
 
-		msg := nats.NewMsg(natsSubjFeederConnectedMLAT)
-		msg.Data = []byte(TestFeederAPIKey.String())
-		natsSubjFeederHandler(msg)
-		wg.Wait()
+		t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederMetricsMLAT), func(t *testing.T) {
+			// copy original function
+			natsRespondMsgOriginal := natsRespondMsg
 
-		// restore original function
-		natsRespondMsg = natsRespondMsgOriginal
+			// override function for testing
+			wg.Add(1)
+			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+				t.Log(reply.Header)
+				t.Log(string(reply.Data))
+				wg.Done()
+				return nil
+			}
+
+			msg := nats.NewMsg(natsSubjFeederMetricsMLAT)
+			msg.Data = []byte(TestFeederAPIKey.String())
+			natsSubjFeederHandler(msg)
+			wg.Wait()
+
+			// restore original function
+			natsRespondMsg = natsRespondMsgOriginal
+		})
+
+		t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederConnectedBEAST), func(t *testing.T) {
+			// copy original function
+			natsRespondMsgOriginal := natsRespondMsg
+
+			// override function for testing
+			wg.Add(1)
+			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+				t.Log(reply.Header)
+				t.Log(string(reply.Data))
+				wg.Done()
+				return nil
+			}
+
+			msg := nats.NewMsg(natsSubjFeederConnectedBEAST)
+			msg.Data = []byte(TestFeederAPIKey.String())
+			natsSubjFeederHandler(msg)
+			wg.Wait()
+
+			// restore original function
+			natsRespondMsg = natsRespondMsgOriginal
+		})
+
+		t.Run(fmt.Sprintf("natsSubjFeederHandler %s", natsSubjFeederConnectedMLAT), func(t *testing.T) {
+			// copy original function
+			natsRespondMsgOriginal := natsRespondMsg
+
+			// override function for testing
+			wg.Add(1)
+			natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+				t.Log(reply.Header)
+				t.Log(string(reply.Data))
+				wg.Done()
+				return nil
+			}
+
+			msg := nats.NewMsg(natsSubjFeederConnectedMLAT)
+			msg.Data = []byte(TestFeederAPIKey.String())
+			natsSubjFeederHandler(msg)
+			wg.Wait()
+
+			// restore original function
+			natsRespondMsg = natsRespondMsgOriginal
+		})
 	})
 
 }
