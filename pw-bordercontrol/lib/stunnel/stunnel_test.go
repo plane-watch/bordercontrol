@@ -1,6 +1,7 @@
 package stunnel
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -91,7 +92,7 @@ func TestStunnel(t *testing.T) {
 
 	// initialise stunnel subsystem, with SIGHUP as signal to reload
 	t.Run("initialise stunnel subsystem", func(t *testing.T) {
-		ptf := assert.PanicTestFunc(func() { Init(syscall.SIGHUP) })
+		ptf := assert.PanicTestFunc(func() { Init(context.Background(), syscall.SIGHUP) })
 		require.NotPanics(t, ptf)
 	})
 
