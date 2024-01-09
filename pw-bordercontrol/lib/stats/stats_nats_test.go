@@ -23,7 +23,6 @@ func TestNats(t *testing.T) {
 	t.Run("initNats", func(t *testing.T) {
 
 		t.Run("GetInstance error", func(t *testing.T) {
-
 			// copy original func
 			natsGetInstanceOriginal := natsGetInstance
 
@@ -39,6 +38,24 @@ func TestNats(t *testing.T) {
 
 			// revert original func
 			natsGetInstance = natsGetInstanceOriginal
+		})
+
+		t.Run("Sub error", func(t *testing.T) {
+			// copy original func
+			natsSubOriginal := natsSub
+
+			// override func for testing
+			natsSub = func(subj string, handler func(msg *nats.Msg)) error {
+				return ErrTesting
+			}
+
+			// test
+			err := initNats()
+			require.Error(t, err)
+			require.Equal(t, ErrTesting.Error(), err.Error())
+
+			// revert original func
+			natsSub = natsSubOriginal
 		})
 
 		t.Run("working", func(t *testing.T) {
