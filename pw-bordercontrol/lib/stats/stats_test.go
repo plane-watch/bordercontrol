@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 )
@@ -558,7 +559,7 @@ func TestStats(t *testing.T) {
 	t.Run("test httpRenderStats", func(t *testing.T) {
 		// check
 		testURL := fmt.Sprintf("http://%s/", testAddr)
-		ptf := require.PanicTestFunc(func() { _ = getMetricsFromTestServer(t, testURL) })
+		ptf := assert.PanicTestFunc(func() { _ = getMetricsFromTestServer(t, testURL) })
 		require.NotPanics(t, ptf)
 
 		// increase counters
