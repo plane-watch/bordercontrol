@@ -108,7 +108,7 @@ func TestParseApiKeyFromMsgData(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestNatsSubjFeedersMetricsHandler(t *testing.T) {
+func TestMetrics(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
@@ -160,17 +160,42 @@ func TestNatsSubjFeedersMetricsHandler(t *testing.T) {
 		BytesOut:      uint64(987654321),
 	}
 
-	// override function for testing
-	wg.Add(1)
-	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
-		t.Log(reply.Header)
-		t.Log(reply.Data)
-		wg.Done()
-		return nil
-	}
+	t.Run("natsSubjFeedersMetricsHandler", func(t *testing.T) {
+		// copy original function
+		natsRespondMsgOriginal := natsRespondMsg
 
-	msg := nats.NewMsg("")
-	natsSubjFeedersMetricsHandler(msg)
-	wg.Wait()
+		// override function for testing
+		wg.Add(1)
+		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			t.Log(reply.Header)
+			t.Log(reply.Data)
+			wg.Done()
+			return nil
+		}
+
+		msg := nats.NewMsg("")
+		natsSubjFeedersMetricsHandler(msg)
+		wg.Wait()
+
+		// restore original function
+		natsRespondMsg = natsRespondMsgOriginal
+	})
+
+	t.Run("natsSubjFeederMetricsAllProtocolsHandler", func(t *testing.T) {
+
+		// override function for testing
+		wg.Add(1)
+		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			t.Log(reply.Header)
+			t.Log(reply.Data)
+			wg.Done()
+			return nil
+		}
+
+		msg := nats.NewMsg("")
+		msg.Data = []byte(TestFeederAPIKey.String())
+		natsSubjFeederMetricsAllProtocolsHandler(msg)
+		wg.Wait()
+	})
 
 }
