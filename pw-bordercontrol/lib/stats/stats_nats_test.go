@@ -182,6 +182,8 @@ func TestMetrics(t *testing.T) {
 	})
 
 	t.Run("natsSubjFeederMetricsAllProtocolsHandler", func(t *testing.T) {
+		// copy original function
+		natsRespondMsgOriginal := natsRespondMsg
 
 		// override function for testing
 		wg.Add(1)
@@ -196,6 +198,31 @@ func TestMetrics(t *testing.T) {
 		msg.Data = []byte(TestFeederAPIKey.String())
 		natsSubjFeederMetricsAllProtocolsHandler(msg)
 		wg.Wait()
+
+		// restore original function
+		natsRespondMsg = natsRespondMsgOriginal
+	})
+
+	t.Run("natsSubjFeederHandler", func(t *testing.T) {
+		// copy original function
+		natsRespondMsgOriginal := natsRespondMsg
+
+		// override function for testing
+		wg.Add(1)
+		natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
+			t.Log(reply.Header)
+			t.Log(reply.Data)
+			wg.Done()
+			return nil
+		}
+
+		msg := nats.NewMsg("")
+		msg.Data = []byte(TestFeederAPIKey.String())
+		natsSubjFeederHandler(msg)
+		wg.Wait()
+
+		// restore original function
+		natsRespondMsg = natsRespondMsgOriginal
 	})
 
 }
