@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"errors"
 	"pw_bordercontrol/lib/feedprotocol"
 	"sync"
 	"testing"
@@ -13,19 +14,36 @@ import (
 
 var (
 	testInstance = "testInst"
+
+	ErrTesting = errors.New("Error injected for testing")
 )
 
 func TestInit(t *testing.T) {
-	//  override functions for testing
-	natsGetInstance = func() (instance string, err error) {
-		return testInstance, nil
-	}
-	natsSub = func(subj string, handler func(msg *nats.Msg)) error {
-		return nil
-	}
 
-	err := initNats()
-	require.NoError(t, err)
+	t.Run("GetInstance error", func(t *testing.T) {
+		natsGetInstance = func() (instance string, err error) {
+			return testInstance, ErrTesting
+		}
+
+		err := initNats()
+		require.Error(t, err)
+		require.Equal(t, ErrTesting.Error(), err.Error())
+	})
+
+	t.Run("working", func(t *testing.T) {
+
+		//  override functions for testing
+		natsGetInstance = func() (instance string, err error) {
+			return testInstance, nil
+		}
+		natsSub = func(subj string, handler func(msg *nats.Msg)) error {
+			return nil
+		}
+
+		err := initNats()
+		require.NoError(t, err)
+
+	})
 }
 
 func TestGetProtocolFromLastToken(t *testing.T) {
