@@ -89,34 +89,29 @@ func TestListener(t *testing.T) {
 			listenerAddrInUse, err := NewListener(nl.Addr().String(), feedprotocol.MLAT, "test-feed-in")
 			require.NoError(t, err)
 
-			ctx := context.Background()
+			ctx, cancel := context.WithCancel(context.Background())
 			err = listenerAddrInUse.Run(ctx)
 			require.Error(t, err)
+
+			t.Cleanup(func() { cancel() })
 		})
 
 		t.Run("working", func(t *testing.T) {
 
-			var (
-				wg       sync.WaitGroup
-				ctx      context.Context
-				cancelMu sync.RWMutex
-				cancel   context.CancelFunc
-			)
+			wg := sync.WaitGroup{}
 
 			// get temp listener addr
 			tmpListener, err := nettest.NewLocalListener("tcp4")
 			require.NoError(t, err)
 			tmpListener.Close()
 
+			ctx, cancel := context.WithCancel(context.Background())
+
 			wg.Add(1)
 			go func(t *testing.T) {
 
 				listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
 				require.NoError(t, err)
-
-				cancelMu.Lock()
-				ctx, cancel = context.WithCancel(context.Background())
-				cancelMu.Unlock()
 
 				err := listener.Run(ctx)
 				require.NoError(t, err)
@@ -132,9 +127,7 @@ func TestListener(t *testing.T) {
 				conn.Close()
 			})
 
-			cancelMu.RLock()
 			cancel()
-			cancelMu.RUnlock()
 
 			wg.Wait()
 
