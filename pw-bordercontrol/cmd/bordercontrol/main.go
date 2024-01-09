@@ -390,8 +390,11 @@ func runServer(cliContext *cli.Context) error {
 		log.Err(err).Msg("error stopping container manager")
 	}
 
-	// stop ssl/tls subsystem
-	stunnel.Close()
+	// stop stunnel subsystem
+	err = stunnel.Close()
+	if err != nil {
+		log.Err(err).Msg("error stopping stunnel subsystem")
+	}
 
 	return nil
 }
