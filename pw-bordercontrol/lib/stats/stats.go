@@ -75,7 +75,7 @@ type APIResponse struct {
 }
 
 var (
-	srv     http.Server // web server for stats
+	srv     *http.Server // web server for stats
 	statsWg sync.WaitGroup
 
 	stats Statistics // feeder statistics
@@ -675,7 +675,7 @@ func Init(addr string) error {
 	http.Handle("/metrics/", promhttp.Handler())
 
 	// prep http server
-	srv := &http.Server{
+	srv = &http.Server{
 		Addr: addr,
 	}
 
