@@ -1,7 +1,6 @@
 package stats
 
 import (
-	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -676,7 +675,7 @@ func Init(addr string) error {
 	http.Handle("/metrics/", promhttp.Handler())
 
 	// prep http server
-	srv := http.Server{
+	srv := &http.Server{
 		Addr: addr,
 	}
 
@@ -687,7 +686,9 @@ func Init(addr string) error {
 		log.Info().Str("addr", addr).Msg("starting statistics listener")
 		err := srv.ListenAndServe()
 		if err != nil {
-			log.Panic().AnErr("err", err).Msg("stats server stopped")
+			if err != http.ErrServerClosed {
+				log.Fatal().Err(err).Msg("stats server stopped")
+			}
 		}
 	}()
 
@@ -697,11 +698,11 @@ func Init(addr string) error {
 func Close() error {
 
 	log.Trace().Msg("srv.Close")
-
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
-	err := srv.Shutdown(ctx)
+	err := srv.Close()
 	if err != nil {
-		log.Err(err).Msg("error closing stats http server")
+		if err != http.ErrServerClosed {
+			log.Err(err).Msg("error closing stats http server")
+		}
 	}
 
 	log.Trace().Msg("statsWg.Wait")
