@@ -680,18 +680,22 @@ func Init(parentContext context.Context, addr string) error {
 	initialised = true
 	initialisedMu.Unlock()
 
+	// configure mux
+	mux := http.NewServeMux()
+
 	// stats http server routes
-	http.HandleFunc("/", httpRenderStats)
-	http.HandleFunc("/api/v1/feeder/", apiReturnSingleFeeder)
-	http.HandleFunc("/api/v1/feeders/", apiReturnAllFeeders)
+	mux.HandleFunc("/", httpRenderStats)
+	mux.HandleFunc("/api/v1/feeder/", apiReturnSingleFeeder)
+	mux.HandleFunc("/api/v1/feeders/", apiReturnAllFeeders)
 
 	// prometheus endpoint
-	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/metrics/", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics/", promhttp.Handler())
 
 	// prep http server
 	srv = &http.Server{
-		Addr: addr,
+		Addr:    addr,
+		Handler: mux,
 	}
 
 	// start stats http server
