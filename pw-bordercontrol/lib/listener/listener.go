@@ -29,7 +29,7 @@ var (
 	}
 )
 
-func NewListener(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string) (*listener, error) {
+func NewListener(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, InnerConnectionPort int) (*listener, error) {
 	// prep listener config
 	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
 	if ip == nil {
@@ -47,6 +47,7 @@ func NewListener(listenAddr string, proto feedprotocol.Protocol, feedInContainer
 			Zone: "",
 		},
 		FeedInContainerPrefix: feedInContainerPrefix,
+		InnerConnectionPort:   InnerConnectionPort,
 	}, nil
 }
 
@@ -54,6 +55,7 @@ type listener struct {
 	Protocol              feedprotocol.Protocol // Protocol handled by the listener
 	ListenAddr            net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
 	FeedInContainerPrefix string
+	InnerConnectionPort   int
 }
 
 func (l *listener) Run(ctx context.Context) error {
@@ -125,6 +127,7 @@ func (l *listener) Run(ctx context.Context) error {
 			FeedInContainerPrefix:       l.FeedInContainerPrefix,
 			Logger:                      log,
 			FeederValidityCheckInterval: time.Second * 60,
+			InnerConnectionPort:         l.InnerConnectionPort,
 		}
 
 		// initiate proxying of the connection

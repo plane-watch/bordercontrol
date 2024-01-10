@@ -343,7 +343,7 @@ func runServer(cliContext *cli.Context) error {
 		defer wg.Done()
 		// listen until context close
 		for {
-			l, err := listener.NewListener(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"))
+			l, err := listener.NewListener(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"), 12345)
 			if err != nil {
 				log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Str("addr", cliContext.String("listenbeast")).Msg("error creating listener")
 			}
@@ -365,7 +365,7 @@ func runServer(cliContext *cli.Context) error {
 		defer wg.Done()
 		// listen until context close
 		for {
-			l, err := listener.NewListener(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"))
+			l, err := listener.NewListener(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"), 12346)
 			if err != nil {
 				log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Str("addr", cliContext.String("listenmlat")).Msg("error creating listener")
 			}

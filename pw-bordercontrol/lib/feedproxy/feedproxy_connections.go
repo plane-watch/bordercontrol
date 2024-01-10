@@ -435,6 +435,7 @@ type ProxyConnection struct {
 	Connection                  net.Conn              // Incoming connection from feeder out on the internet
 	ConnectionProtocol          feedprotocol.Protocol // Incoming connection protocol
 	ConnectionNumber            uint                  // Connection number
+	InnerConnectionPort         int                   // Server-side port to proxy connection to (default: 12345 for BEAST & 12346 MLAT)
 	FeedInContainerPrefix       string                // feed-in container prefix
 	Logger                      zerolog.Logger        // logger context to use
 	FeederValidityCheckInterval time.Duration         // how often to check feeder is still valid in atc
@@ -574,7 +575,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		}
 
 		// connect to feed-in container
-		connOut, err = dialContainerTCPWrapper(fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
+		connOut, err = dialContainerTCPWrapper(fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String()), c.InnerConnectionPort)
 		if err != nil {
 			// handle connection errors to feed-in container
 			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
@@ -586,10 +587,10 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		dstContainerName = "mlat-server"
 
 		// update log context
-		log.With().Str("dst", fmt.Sprintf("%s:12346", clientDetails.mux))
+		log.With().Str("dst", fmt.Sprintf("%s:%d", clientDetails.mux, c.InnerConnectionPort))
 
 		// attempt to connect to the mux container
-		connOut, err = dialContainerTCP(clientDetails.mux, 12346)
+		connOut, err = dialContainerTCP(clientDetails.mux, c.InnerConnectionPort)
 		if err != nil {
 			// handle connection errors to mux container
 			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
