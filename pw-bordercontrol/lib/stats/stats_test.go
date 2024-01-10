@@ -51,9 +51,9 @@ func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) 
 			fmt.Sprintf(`expected to find: "%s"`, expectedMetric),
 		)
 		if t.Failed() {
-			fmt.Println("---- BEGIN RESPONSE BODY ----")
-			fmt.Println(body)
-			fmt.Println("---- END RESPONSE BODY ----")
+			t.Log("---- BEGIN RESPONSE BODY ----")
+			t.Log(body)
+			t.Log("---- END RESPONSE BODY ----")
 		}
 	}
 }
@@ -66,9 +66,9 @@ func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []st
 			fmt.Sprintf(`expected not to find: "%s"`, notExpectedMetric),
 		)
 		if t.Failed() {
-			fmt.Println("---- BEGIN RESPONSE BODY ----")
-			fmt.Println(body)
-			fmt.Println("---- END RESPONSE BODY ----")
+			t.Log("---- BEGIN RESPONSE BODY ----")
+			t.Log(body)
+			t.Log("---- END RESPONSE BODY ----")
 		}
 	}
 }
