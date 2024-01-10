@@ -880,7 +880,7 @@ func TestFeedProxy(t *testing.T) {
 		time.Sleep(time.Second * 15)
 	})
 
-	t.Run("stop feedproxy subsystem", func(t *testing.T) {
+	t.Run("Close", func(t *testing.T) {
 		err := Close(&feedProxyConf)
 		require.NoError(t, err)
 	})

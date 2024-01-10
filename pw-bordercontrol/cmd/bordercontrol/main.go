@@ -297,7 +297,7 @@ func runServer(cliContext *cli.Context) error {
 	// start statistics manager
 	err = stats.Init(ctx, cliContext.String("listenapi"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("could not start statistics manager")
+		log.Fatal().Err(err).Msg("could not initialise statistics manager")
 	}
 
 	// initialise feedproxy
@@ -307,7 +307,10 @@ func runServer(cliContext *cli.Context) error {
 		ATCUser:         cliContext.String("atcuser"),
 		ATCPass:         cliContext.String("atcpass"),
 	}
-	feedproxy.Init(&feedProxyConf)
+	err = feedproxy.Init(ctx, &feedProxyConf)
+	if err != nil {
+		log.Fatal().Err(err).Msg("could not initialise proxy subsystem")
+	}
 
 	// initialise container manager
 	ContainerManager := containers.ContainerManager{
