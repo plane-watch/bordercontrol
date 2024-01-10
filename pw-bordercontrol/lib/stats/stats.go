@@ -619,6 +619,7 @@ func Init(parentContext context.Context, addr string) error {
 	log.Trace().Msg("post registration")
 
 	// init stats variable
+	stats = Statistics{}
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
 	// start up stats evictor
@@ -691,6 +692,7 @@ func Close() error {
 	promCollectorsMu.RLock()
 	defer promCollectorsMu.RUnlock()
 	for _, c := range promCollectors {
+		c.(*prometheus.CounterVec).Reset()
 		if !prometheus.Unregister(c) {
 			log.Error().Any("c", c).Msg("could not unregister prom collector")
 		}
