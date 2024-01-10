@@ -206,24 +206,24 @@ func unregisterCollector(c prometheus.Collector) error {
 func registerPerFeederCounterVecs() error {
 	// define per-connection prometheus vectors
 
-	promFeederDataInBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	var err error
+
+	err = registerCollector(prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: PromNamespace,
 		Subsystem: PromSubsystem,
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
-	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err := prometheus.Register(promFeederDataInBytesTotal)
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"}))
 	if err != nil {
 		return err
 	}
 
-	promFeederDataOutBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+	err = registerCollector(prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: PromNamespace,
 		Subsystem: PromSubsystem,
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
-	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err = prometheus.Register(promFeederDataOutBytesTotal)
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"}))
 	if err != nil {
 		return err
 	}
