@@ -51,14 +51,20 @@ func TestListenWithContext(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	listenWithContext(
-		ctx,
-		tmpListener.Addr().String(),
-		feedprotocol.BEAST,
-		"test-feed-in-",
-		12345,
-	)
+	go func() {
+		listenWithContext(
+			ctx,
+			tmpListener.Addr().String(),
+			feedprotocol.BEAST,
+			"test-feed-in-",
+			12345,
+		)
+	}()
+
+	time.Sleep(time.Second * 5)
 
 	cancel()
+
+	time.Sleep(time.Second * 5)
 
 }
