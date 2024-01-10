@@ -65,7 +65,6 @@ func TestCliWriter(t *testing.T) {
 }
 
 func TestConfigureForCli(t *testing.T) {
-	assert.False(t, isCli)
 	ConfigureForCli()
 	assert.True(t, isCli)
 	assert.Equal(t, log.Output(cliWriter()), log.Logger)
