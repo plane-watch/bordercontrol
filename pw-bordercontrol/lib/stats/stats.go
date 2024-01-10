@@ -607,12 +607,14 @@ func Init(parentContext context.Context, addr string) error {
 	statsWg = sync.WaitGroup{}
 
 	// init global prom collectors
+	log.Trace().Msg("registering global prom counters")
 	err := registerGlobalCollectors()
 	if err != nil {
 		return err
 	}
 
 	// register per-feeder prom metrics
+	log.Trace().Msg("registering per-feeder prom vecs")
 	err = registerPerFeederCounterVecs()
 	if err != nil {
 		return err
