@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 )
 
@@ -429,8 +430,13 @@ func TestFeedProxy(t *testing.T) {
 				}, nil
 			}
 
+			// get addr for testing
+			tmpListener, err := nettest.NewLocalListener("tcp4")
+			require.NoError(t, err)
+			tmpListener.Close()
+
 			// create server
-			server, err := net.Listen("tcp4", "127.0.0.1:12346")
+			server, err := net.Listen("tcp4", tmpListener.Addr().String())
 			assert.NoError(t, err)
 			t.Cleanup(func() {
 				server.Close()
