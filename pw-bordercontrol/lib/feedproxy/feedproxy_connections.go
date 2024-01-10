@@ -207,7 +207,6 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 		}
 	}
 
-	// log.Trace().Msg("finished")
 	return n, err
 }
 

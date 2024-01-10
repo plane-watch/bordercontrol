@@ -35,7 +35,6 @@ func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Dur
 	// cycles through feed-in containers and recreates if needed
 
 	// set up docker client
-	log.Trace().Msg("set up docker client")
 	getDockerClientMu.RLock()
 	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
@@ -46,12 +45,10 @@ func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Dur
 	defer cli.Close()
 
 	// prepare filters to find feed-in containers
-	log.Trace().Msg("prepare filter to find feed-in containers")
 	filterFeedIn := filters.NewArgs()
 	filterFeedIn.Add("name", fmt.Sprintf("%s*", conf.feedInContainerPrefix))
 
 	// find containers
-	log.Trace().Msg("find containers")
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
@@ -61,13 +58,6 @@ func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Dur
 	// for each container...
 ContainerLoop:
 	for _, container := range containers {
-
-		log.Trace().
-			Str("container_id", container.ID).
-			Str("container_image", container.Image).
-			Str("container_name", container.Names[0]).
-			Str("feedInImageName", conf.feedInImageName).
-			Msg("checking container")
 
 		// check containers are running latest feed-in image
 		if container.Image != conf.feedInImageName {

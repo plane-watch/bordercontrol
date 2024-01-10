@@ -603,20 +603,16 @@ func Init(parentContext context.Context, addr string) error {
 	statsWg = sync.WaitGroup{}
 
 	// init global prom collectors
-	log.Trace().Msg("registering global prom counters")
 	err := registerGlobalCollectors()
 	if err != nil {
 		return err
 	}
 
 	// register per-feeder prom metrics
-	log.Trace().Msg("registering per-feeder prom vecs")
 	err = registerPerFeederCounterVecs()
 	if err != nil {
 		return err
 	}
-
-	log.Trace().Msg("post registration")
 
 	// init stats variable
 	stats = Statistics{}
@@ -693,12 +689,11 @@ func Close() error {
 	defer promCollectorsMu.RUnlock()
 	for _, c := range promCollectors {
 		if !prometheus.Unregister(c) {
-			log.Error().Any("c", c).Msg("could not unregister prom collector")
+			log.Debug().Any("c", c).Msg("could not unregister prom collector")
 		}
 	}
 
 	// close stats http server
-	log.Trace().Msg("srv.Close")
 	err := srv.Close()
 	if err != nil {
 		if err != http.ErrServerClosed {
@@ -707,7 +702,6 @@ func Close() error {
 	}
 
 	// wait for goroutines to finish up
-	log.Trace().Msg("statsWg.Wait")
 	statsWg.Wait()
 	log.Debug().Msg("stats subsystem shut down")
 

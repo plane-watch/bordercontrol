@@ -93,10 +93,7 @@ func startFeederContainers(conf startFeederContainersConfig, containerToStart Fe
 		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
 
-	// log.Trace().Msg("started")
-
 	// set up docker client
-	log.Trace().Msg("set up docker client")
 	getDockerClientMu.RLock()
 	cli, err := getDockerClient()
 	getDockerClientMu.RUnlock()
@@ -105,16 +102,6 @@ func startFeederContainers(conf startFeederContainersConfig, containerToStart Fe
 		return startContainerResponse{}, err
 	}
 	defer cli.Close()
-
-	// read from channel (this blocks until a request comes in)
-	// var containerToStart FeedInContainer
-	// select {
-	// case containerToStart = <-conf.containersToStartRequests:
-	// 	log.Trace().Msg("received from containersToStartRequests")
-	// case <-time.After(time.Second * 5):
-	// 	log.Trace().Msg("timeout receiving from containersToStartRequests")
-	// 	return nil
-	// }
 
 	// prep response object
 	response := startContainerResponse{}
@@ -226,9 +213,5 @@ func startFeederContainers(conf startFeederContainersConfig, containerToStart Fe
 
 	}
 
-	// // send response
-	// conf.containersToStartResponses <- response
-
-	// log.Trace().Msg("finished")
 	return response, err
 }
