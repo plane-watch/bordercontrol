@@ -95,10 +95,6 @@ var (
 	initialised   bool
 	initialisedMu sync.RWMutex
 
-	// per-feeder prom metrics
-	promFeederDataInBytesTotal  *prometheus.CounterVec
-	promFeederDataOutBytesTotal *prometheus.CounterVec
-
 	// custom errors
 	ErrNotInitialised     = errors.New("stats not initialised")
 	ErrAlreadyInitialised = errors.New("stats already initialised")

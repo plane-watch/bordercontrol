@@ -17,6 +17,10 @@ var (
 	promCollectors   []prometheus.Collector // slice of all registered collectors (for unregistration during .Close())
 	promCollectorsMu sync.RWMutex           // mutex for promCollectors
 
+	// per-feeder prom metrics
+	promFeederDataInBytesTotal  *prometheus.CounterVec
+	promFeederDataOutBytesTotal *prometheus.CounterVec
+
 	// custom errors
 	ErrPromCounterDidNotUnregister = errors.New("prometheus metric did not unregister")
 	ErrPromCouldNotFindCounter     = errors.New("could not find counter in promCollectors")
@@ -208,22 +212,24 @@ func registerPerFeederCounterVecs() error {
 
 	var err error
 
-	err = registerCollector(prometheus.NewCounterVec(prometheus.CounterOpts{
+	promFeederDataInBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: PromNamespace,
 		Subsystem: PromSubsystem,
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
-	}, []string{"protocol", "uuid", "connnum", "feeder_code"}))
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
+	err = registerCollector(promFeederDataInBytesTotal)
 	if err != nil {
 		return err
 	}
 
-	err = registerCollector(prometheus.NewCounterVec(prometheus.CounterOpts{
+	promFeederDataOutBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: PromNamespace,
 		Subsystem: PromSubsystem,
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
-	}, []string{"protocol", "uuid", "connnum", "feeder_code"}))
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
+	err = registerCollector(promFeederDataOutBytesTotal)
 	if err != nil {
 		return err
 	}
