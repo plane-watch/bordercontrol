@@ -692,7 +692,6 @@ func Close() error {
 	promCollectorsMu.RLock()
 	defer promCollectorsMu.RUnlock()
 	for _, c := range promCollectors {
-		c.(*prometheus.CounterVec).Reset()
 		if !prometheus.Unregister(c) {
 			log.Error().Any("c", c).Msg("could not unregister prom collector")
 		}
