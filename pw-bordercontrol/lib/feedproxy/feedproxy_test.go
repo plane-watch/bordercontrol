@@ -418,12 +418,16 @@ func TestFeedProxy(t *testing.T) {
 				connNum, err := GetConnectionNumber()
 				require.NoError(t, err)
 
+				port, err := strconv.Atoi(strings.Split(tmpListener.Addr().String(), ":")[1])
+				require.NoError(t, err)
+
 				c := ProxyConnection{
 					Connection:                  lconn,
 					ConnectionProtocol:          feedprotocol.MLAT,
 					ConnectionNumber:            connNum,
 					FeedInContainerPrefix:       "test-feed-in-",
 					FeederValidityCheckInterval: time.Second * 5,
+					InnerConnectionPort:         port,
 				}
 
 				ctx := context.Background()
