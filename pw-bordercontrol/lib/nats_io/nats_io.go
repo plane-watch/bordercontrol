@@ -53,7 +53,7 @@ func isInitialised() bool {
 	return initialised
 }
 
-func (c *NatsConfig) Close(ctx context.Context) error {
+func (conf *NatsConfig) Close() error {
 
 	// return error is not initialised
 	if !isInitialised() {
@@ -65,6 +65,9 @@ func (c *NatsConfig) Close(ctx context.Context) error {
 
 	// cancel the context
 	ctxCancel()
+
+	// clear config
+	natsConfig = &NatsConfig{}
 
 	// set initialised to false
 	initialisedMu.Lock()

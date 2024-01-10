@@ -402,5 +402,11 @@ func runServer(cliContext *cli.Context) error {
 		log.Err(err).Msg("error stopping stunnel subsystem")
 	}
 
+	// stop nats subsystem
+	err = natsConf.Close()
+	if err != nil {
+		log.Err(err).Msg("error stopping nats subsystem")
+	}
+
 	return nil
 }

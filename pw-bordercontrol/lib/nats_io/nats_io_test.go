@@ -63,6 +63,8 @@ func RunTestServer() (*natsserver.Server, error) {
 
 func TestNats(t *testing.T) {
 
+	var conf NatsConfig
+
 	t.Run("test functions before initialise", func(t *testing.T) {
 
 		t.Run("isInitialised", func(t *testing.T) {
@@ -115,7 +117,7 @@ func TestNats(t *testing.T) {
 
 		t.Run("empty url & empty instance", func(t *testing.T) {
 
-			conf := NatsConfig{
+			conf = NatsConfig{
 				Url:       "",
 				Instance:  "",
 				Version:   testVersion,
@@ -308,6 +310,11 @@ func TestNats(t *testing.T) {
 			require.Equal(t, testInstanceName, inst)
 		})
 
+	})
+
+	t.Run("Close", func(t *testing.T) {
+		err := conf.Close()
+		require.NoError(t, err)
 	})
 
 }
