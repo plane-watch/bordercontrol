@@ -606,17 +606,14 @@ func Init(parentContext context.Context, addr string) error {
 	// prep waitgroup for clean closure of goroutines
 	statsWg = sync.WaitGroup{}
 
-	// init prometheus registry
-	promRegistry = prometheus.NewRegistry()
-
 	// init global prom collectors
-	err := registerGlobalCollectors(promRegistry)
+	err := registerGlobalCollectors()
 	if err != nil {
 		return err
 	}
 
 	// register per-feeder prom metrics
-	err = registerPerFeederCounterVecs(promRegistry)
+	err = registerPerFeederCounterVecs()
 	if err != nil {
 		return err
 	}
@@ -694,7 +691,7 @@ func Close() error {
 	promCollectorsMu.RLock()
 	defer promCollectorsMu.RUnlock()
 	for _, c := range promCollectors {
-		if !promRegistry.Unregister(*c) {
+		if !prometheus.Unregister(*c) {
 			log.Error().Any("c", *c).Msg("could not unregister prom collector")
 		}
 	}

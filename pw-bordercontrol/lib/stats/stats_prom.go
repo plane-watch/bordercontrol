@@ -14,7 +14,6 @@ const (
 )
 
 var (
-	promRegistry     *prometheus.Registry    // registry for all prom metrics associated with this app
 	promCollectors   []*prometheus.Collector // slice of all registered collectors (for unregistration during .Close())
 	promCollectorsMu sync.RWMutex            // mutex for promCollectors
 
@@ -23,7 +22,7 @@ var (
 	ErrPromCouldNotFindCounter     = errors.New("could not find counter in promCollectors")
 )
 
-func registerGlobalCollectors(r *prometheus.Registry) error {
+func registerGlobalCollectors() error {
 	var (
 		counters []prometheus.Collector
 	)
@@ -169,7 +168,7 @@ func registerCollector(c *prometheus.Collector) error {
 	// registers a prometheus collector
 
 	// register the collector
-	err := promRegistry.Register(*c)
+	err := prometheus.Register(*c)
 	if err != nil {
 		return err
 	}
@@ -185,7 +184,7 @@ func registerCollector(c *prometheus.Collector) error {
 func unregisterCollector(c *prometheus.Collector) error {
 	// unregisters a prometheus collector
 
-	b := promRegistry.Unregister(*c)
+	b := prometheus.Unregister(*c)
 	if b != true {
 		return ErrPromCounterDidNotUnregister
 	}
@@ -204,7 +203,7 @@ func unregisterCollector(c *prometheus.Collector) error {
 	return ErrPromCouldNotFindCounter
 }
 
-func registerPerFeederCounterVecs(r *prometheus.Registry) error {
+func registerPerFeederCounterVecs() error {
 	// define per-connection prometheus vectors
 
 	promFeederDataInBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -213,7 +212,7 @@ func registerPerFeederCounterVecs(r *prometheus.Registry) error {
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
 	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err := r.Register(promFeederDataInBytesTotal)
+	err := prometheus.Register(promFeederDataInBytesTotal)
 	if err != nil {
 		return err
 	}
@@ -224,7 +223,7 @@ func registerPerFeederCounterVecs(r *prometheus.Registry) error {
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
 	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err = r.Register(promFeederDataOutBytesTotal)
+	err = prometheus.Register(promFeederDataOutBytesTotal)
 	if err != nil {
 		return err
 	}
