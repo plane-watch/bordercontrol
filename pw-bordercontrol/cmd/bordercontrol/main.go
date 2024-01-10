@@ -295,7 +295,7 @@ func runServer(cliContext *cli.Context) error {
 	}
 
 	// start statistics manager
-	err = stats.Init(cliContext.String("listenapi"))
+	err = stats.Init(ctx, cliContext.String("listenapi"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("could not start statistics manager")
 	}
@@ -388,6 +388,12 @@ func runServer(cliContext *cli.Context) error {
 	err = ContainerManager.Stop()
 	if err != nil {
 		log.Err(err).Msg("error stopping container manager")
+	}
+
+	// stop stats subsystem
+	err = stats.Close()
+	if err != nil {
+		log.Err(err).Msg("error stopping statistics subsystem")
 	}
 
 	// stop stunnel subsystem
