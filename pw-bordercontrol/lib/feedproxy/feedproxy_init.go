@@ -1,16 +1,32 @@
 package feedproxy
 
 import (
+	"context"
 	"net/url"
+	"pw_bordercontrol/lib/stats"
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 )
 
 var (
 	initialised   bool
 	initialisedMu sync.RWMutex
+
+	ctx       context.Context
+	cancelCtx context.CancelFunc
+	wg        sync.WaitGroup
+
+	// prep prom collector for valid feeders
+	promCollectorNumFeeders = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: stats.PromNamespace,
+		Subsystem: stats.PromSubsystem,
+		Name:      "feeders",
+		Help:      "The total number of feeders configured in ATC (active and inactive).",
+	},
+		feedersGaugeFunc)
 )
 
 type FeedProxyConfig struct {
@@ -19,31 +35,57 @@ type FeedProxyConfig struct {
 	ATCUser         string        // ATC API Username
 	ATCPass         string        // ATC API Password
 
-	stop   bool // set to true to stop goroutine, use mutex below for sync
-	stopMu sync.Mutex
-
 	atcUrl *url.URL
 }
 
-func Init(c *FeedProxyConfig) error {
+func Init(parentContext context.Context, conf *FeedProxyConfig) error {
+
+	if isInitialised() {
+		return ErrAlreadyInitialised
+	}
+
+	// prep globals
+	incomingConnTracker = incomingConnectionTracker{}
+	validFeeders = atcFeeders{}
+
+	// prep context
+	ctx, cancelCtx = context.WithCancel(parentContext)
 
 	// parse atc url
 	var err error
-	c.atcUrl, err = url.Parse(c.ATCUrl)
+	conf.atcUrl, err = url.Parse(conf.ATCUrl)
 	if err != nil {
 		log.Error().Msg("--atcurl is invalid")
 		return err
 	}
 
 	// start updateFeederDB
-	go updateFeederDB(c)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		updateFeederDB(conf)
+	}()
+
+	err = stats.RegisterPromCollector(promCollectorNumFeeders)
+	if err != nil {
+		log.Err(err).Msg("could not register prom collector")
+		return err
+	}
 
 	// prepare incoming connection tracker (to allow dropping too-frequent connections)
 	// start evictor for incoming connection tracker
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			incomingConnTracker.evict()
-			time.Sleep(time.Second * 1)
+			select {
+			case <-time.After(time.Second):
+				continue
+			case <-ctx.Done():
+				log.Debug().Msg("shutting down evictor for incoming connection tracker")
+				return
+			}
 		}
 	}()
 
@@ -53,6 +95,31 @@ func Init(c *FeedProxyConfig) error {
 		defer initialisedMu.Unlock()
 		initialised = true
 	}()
+
+	return nil
+}
+
+func Close(conf *FeedProxyConfig) error {
+
+	if !isInitialised() {
+		return ErrNotInitialised
+	}
+
+	// cancel context
+	cancelCtx()
+
+	// wait for goroutines to finish up
+	wg.Wait()
+
+	err := stats.UnregisterPromCollector(promCollectorNumFeeders)
+	if err != nil {
+		log.Err(err).Msg("cannot unregister prom collector")
+	}
+
+	// reset initialised
+	initialisedMu.Lock()
+	defer initialisedMu.Unlock()
+	initialised = false
 
 	return nil
 }

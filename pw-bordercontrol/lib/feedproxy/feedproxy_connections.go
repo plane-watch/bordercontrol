@@ -28,7 +28,9 @@ type (
 		connections      []incomingConnection
 		connectionNumber uint // to allocate connection numbers
 	}
-	incomingConnection struct { // used to limit the number of connections over time from a single source IP
+
+	// used to limit the number of connections over time from a single source IP
+	incomingConnection struct {
 		srcIP    net.IP
 		connTime time.Time
 		connNum  uint

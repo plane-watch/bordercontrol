@@ -51,18 +51,18 @@ func TestListener(t *testing.T) {
 	t.Run("NewListener", func(t *testing.T) {
 
 		t.Run("invalid port", func(t *testing.T) {
-			_, err := NewListener("0.0.0.0:12345c", feedprotocol.MLAT, "test-feed-in")
+			_, err := NewListener("0.0.0.0:12345c", feedprotocol.MLAT, "test-feed-in", 12346)
 			assert.Error(t, err)
 
 		})
 
 		t.Run("0.0.0.0", func(t *testing.T) {
-			_, err := NewListener(":", feedprotocol.MLAT, "test-feed-in")
+			_, err := NewListener(":", feedprotocol.MLAT, "test-feed-in", 12346)
 			require.Error(t, err)
 		})
 
 		t.Run("ok", func(t *testing.T) {
-			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in", 12346)
 			require.NoError(t, err)
 		})
 	})
@@ -71,7 +71,7 @@ func TestListener(t *testing.T) {
 
 		t.Run("invalid protocol", func(t *testing.T) {
 
-			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.Protocol(0), "test-feed-in")
+			listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.Protocol(0), "test-feed-in", 11111)
 			require.NoError(t, err)
 
 			ctx := context.Background()
@@ -86,7 +86,7 @@ func TestListener(t *testing.T) {
 				nl.Close()
 			})
 
-			listenerAddrInUse, err := NewListener(nl.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+			listenerAddrInUse, err := NewListener(nl.Addr().String(), feedprotocol.MLAT, "test-feed-in", 12346)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -110,7 +110,7 @@ func TestListener(t *testing.T) {
 			wg.Add(1)
 			go func(t *testing.T) {
 
-				listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in")
+				listener, err = NewListener(tmpListener.Addr().String(), feedprotocol.MLAT, "test-feed-in", 12346)
 				require.NoError(t, err)
 
 				err := listener.Run(ctx)

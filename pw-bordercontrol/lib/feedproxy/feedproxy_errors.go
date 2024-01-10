@@ -7,6 +7,7 @@ import (
 
 var (
 	ErrNotInitialised          = errors.New("feedproxy not initialised")
+	ErrAlreadyInitialised      = errors.New("feedproxy already initialised")
 	ErrDNSReturnsNoResults     = errors.New("DNS lookup returned no IPv4 address(es)")
 	ErrTLSHandshakeIncomplete  = errors.New("TLS handshake incomplete")
 	ErrClientSentInvalidAPIKey = errors.New("client sent invalid API key")

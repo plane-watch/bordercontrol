@@ -159,7 +159,7 @@ func registerGlobalCollectors() error {
 
 	// register collectors
 	for _, c := range counters {
-		err := registerCollector(c)
+		err := RegisterPromCollector(c)
 		if err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func registerGlobalCollectors() error {
 	return nil
 }
 
-func registerCollector(c prometheus.Collector) error {
+func RegisterPromCollector(c prometheus.Collector) error {
 	// registers a prometheus collector
 
 	// register the collector
@@ -185,7 +185,7 @@ func registerCollector(c prometheus.Collector) error {
 	return nil
 }
 
-func unregisterCollector(c prometheus.Collector) error {
+func UnregisterPromCollector(c prometheus.Collector) error {
 	// unregisters a prometheus collector
 
 	b := prometheus.Unregister(c)
@@ -218,7 +218,7 @@ func registerPerFeederCounterVecs() error {
 		Name:      "feeder_data_in_bytes_total",
 		Help:      "Per-feeder bytes received (in)",
 	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err = registerCollector(promFeederDataInBytesTotal)
+	err = RegisterPromCollector(promFeederDataInBytesTotal)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func registerPerFeederCounterVecs() error {
 		Name:      "feeder_data_out_bytes_total",
 		Help:      "Per-feeder bytes sent (out)",
 	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err = registerCollector(promFeederDataOutBytesTotal)
+	err = RegisterPromCollector(promFeederDataOutBytesTotal)
 	if err != nil {
 		return err
 	}

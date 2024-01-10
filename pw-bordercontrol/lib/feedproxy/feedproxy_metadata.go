@@ -3,13 +3,10 @@ package feedproxy
 import (
 	"net/url"
 	"pw_bordercontrol/lib/atc"
-	"pw_bordercontrol/lib/stats"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/rs/zerolog/log"
 )
@@ -22,15 +19,6 @@ type atcFeeders struct {
 
 var (
 	validFeeders atcFeeders // list of valid feeders
-
-	// prom metric for number of valid feeders
-	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: stats.PromNamespace,
-		Subsystem: stats.PromSubsystem,
-		Name:      "feeders",
-		Help:      "The total number of feeders configured in ATC (active and inactive).",
-	},
-		feedersGaugeFunc)
 )
 
 func feedersGaugeFunc() float64 {
@@ -87,24 +75,7 @@ func updateFeederDB(conf *FeedProxyConfig) {
 		Strs("func", []string{"feeder_meta.go", "updateFeederDB"}).
 		Logger()
 
-	firstRun := true
-
 	for {
-
-		// sleep for updateFreq
-		if !firstRun {
-			time.Sleep(conf.UpdateFrequency)
-		} else {
-			firstRun = false
-		}
-
-		// check to stop
-		conf.stopMu.Lock()
-		if conf.stop {
-			conf.stopMu.Unlock()
-			return
-		}
-		conf.stopMu.Unlock()
 
 		// get data from atc
 		getDataFromATCMu.RLock()
@@ -132,5 +103,13 @@ func updateFeederDB(conf *FeedProxyConfig) {
 		validFeeders.mu.Unlock()
 
 		log.Debug().Int("feeders", count).Msg("updated feeder cache from atc")
+
+		select {
+		case <-time.After(conf.UpdateFrequency):
+			continue
+		case <-ctx.Done():
+			log.Debug().Msg("shutting down updateFeederDB")
+			return
+		}
 	}
 }

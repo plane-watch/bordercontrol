@@ -80,12 +80,14 @@ func TestFeedProxy(t *testing.T) {
 
 	})
 
+	pctx := context.Background()
+
 	t.Run("initialise feedproxy subsystem error", func(t *testing.T) {
 		c := FeedProxyConfig{
 			UpdateFrequency: time.Second * 10,
 			ATCUrl:          "\n", // ASCII control character in URL is invalid
 		}
-		err := Init(&c)
+		err := Init(pctx, &c)
 		require.Error(t, err)
 	})
 
@@ -94,7 +96,7 @@ func TestFeedProxy(t *testing.T) {
 	}
 
 	t.Run("initialise feedproxy subsystem", func(t *testing.T) {
-		err := Init(&feedProxyConf)
+		err := Init(pctx, &feedProxyConf)
 		require.NoError(t, err)
 	})
 
@@ -879,11 +881,8 @@ func TestFeedProxy(t *testing.T) {
 	})
 
 	t.Run("stop feedproxy subsystem", func(t *testing.T) {
-		feedProxyConf.stopMu.Lock()
-		feedProxyConf.stop = true
-		feedProxyConf.stopMu.Unlock()
-		// wait for stop
-		time.Sleep(time.Second * 15)
+		err := Close(&feedProxyConf)
+		require.NoError(t, err)
 	})
 
 }
