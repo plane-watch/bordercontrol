@@ -14,8 +14,8 @@ const (
 )
 
 var (
-	promCollectors   []*prometheus.Collector // slice of all registered collectors (for unregistration during .Close())
-	promCollectorsMu sync.RWMutex            // mutex for promCollectors
+	promCollectors   []prometheus.Collector // slice of all registered collectors (for unregistration during .Close())
+	promCollectorsMu sync.RWMutex           // mutex for promCollectors
 
 	// custom errors
 	ErrPromCounterDidNotUnregister = errors.New("prometheus metric did not unregister")
@@ -155,7 +155,7 @@ func registerGlobalCollectors() error {
 
 	// register collectors
 	for _, c := range counters {
-		err := registerCollector(&c)
+		err := registerCollector(c)
 		if err != nil {
 			return err
 		}
@@ -164,11 +164,11 @@ func registerGlobalCollectors() error {
 	return nil
 }
 
-func registerCollector(c *prometheus.Collector) error {
+func registerCollector(c prometheus.Collector) error {
 	// registers a prometheus collector
 
 	// register the collector
-	err := prometheus.Register(*c)
+	err := prometheus.Register(c)
 	if err != nil {
 		return err
 	}
@@ -181,10 +181,10 @@ func registerCollector(c *prometheus.Collector) error {
 	return nil
 }
 
-func unregisterCollector(c *prometheus.Collector) error {
+func unregisterCollector(c prometheus.Collector) error {
 	// unregisters a prometheus collector
 
-	b := prometheus.Unregister(*c)
+	b := prometheus.Unregister(c)
 	if b != true {
 		return ErrPromCounterDidNotUnregister
 	}
