@@ -45,7 +45,7 @@ func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 
 func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) {
 	for _, expectedMetric := range expectedMetrics {
-		require.Equal(t,
+		assert.Equal(t,
 			1,
 			strings.Count(body, expectedMetric),
 			fmt.Sprintf(`expected to find: "%s"`, expectedMetric),
@@ -60,7 +60,7 @@ func checkPromMetricsExist(t *testing.T, body string, expectedMetrics []string) 
 
 func checkPromMetricsNotExist(t *testing.T, body string, notExpectedMetrics []string) {
 	for _, notExpectedMetric := range notExpectedMetrics {
-		require.Equal(t,
+		assert.Equal(t,
 			0,
 			strings.Count(body, notExpectedMetric),
 			fmt.Sprintf(`expected not to find: "%s"`, notExpectedMetric),
