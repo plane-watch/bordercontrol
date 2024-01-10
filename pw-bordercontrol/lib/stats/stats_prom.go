@@ -1,10 +1,11 @@
 package stats
 
 import (
+	"errors"
 	"pw_bordercontrol/lib/feedprotocol"
+	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const (
@@ -12,13 +13,24 @@ const (
 	PromSubsystem = "bordercontrol"
 )
 
-// FYI
-//  - Prometheus HTTP handler started via statsManager() in stats.go
-//  - per-feeder metrics are registered in addConnection() in stats.go
-//  - per-feeder metrics are unregistered in delConnection() in stats.go
-
 var (
-	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	promRegistry     *prometheus.Registry    // registry for all prom metrics associated with this app
+	promCollectors   []*prometheus.Collector // slice of all registered collectors (for unregistration during .Close())
+	promCollectorsMu sync.RWMutex            // mutex for promCollectors
+
+	// custom errors
+	ErrPromCounterDidNotUnregister = errors.New("prometheus metric did not unregister")
+	ErrPromCouldNotFindCounter     = errors.New("could not find counter in promCollectors")
+)
+
+func registerGlobalCollectors(r *prometheus.Registry) error {
+	var (
+		counters []prometheus.Collector
+	)
+
+	// define collectors
+
+	counters = append(counters, prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "connections",
@@ -33,9 +45,9 @@ var (
 				n += float64(stats.Feeders[u].Connections[feedprotocol.ProtocolNameBEAST].ConnectionCount)
 			}
 			return n
-		})
+		}))
 
-	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	counters = append(counters, prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "connections",
@@ -50,9 +62,9 @@ var (
 				n += float64(stats.Feeders[u].Connections[feedprotocol.ProtocolNameMLAT].ConnectionCount)
 			}
 			return n
-		})
+		}))
 
-	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	counters = append(counters, prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "feeders_active",
@@ -69,9 +81,9 @@ var (
 				}
 			}
 			return n
-		})
+		}))
 
-	_ = promauto.NewGaugeFunc(prometheus.GaugeOpts{
+	counters = append(counters, prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "feeders_active",
@@ -88,9 +100,9 @@ var (
 				}
 			}
 			return n
-		})
+		}))
 
-	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
+	counters = append(counters, prometheus.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "data_in_bytes_total",
@@ -101,9 +113,9 @@ var (
 			stats.mu.RLock()
 			defer stats.mu.RUnlock()
 			return float64(stats.BytesInBEAST)
-		})
+		}))
 
-	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
+	counters = append(counters, prometheus.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "data_out_bytes_total",
@@ -114,9 +126,9 @@ var (
 			stats.mu.RLock()
 			defer stats.mu.RUnlock()
 			return float64(stats.BytesOutBEAST)
-		})
+		}))
 
-	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
+	counters = append(counters, prometheus.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "data_in_bytes_total",
@@ -127,9 +139,9 @@ var (
 			stats.mu.RLock()
 			defer stats.mu.RUnlock()
 			return float64(stats.BytesInMLAT)
-		})
+		}))
 
-	_ = promauto.NewCounterFunc(prometheus.CounterOpts{
+	counters = append(counters, prometheus.NewCounterFunc(prometheus.CounterOpts{
 		Namespace:   PromNamespace,
 		Subsystem:   PromSubsystem,
 		Name:        "data_out_bytes_total",
@@ -140,5 +152,82 @@ var (
 			stats.mu.RLock()
 			defer stats.mu.RUnlock()
 			return float64(stats.BytesOutMLAT)
-		})
-)
+		}))
+
+	// register collectors
+	for _, c := range counters {
+		err := registerCollector(&c)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func registerCollector(c *prometheus.Collector) error {
+	// registers a prometheus collector
+
+	// register the collector
+	err := promRegistry.Register(*c)
+	if err != nil {
+		return err
+	}
+
+	// add collector to slice
+	promCollectorsMu.Lock()
+	defer promCollectorsMu.Unlock()
+	promCollectors = append(promCollectors, c)
+
+	return nil
+}
+
+func unregisterCollector(c *prometheus.Collector) error {
+	// unregisters a prometheus collector
+
+	b := promRegistry.Unregister(*c)
+	if b != true {
+		return ErrPromCounterDidNotUnregister
+	}
+
+	// remove collector from slice
+	promCollectorsMu.Lock()
+	defer promCollectorsMu.Unlock()
+	for i := range promCollectors {
+		if promCollectors[i] == c {
+			promCollectors[i] = promCollectors[len(promCollectors)-1]
+			promCollectors = promCollectors[:len(promCollectors)-1]
+			return nil
+		}
+	}
+
+	return ErrPromCouldNotFindCounter
+}
+
+func registerPerFeederCounterVecs(r *prometheus.Registry) error {
+	// define per-connection prometheus vectors
+
+	promFeederDataInBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
+		Name:      "feeder_data_in_bytes_total",
+		Help:      "Per-feeder bytes received (in)",
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
+	err := r.Register(promFeederDataInBytesTotal)
+	if err != nil {
+		return err
+	}
+
+	promFeederDataOutBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: PromNamespace,
+		Subsystem: PromSubsystem,
+		Name:      "feeder_data_out_bytes_total",
+		Help:      "Per-feeder bytes sent (out)",
+	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
+	err = r.Register(promFeederDataOutBytesTotal)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

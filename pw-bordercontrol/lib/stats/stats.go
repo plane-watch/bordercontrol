@@ -68,6 +68,7 @@ type Statistics struct {
 
 	BytesInMLAT  uint64 // total bytes from feeder to bordercontrol for MLAT proto
 	BytesOutMLAT uint64 // total bytes from bordercontrol to feeder for MLAT proto
+
 }
 
 // struct for http api responses
@@ -266,23 +267,6 @@ func (conn *Connection) RegisterConnection() error {
 	if !feedprotocol.IsValid(conn.Proto) {
 		return feedprotocol.ErrUnknownProtocol
 	}
-
-	// // get protocol name
-	// protoName, err := feedprotocol.GetName(conn.Proto)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // update log context
-	// log := log.With().
-	// 	Str("code", conn.FeederCode).
-	// 	Str("dst", conn.DstAddr.String()).
-	// 	Str("proto", protoName).
-	// 	Str("src", conn.SrcAddr.String()).
-	// 	Str("uuid", conn.ApiKey.String()).
-	// 	Strs("func", []string{"stats.go", "addConnection"}).
-	// 	Uint("connNum", conn.ConnNum).
-	// 	Logger()
 
 	// ensure feeder exists in stats subsystem
 	stats.initFeederStats(conn.ApiKey)
@@ -597,34 +581,6 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func registerPerFeederCounterVecs() error {
-
-	// define per-connection prometheus metrics
-	promFeederDataInBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: PromNamespace,
-		Subsystem: PromSubsystem,
-		Name:      "feeder_data_in_bytes_total",
-		Help:      "Per-feeder bytes received (in)",
-	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err := prometheus.Register(promFeederDataInBytesTotal)
-	if err != nil {
-		return err
-	}
-
-	promFeederDataOutBytesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: PromNamespace,
-		Subsystem: PromSubsystem,
-		Name:      "feeder_data_out_bytes_total",
-		Help:      "Per-feeder bytes sent (out)",
-	}, []string{"protocol", "uuid", "connnum", "feeder_code"})
-	err = prometheus.Register(promFeederDataOutBytesTotal)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func isInitialised() bool {
 	// returns true if Init() has been called, else false
 	initialisedMu.RLock()
@@ -644,10 +600,26 @@ func Init(parentContext context.Context, addr string) error {
 		return ErrAlreadyInitialised
 	}
 
-	// prep context
+	// prep context for closure of goroutines
 	ctx, cancelCtx = context.WithCancel(parentContext)
 
+	// prep waitgroup for clean closure of goroutines
 	statsWg = sync.WaitGroup{}
+
+	// init prometheus registry
+	promRegistry = prometheus.NewRegistry()
+
+	// init global prom collectors
+	err := registerGlobalCollectors(promRegistry)
+	if err != nil {
+		return err
+	}
+
+	// register per-feeder prom metrics
+	err = registerPerFeederCounterVecs(promRegistry)
+	if err != nil {
+		return err
+	}
 
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
@@ -658,12 +630,6 @@ func Init(parentContext context.Context, addr string) error {
 		defer statsWg.Done()
 		statsEvictor()
 	}()
-
-	// register per-feeder prom metrics
-	err := registerPerFeederCounterVecs()
-	if err != nil {
-		return err
-	}
 
 	// init NATS
 	if nats_io.IsConnected() {
@@ -724,9 +690,14 @@ func Close() error {
 	// cancel context
 	cancelCtx()
 
-	// delete prom metrics
-	prometheus.Unregister(promFeederDataInBytesTotal)
-	prometheus.Unregister(promFeederDataOutBytesTotal)
+	// unregister all prom metrics
+	promCollectorsMu.RLock()
+	defer promCollectorsMu.RUnlock()
+	for _, c := range promCollectors {
+		if !promRegistry.Unregister(*c) {
+			log.Error().Any("c", *c).Msg("could not unregister prom collector")
+		}
+	}
 
 	// close stats http server
 	log.Trace().Msg("srv.Close")
