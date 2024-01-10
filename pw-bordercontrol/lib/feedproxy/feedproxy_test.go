@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 )
@@ -60,23 +59,23 @@ func TestFeedProxy(t *testing.T) {
 
 		t.Run("GetConnectionNumber", func(t *testing.T) {
 			_, err := GetConnectionNumber()
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 		t.Run("ProxyConnection.Start", func(t *testing.T) {
 			ctx := context.Background()
 			c := ProxyConnection{}
 			err := c.Start(ctx)
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 		t.Run("ProxyConnection.Stop", func(t *testing.T) {
 			c := ProxyConnection{}
 			err := c.Stop()
-			assert.Error(t, err)
-			assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+			require.Error(t, err)
+			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
 	})
@@ -87,7 +86,7 @@ func TestFeedProxy(t *testing.T) {
 			ATCUrl:          "\n", // ASCII control character in URL is invalid
 		}
 		err := Init(&c)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	feedProxyConf := FeedProxyConfig{
@@ -96,7 +95,7 @@ func TestFeedProxy(t *testing.T) {
 
 	t.Run("initialise feedproxy subsystem", func(t *testing.T) {
 		err := Init(&feedProxyConf)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test connection tracker", func(t *testing.T) {
@@ -106,27 +105,27 @@ func TestFeedProxy(t *testing.T) {
 
 		// first connection, should work
 		cn, err := GetConnectionNumber()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = i.check(srcIP, cn)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// second connection, should work
 		cn, err = GetConnectionNumber()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = i.check(srcIP, cn)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// third connection, should work
 		cn, err = GetConnectionNumber()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = i.check(srcIP, cn)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// fourth connection, should fail
 		cn, err = GetConnectionNumber()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = i.check(srcIP, cn)
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		// wait for evictor
 		time.Sleep(time.Second * 15)
@@ -145,50 +144,50 @@ func TestFeedProxy(t *testing.T) {
 
 		// fourth connection, should now work
 		cn, err = GetConnectionNumber()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = i.check(srcIP, cn)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("test feedersGaugeFunc", func(t *testing.T) {
-		assert.Equal(t, float64(1), feedersGaugeFunc())
+		require.Equal(t, float64(1), feedersGaugeFunc())
 	})
 
 	t.Run("test isValidApiKey", func(t *testing.T) {
-		assert.True(t, isValidApiKey(TestFeederAPIKey))
-		assert.False(t, isValidApiKey(uuid.New()))
+		require.True(t, isValidApiKey(TestFeederAPIKey))
+		require.False(t, isValidApiKey(uuid.New()))
 	})
 
 	t.Run("test getFeederInfo", func(t *testing.T) {
 		f := feederClient{clientApiKey: TestFeederAPIKey}
 		err := getFeederInfo(&f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		f = feederClient{clientApiKey: uuid.New()}
 		err = getFeederInfo(&f)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("lookupContainerTCP", func(t *testing.T) {
 		n, err := lookupContainerTCP("localhost", 8080)
-		assert.NoError(t, err)
-		assert.Equal(t, "127.0.0.1", n.IP.String())
-		assert.Equal(t, 8080, n.Port)
+		require.NoError(t, err)
+		require.Equal(t, "127.0.0.1", n.IP.String())
+		require.Equal(t, 8080, n.Port)
 
 		_, err = lookupContainerTCP("invalid.invalid", 8080)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("dialContainerTCP error dialling", func(t *testing.T) {
 		l, err := nettest.NewLocalListener("tcp4")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		ip := strings.Split(l.Addr().String(), ":")[0]
 		port, err := strconv.Atoi(strings.Split(l.Addr().String(), ":")[1])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = l.Close()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		_, err = dialContainerTCP(ip, port)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("dialContainerTCP", func(t *testing.T) {
@@ -202,7 +201,7 @@ func TestFeedProxy(t *testing.T) {
 		t.Cleanup(func() {
 			listener.Close()
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// set up test server
 		wg.Add(1)
@@ -211,14 +210,14 @@ func TestFeedProxy(t *testing.T) {
 			buf := make([]byte, len(testData))
 
 			conn, err := listener.Accept()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				conn.Close()
 			})
 
 			n, err := readFromClient(conn, buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 
 			t.Run("authenticateFeeder working", func(t *testing.T) {
 				// override functions for testing
@@ -227,13 +226,13 @@ func TestFeedProxy(t *testing.T) {
 				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
 
 				fc, err := authenticateFeeder(conn)
-				assert.NoError(t, err)
-				assert.Equal(t, TestFeederAPIKey, fc.clientApiKey)
-				assert.Equal(t, TestFeederLatitude, fc.refLat)
-				assert.Equal(t, TestFeederLongitude, fc.refLon)
-				assert.Equal(t, TestFeederMux, fc.mux)
-				assert.Equal(t, TestFeederLabel, fc.label)
-				assert.Equal(t, TestFeederCode, fc.feederCode)
+				require.NoError(t, err)
+				require.Equal(t, TestFeederAPIKey, fc.clientApiKey)
+				require.Equal(t, TestFeederLatitude, fc.refLat)
+				require.Equal(t, TestFeederLongitude, fc.refLon)
+				require.Equal(t, TestFeederMux, fc.mux)
+				require.Equal(t, TestFeederLabel, fc.label)
+				require.Equal(t, TestFeederCode, fc.feederCode)
 			})
 
 			t.Run("authenticateFeeder getUUIDfromSNI error", func(t *testing.T) {
@@ -245,7 +244,7 @@ func TestFeedProxy(t *testing.T) {
 				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
 
 				_, err = authenticateFeeder(conn)
-				assert.Error(t, err)
+				require.Error(t, err)
 			})
 
 			t.Run("authenticateFeeder handshakeComplete error", func(t *testing.T) {
@@ -255,7 +254,7 @@ func TestFeedProxy(t *testing.T) {
 				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
 
 				_, err = authenticateFeeder(conn)
-				assert.Error(t, err)
+				require.Error(t, err)
 			})
 
 			t.Run("authenticateFeeder isValidApiKey error", func(t *testing.T) {
@@ -267,7 +266,7 @@ func TestFeedProxy(t *testing.T) {
 				RegisterFeederWithStats = func(f stats.FeederDetails) error { return nil }
 
 				_, err = authenticateFeeder(conn)
-				assert.Error(t, err)
+				require.Error(t, err)
 			})
 
 			t.Run("authenticateFeeder stats error", func(t *testing.T) {
@@ -277,14 +276,14 @@ func TestFeedProxy(t *testing.T) {
 				RegisterFeederWithStats = func(f stats.FeederDetails) error { return errors.New("injected error for testing") }
 
 				_, err = authenticateFeeder(conn)
-				assert.Error(t, err)
+				require.Error(t, err)
 			})
 
 			conn.Close()
 
 			t.Run("readFromClient error", func(t *testing.T) {
 				_, err := readFromClient(conn, buf)
-				assert.Error(t, err)
+				require.Error(t, err)
 			})
 
 			wg.Done()
@@ -292,114 +291,29 @@ func TestFeedProxy(t *testing.T) {
 
 		ip := strings.Split(listener.Addr().String(), ":")[0]
 		port, err := strconv.Atoi(strings.Split(listener.Addr().String(), ":")[1])
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		conn, err := dialContainerTCP(ip, port)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		t.Cleanup(func() {
 			conn.Close()
 		})
 
 		n, err := conn.Write([]byte(testData))
-		assert.NoError(t, err)
-		assert.Equal(t, len(testData), n)
+		require.NoError(t, err)
+		require.Equal(t, len(testData), n)
 
 		wg.Wait()
 
 		t.Run("lookupContainerTCP error", func(t *testing.T) {
 			_, err := dialContainerTCP("invalid.invalid", 8080)
-			assert.Error(t, err)
+			require.Error(t, err)
 		})
 
 	})
 
 	// ---
 	t.Run("ProxyConnection", func(t *testing.T) {
-
-		// t.Run("error too-frequent incoming connections", func(t *testing.T) {
-
-		// 	wg := sync.WaitGroup{}
-
-		// 	conn1, conn2 := net.Pipe()
-		// 	t.Cleanup(func() {
-		// 		conn1.Close()
-		// 	})
-		// 	t.Cleanup(func() {
-		// 		conn2.Close()
-		// 	})
-		// 	conn3, conn4 := net.Pipe()
-		// 	t.Cleanup(func() {
-		// 		conn3.Close()
-		// 	})
-		// 	t.Cleanup(func() {
-		// 		conn4.Close()
-		// 	})
-
-		// 	c1 := ProxyConnection{
-		// 		Connection:                  conn1,
-		// 		ConnectionProtocol:          feedprotocol.MLAT,
-		// 		FeedInContainerPrefix:       "test-feed-in-",
-		// 		FeederValidityCheckInterval: time.Second * 5,
-		// 	}
-
-		// 	c2 := ProxyConnection{
-		// 		Connection:                  conn2,
-		// 		ConnectionProtocol:          feedprotocol.MLAT,
-		// 		FeedInContainerPrefix:       "test-feed-in-",
-		// 		FeederValidityCheckInterval: time.Second * 5,
-		// 	}
-
-		// 	c3 := ProxyConnection{
-		// 		Connection:                  conn3,
-		// 		ConnectionProtocol:          feedprotocol.MLAT,
-		// 		FeedInContainerPrefix:       "test-feed-in-",
-		// 		FeederValidityCheckInterval: time.Second * 5,
-		// 	}
-
-		// 	c4 := ProxyConnection{
-		// 		Connection:                  conn4,
-		// 		ConnectionProtocol:          feedprotocol.MLAT,
-		// 		FeedInContainerPrefix:       "test-feed-in-",
-		// 		FeederValidityCheckInterval: time.Second * 5,
-		// 	}
-
-		// 	// make connections
-		// 	wg.Add(1)
-		// 	go func(t *testing.T) {
-		// 		_ = c1.Start()
-		// 		t.Cleanup(func() {
-		// 			c1.Stop()
-		// 		})
-		// 		wg.Done()
-		// 	}(t)
-		// 	wg.Add(1)
-		// 	go func(t *testing.T) {
-		// 		_ = c2.Start()
-		// 		t.Cleanup(func() {
-		// 			c2.Stop()
-		// 		})
-		// 		wg.Done()
-		// 	}(t)
-		// 	wg.Add(1)
-		// 	go func(t *testing.T) {
-		// 		_ = c3.Start()
-		// 		t.Cleanup(func() {
-		// 			c3.Stop()
-		// 		})
-		// 		wg.Done()
-		// 	}(t)
-		// 	wg.Add(1)
-		// 	go func(t *testing.T) {
-		// 		err := c4.Start()
-		// 		assert.Error(t, err)
-		// 		fmt.Println(err)
-		// 		t.Cleanup(func() {
-		// 			c4.Stop()
-		// 		})
-		// 		wg.Done()
-		// 	}(t)
-		// 	wg.Wait()
-		// })
 
 		t.Run("MLAT", func(t *testing.T) {
 
@@ -437,7 +351,7 @@ func TestFeedProxy(t *testing.T) {
 
 			// create server
 			server, err := net.Listen("tcp4", tmpListener.Addr().String())
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				server.Close()
 			})
@@ -449,7 +363,7 @@ func TestFeedProxy(t *testing.T) {
 				buf := make([]byte, len(testData))
 
 				sconn, err := server.Accept()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				t.Log("server accepts connection")
 				t.Cleanup(func() {
 					sconn.Close()
@@ -457,16 +371,16 @@ func TestFeedProxy(t *testing.T) {
 
 				t.Log("server sets deadline")
 				err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				n, err := readFromClient(sconn, buf)
-				assert.NoError(t, err)
-				assert.Equal(t, len(testData), n)
+				require.NoError(t, err)
+				require.Equal(t, len(testData), n)
 				t.Logf("server read from client: %s", string(buf[:n]))
 
 				n, err = sconn.Write(buf)
-				assert.NoError(t, err)
-				assert.Equal(t, len(testData), n)
+				require.NoError(t, err)
+				require.Equal(t, len(testData), n)
 				t.Logf("server write to client: %s", string(buf[:n]))
 
 				testsFinished <- true
@@ -480,7 +394,7 @@ func TestFeedProxy(t *testing.T) {
 
 			// create listener
 			listener, err := nettest.NewLocalListener("tcp")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				listener.Close()
 			})
@@ -490,19 +404,19 @@ func TestFeedProxy(t *testing.T) {
 			go func(t *testing.T) {
 
 				lconn, err := listener.Accept()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				t.Log("listener accepts connection")
 				t.Cleanup(func() {
 					lconn.Close()
 				})
 
 				err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				t.Log("listener sets deadline")
 
 				t.Log("listener GetConnectionNumber")
 				connNum, err := GetConnectionNumber()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				c := ProxyConnection{
 					Connection:                  lconn,
@@ -518,7 +432,7 @@ func TestFeedProxy(t *testing.T) {
 				err = c.Start(ctx)
 
 				t.Log("proxy returns")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				testsFinished <- true
 				_ = <-stopListener
@@ -534,25 +448,25 @@ func TestFeedProxy(t *testing.T) {
 			// start client
 			t.Log("client dials listener")
 			conn, err := net.Dial("tcp", listener.Addr().String())
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				conn.Close()
 			})
 			time.Sleep(time.Second)
 
 			err = conn.SetDeadline(time.Now().Add(time.Second * 30))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			n, err := conn.Write([]byte(testData))
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 			t.Logf("client writes data: %s", testData)
 			time.Sleep(time.Second)
 
 			buf := make([]byte, len(testData))
 			n, err = conn.Read(buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 			t.Logf("client reads data: %s", string(buf[:n]))
 			time.Sleep(time.Second)
 
@@ -638,7 +552,7 @@ func TestFeedProxy(t *testing.T) {
 
 			// create server
 			server, err := nettest.NewLocalListener("tcp4")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				server.Close()
 			})
@@ -650,7 +564,7 @@ func TestFeedProxy(t *testing.T) {
 				buf := make([]byte, len(testData))
 
 				sconn, err := server.Accept()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				t.Log("server accepts connection")
 				t.Cleanup(func() {
 					sconn.Close()
@@ -658,11 +572,11 @@ func TestFeedProxy(t *testing.T) {
 
 				t.Log("server sets deadline")
 				err = sconn.SetDeadline(time.Now().Add(time.Second * 30))
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				n, err := readFromClient(sconn, buf)
-				assert.NoError(t, err)
-				assert.Equal(t, len(testData), n)
+				require.NoError(t, err)
+				require.Equal(t, len(testData), n)
 				t.Logf("server read from client: %s", string(buf[:n]))
 
 				testsFinished <- true
@@ -676,7 +590,7 @@ func TestFeedProxy(t *testing.T) {
 
 			// create listener
 			listener, err := nettest.NewLocalListener("tcp")
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				listener.Close()
 			})
@@ -686,19 +600,19 @@ func TestFeedProxy(t *testing.T) {
 			go func(t *testing.T) {
 
 				lconn, err := listener.Accept()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				t.Log("listener accepts connection")
 				t.Cleanup(func() {
 					lconn.Close()
 				})
 
 				err = lconn.SetDeadline(time.Now().Add(time.Second * 30))
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				t.Log("listener sets deadline")
 
 				t.Log("listener GetConnectionNumber")
 				connNum, err := GetConnectionNumber()
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				// redirect connection to feed-in container to test server
 				dialContainerTCPWrapper = func(addr string, port int) (c *net.TCPConn, err error) {
@@ -723,7 +637,7 @@ func TestFeedProxy(t *testing.T) {
 				t.Log("listener starts proxy")
 				err = c.Start(ctx)
 				t.Log("proxy returns")
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				testsFinished <- true
 				_ = <-stopListener
@@ -739,18 +653,18 @@ func TestFeedProxy(t *testing.T) {
 			// start client
 			t.Log("client dials listener")
 			conn, err := net.Dial("tcp", listener.Addr().String())
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			t.Cleanup(func() {
 				conn.Close()
 			})
 			time.Sleep(time.Second)
 
 			err = conn.SetDeadline(time.Now().Add(time.Second * 30))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			n, err := conn.Write([]byte(testData))
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 			t.Logf("client writes data: %s", testData)
 			time.Sleep(time.Second)
 
@@ -814,7 +728,7 @@ func TestFeedProxy(t *testing.T) {
 			})
 
 			connNum, err := GetConnectionNumber()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			ctx := context.Background()
 
@@ -838,14 +752,14 @@ func TestFeedProxy(t *testing.T) {
 			}(t)
 
 			n, err := conn1.Write([]byte(testData))
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 
 			buf := make([]byte, len(testData))
 			n, err = conn4.Read(buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
-			assert.Equal(t, []byte(testData), buf)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
+			require.Equal(t, []byte(testData), buf)
 
 			wg.Wait()
 
@@ -879,7 +793,7 @@ func TestFeedProxy(t *testing.T) {
 			})
 
 			connNum, err := GetConnectionNumber()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			lastAuthCheck := time.Now()
 
@@ -904,14 +818,14 @@ func TestFeedProxy(t *testing.T) {
 			}(t)
 
 			n, err := conn4.Write([]byte(testData))
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
 
 			buf := make([]byte, len(testData))
 			n, err = conn1.Read(buf)
-			assert.NoError(t, err)
-			assert.Equal(t, len(testData), n)
-			assert.Equal(t, []byte(testData), buf)
+			require.NoError(t, err)
+			require.Equal(t, len(testData), n)
+			require.Equal(t, []byte(testData), buf)
 
 			wg.Wait()
 
@@ -927,7 +841,7 @@ func TestFeedProxy(t *testing.T) {
 
 		for n := 0; n <= 100; n++ {
 			_, err := GetConnectionNumber()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 		incomingConnTracker.mu.Lock()
@@ -946,7 +860,7 @@ func TestFeedProxy(t *testing.T) {
 
 		for n := 0; n <= 100; n++ {
 			_, err := GetConnectionNumber()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 	})
 
