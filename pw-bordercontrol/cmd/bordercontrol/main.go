@@ -345,21 +345,7 @@ func runServer(cliContext *cli.Context) error {
 	go func() {
 		defer wg.Done()
 		// listen until context close
-		for {
-			l, err := listener.NewListener(cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"), 12345)
-			if err != nil {
-				log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Str("addr", cliContext.String("listenbeast")).Msg("error creating listener")
-			}
-			err = l.Run(ctx)
-			if err != nil {
-				log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
-			}
-			select {
-			case <-ctx.Done(): // exit on context closure
-				return
-			case <-time.After(time.Second): // if there's a problem, slow down restarting
-			}
-		}
+		listenWithContext(ctx, cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"), 12345)
 	}()
 
 	// start listening for incoming MLAT connections
@@ -367,21 +353,7 @@ func runServer(cliContext *cli.Context) error {
 	go func() {
 		defer wg.Done()
 		// listen until context close
-		for {
-			l, err := listener.NewListener(cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"), 12346)
-			if err != nil {
-				log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Str("addr", cliContext.String("listenmlat")).Msg("error creating listener")
-			}
-			err = l.Run(ctx)
-			if err != nil {
-				log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
-			}
-			select {
-			case <-ctx.Done(): // exit on context closure
-				return
-			case <-time.After(time.Second): // if there's a problem, slow down restarting
-			}
-		}
+		listenWithContext(ctx, cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"), 12346)
 	}()
 
 	// serve until context closure
@@ -412,4 +384,22 @@ func runServer(cliContext *cli.Context) error {
 	}
 
 	return nil
+}
+
+func listenWithContext(ctx context.Context, listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, InnerConnectionPort int) {
+	for {
+		l, err := listener.NewListener(listenAddr, proto, feedInContainerPrefix, InnerConnectionPort)
+		if err != nil {
+			log.Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("error creating listener")
+		}
+		err = l.Run(ctx)
+		if err != nil {
+			log.Err(err).Str("proto", proto.Name()).Msg("error with listener")
+		}
+		select {
+		case <-ctx.Done(): // exit on context closure
+			return
+		case <-time.After(time.Second): // if there's a problem, slow down restarting
+		}
+	}
 }

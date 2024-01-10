@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
+	"pw_bordercontrol/lib/feedprotocol"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/net/nettest"
 )
 
 func TestDFWTB(t *testing.T) {
@@ -35,4 +39,26 @@ func TestLogNumGoroutines(t *testing.T) {
 	time.Sleep(time.Second * 2)
 	sc <- true
 	wg.Wait()
+}
+
+func TestListenWithContext(t *testing.T) {
+
+	tmpListener, err := nettest.NewLocalListener("tcp4")
+	require.NoError(t, err)
+
+	err = tmpListener.Close()
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	listenWithContext(
+		ctx,
+		tmpListener.Addr().String(),
+		feedprotocol.BEAST,
+		"test-feed-in-",
+		12345,
+	)
+
+	cancel()
+
 }
