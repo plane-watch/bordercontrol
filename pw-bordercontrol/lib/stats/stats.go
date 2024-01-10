@@ -620,6 +620,8 @@ func Init(parentContext context.Context, addr string) error {
 		return err
 	}
 
+	log.Trace().Msg("post registration")
+
 	// init stats variable
 	stats.Feeders = make(map[uuid.UUID]FeederStats)
 
