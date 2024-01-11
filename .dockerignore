@@ -1,0 +1,5 @@
+.github/**
+helper_scripts/**
+*.yml
+*.example
+*.md

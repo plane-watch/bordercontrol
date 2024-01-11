@@ -1,13 +1,32 @@
+/*
+Bordercontrol provides authentication and proxying of incoming BEAST and MLAT connections.
+
+When an incoming connection is accepted, Bordercontrol will:
+
+  - Authenticate the incoming connection against ATC, based on the SNI information received as part of the TLS handshake.
+  - If BEAST, Bordercontrol will create a feed-in container for the feeder, and proxy the incoming connection through to the feed-in container.
+  - If MLAT, Bordercontrol will proxy the incoming connection through to the MLAT server identified by ATC.
+
+Bordercontrol provides statistics via:
+
+  - REST API
+  - Prometheus endpoint
+  - NATS requests
+
+Bordercontrol can be controlled via:
+
+  - Signals (SIGHUP, SIGUSR1, SIGTERM)
+  - NATS requests
+*/
 package main
 
 import (
+	"context"
 	"fmt"
-	"net"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/debug"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -15,7 +34,9 @@ import (
 	"pw_bordercontrol/lib/containers"
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/feedproxy"
+	"pw_bordercontrol/lib/listener"
 	"pw_bordercontrol/lib/logging"
+	"pw_bordercontrol/lib/nats_io"
 	"pw_bordercontrol/lib/stats"
 	"pw_bordercontrol/lib/stunnel"
 
@@ -45,109 +66,150 @@ const (
 )
 
 var (
-	// main app settings
+	// App config, command line & env var configuration
 	app = cli.App{
-		Version: "0.0.1",
-		Name:    "Plane Watch Feeder Endpoint",
-		Usage:   "Server for multiple stunnel-based endpoints",
+		Version: "0.0.2",
+		Name:    "plane.watch bordercontrol",
+		Usage:   "Proxy for multiple stunnel-based BEAST & MLAT endpoints",
 		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
 			`authenticates the feeder based on API key (UUID) check against atc.plane.watch, ` +
 			`routes data to feed-in containers.`,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "listenbeast",
-				Usage:   "Address and TCP port to listen on for BEAST connections",
-				Value:   "0.0.0.0:12345", // insert Spaceballs joke here
-				EnvVars: []string{"BC_LISTEN_BEAST"},
+				Category: "Network",
+				Name:     "listenbeast",
+				Usage:    "Address and TCP port to listen on for BEAST connections",
+				Value:    ":12345", // insert Spaceballs joke here
+				EnvVars:  []string{"BC_LISTEN_BEAST"},
 			},
 			&cli.StringFlag{
-				Name:    "listenmlat",
-				Usage:   "Address and TCP port to listen on for MLAT connections",
-				Value:   "0.0.0.0:12346",
-				EnvVars: []string{"BC_LISTEN_MLAT"},
+				Category: "Network",
+				Name:     "listenmlat",
+				Usage:    "Address and TCP port to listen on for MLAT connections",
+				Value:    ":12346",
+				EnvVars:  []string{"BC_LISTEN_MLAT"},
 			},
 			&cli.StringFlag{
-				Name:    "listenapi",
-				Usage:   "Address and TCP port server will listen on for API, stats & Prometheus metrics",
-				Value:   "0.0.0.0:8080",
-				EnvVars: []string{"BC_LISTEN_API"},
+				Category: "Network",
+				Name:     "listenapi",
+				Usage:    "Address and TCP port server will listen on for API, stats & Prometheus metrics",
+				Value:    ":8080",
+				EnvVars:  []string{"BC_LISTEN_API"},
 			},
 			&cli.StringFlag{
+				Category: "SSL/TLS",
 				Name:     "cert",
 				Usage:    "Server certificate PEM file name (x509)",
 				Required: true,
 				EnvVars:  []string{"BC_CERT_FILE"},
 			},
 			&cli.StringFlag{
+				Category: "SSL/TLS",
 				Name:     "key",
 				Usage:    "Server certificate private key PEM file name (x509)",
 				Required: true,
 				EnvVars:  []string{"BC_KEY_FILE"},
 			},
 			&cli.StringFlag{
+				Category: "ATC API",
 				Name:     "atcurl",
 				Usage:    "URL to ATC API",
 				Required: true,
 				EnvVars:  []string{"ATC_URL"},
 			},
 			&cli.StringFlag{
+				Category: "ATC API",
 				Name:     "atcuser",
 				Usage:    "email username for ATC API",
 				Required: true,
 				EnvVars:  []string{"ATC_USER"},
 			},
 			&cli.StringFlag{
+				Category: "ATC API",
 				Name:     "atcpass",
 				Usage:    "password for ATC API",
 				Required: true,
 				EnvVars:  []string{"ATC_PASS"},
 			},
 			&cli.IntFlag{
-				Name:    "atcupdatefreq",
-				Usage:   "frequency (in minutes) for valid feeder updates from ATC",
-				Value:   1,
-				EnvVars: []string{"ATC_UPDATE_FREQ"},
+				Category: "ATC API",
+				Name:     "atcupdatefreq",
+				Usage:    "frequency (in minutes) for valid feeder updates from ATC",
+				Value:    1,
+				EnvVars:  []string{"ATC_UPDATE_FREQ"},
 			},
 			&cli.StringFlag{
-				Name:    "feedinimage",
-				Usage:   "feed-in image name",
-				Value:   "feed-in",
-				EnvVars: []string{"FEED_IN_IMAGE"},
+				Category: "Docker Environmemt",
+				Name:     "feedinimage",
+				Usage:    "feed-in image name",
+				Value:    "feed-in",
+				EnvVars:  []string{"FEED_IN_IMAGE"},
 			},
 			&cli.StringFlag{
-				Name:    "feedincontainerprefix",
-				Usage:   "feed-in container prefix",
-				Value:   "feed-in-",
-				EnvVars: []string{"FEED_IN_CONTAINER_PREFIX"},
+				Category: "Docker Environmemt",
+				Name:     "feedincontainerprefix",
+				Usage:    "feed-in container prefix",
+				Value:    "feed-in-",
+				EnvVars:  []string{"FEED_IN_CONTAINER_PREFIX"},
 			},
 			&cli.StringFlag{
-				Name:    "feedincontainernetwork",
-				Usage:   "feed-in container network",
-				Value:   "bordercontrol_feeder",
-				EnvVars: []string{"FEED_IN_CONTAINER_NETWORK"},
+				Category: "Docker Environmemt",
+				Name:     "feedincontainernetwork",
+				Usage:    "feed-in container network",
+				Value:    "bordercontrol_feeder",
+				EnvVars:  []string{"FEED_IN_CONTAINER_NETWORK"},
+			},
+			&cli.PathFlag{
+				Category: "Docker Environment",
+				Name:     "feedinimagecontext",
+				Usage:    "feed-in-image build context",
+				Value:    "/opt/pw-feed-in/",
+				EnvVars:  []string{"FEED_IN_BUILD_CONTEXT"},
 			},
 			&cli.StringFlag{
+				Category: "Docker Environment",
+				Name:     "feedinimagedockerfile",
+				Usage:    "feed-in-image build Dockerfile (relative to context)",
+				Value:    "Dockerfile.feeder",
+				EnvVars:  []string{"FEED_IN_BUILD_DOCKERFILE"},
+			},
+			&cli.StringFlag{
+				Category: "NATS",
 				Name:     "pwingestpublish",
 				Usage:    "pw_ingest --sink setting in feed-in containers",
 				Required: true,
 				EnvVars:  []string{"PW_INGEST_SINK"},
 			},
+			&cli.StringFlag{
+				Category: "NATS",
+				Name:     "natsurl",
+				Usage:    "NATS URL for stats/control",
+				Value:    "",
+				EnvVars:  []string{"NATS"},
+			},
+			&cli.StringFlag{
+				Category: "NATS_INSTANCE",
+				Name:     "natsinstance",
+				Usage:    "NATS instance ID (will be put into header of responses). Default: hostname",
+				Value:    "",
+				EnvVars:  []string{"NATS_INSTANCE"},
+			},
 		},
 	}
 
-	// allow override of these functions to simplify testing
-	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
-		return stunnel.NewListener(network, laddr)
-	}
-	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection) error {
-		return f.Start()
-	}
-	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
-		return feedproxy.GetConnectionNumber()
-	}
+	// When app was started. To calculate uptime.
+	startTime time.Time
 )
 
+// main initialises the application, before RunServer is called.
 func main() {
+
+	// record start time
+	startTime = time.Now()
+
+	// add extra stuff to version
+	commitHash, commitTime := getRepoInfo()
+	app.Version = fmt.Sprintf("%s (%s), %s", app.Version, commitHash, commitTime)
 
 	// set action when run
 	app.Action = runServer
@@ -157,18 +219,20 @@ func main() {
 	logging.ConfigureForCli()
 
 	// run & final exit
-	if err := app.Run(os.Args); nil != err {
-		log.Err(err).Msg("Finishing with an error")
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Err(err).Msg("finished with error")
 		os.Exit(1)
+	} else {
+		log.Info().Msg("finished without error")
+		os.Exit(0)
 	}
 }
 
+// getRepoInfo returns the git commit hash and commit time of the bordercontrol repo as strings.
 func getRepoInfo() (commitHash, commitTime string) {
-	// returns commit hash and commit time
-
 	commitHash = "unknown"
 	commitTime = "unknown"
-
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.revision" {
@@ -178,7 +242,6 @@ func getRepoInfo() (commitHash, commitTime string) {
 			}
 		}
 	}
-
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.time" {
@@ -186,11 +249,13 @@ func getRepoInfo() (commitHash, commitTime string) {
 			}
 		}
 	}
-
 	return commitHash, commitTime
 }
 
-func logNumGoroutines(freq time.Duration, stopChan chan bool) {
+// logNumGoroutines will log the number of goroutines at debug level.
+// The number of goroutines will be logged every freq.
+// The context ctx can be used to end this function.
+func logNumGoroutines(ctx context.Context, freq time.Duration) {
 	last := runtime.NumGoroutine()
 	for {
 		select {
@@ -199,188 +264,183 @@ func logNumGoroutines(freq time.Duration, stopChan chan bool) {
 			now := runtime.NumGoroutine()
 			log.Debug().Int("goroutines", now).Int("delta", now-last).Msg("number of goroutines")
 			last = now
-		case <-stopChan:
+		case <-ctx.Done():
+			log.Debug().Msg("shutting down logNumGoroutines")
 			return
 		}
 	}
 }
 
-func prepListenerConfig(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string) *listenConfig {
-	// prep config
-	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
-	if ip == nil {
-		log.Fatal().Str("proto", proto.Name()).Str("addr", listenAddr).Msg("invalid listen address")
-	}
-	port, err := strconv.Atoi(strings.Split(listenAddr, ":")[1])
-	if err != nil {
-		log.Fatal().Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("invalid listen port")
-	}
-	return &listenConfig{
-		listenProto: proto,
-		listenAddr: net.TCPAddr{
-			IP:   ip,
-			Port: port,
-			Zone: "",
-		},
-		feedInContainerPrefix: feedInContainerPrefix,
+// listenWithContext runs listener.NewListener until context ctx is cancelled.
+// listenAddr is the local ip:port to listen on for incomming connections.
+// proto is the protocol, defined in lib/feedprotocol.
+// feedInContainerPrefix is the prefix used for feed-in containers (for BEAST connections).
+// innerConnectionPort is the destination port for the feed-in container or MLAT sever.
+func listenWithContext(ctx context.Context, listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, innerConnectionPort int) {
+	for {
+		l, err := listener.NewListener(listenAddr, proto, feedInContainerPrefix, innerConnectionPort)
+		if err != nil {
+			log.Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("error creating listener")
+		}
+		err = l.Run(ctx)
+		if err != nil {
+			log.Err(err).Str("proto", proto.Name()).Msg("error with listener")
+		}
+		select {
+		case <-ctx.Done(): // exit on context closure
+			return
+		case <-time.After(time.Second): // if there's a problem, slow down restarting
+		}
 	}
 }
 
-func runServer(ctx *cli.Context) error {
+// runServer runs the server (duh).
+// It is run via urfave/cli/v2 app.Run in main().
+func runServer(cliContext *cli.Context) error {
+
+	// prepare waitgroup for goroutines started by this func.
+	wg := sync.WaitGroup{}
+
+	// set up context for clean exit
+	ctx := context.Background()
+	ctx, cleanExit := context.WithCancel(ctx)
+	defer cleanExit()
 
 	// Set logging level
-	logging.SetLoggingLevel(ctx)
-
-	// get commit hash and commit time from git info
-	commithash, committime := getRepoInfo()
+	logging.SetLoggingLevel(cliContext)
 
 	// initial logging
 	log.Info().Msg(banner) // show awesome banner
-	log.Info().Str("version", ctx.App.Version).Str("commithash", commithash).Str("committime", committime).Msg("bordercontrol starting")
+	log.Info().Str("version", cliContext.App.Version).Msg("bordercontrol starting")
 	log.Debug().Str("log-level", zerolog.GlobalLevel().String()).Msg("log level set")
 
-	// initialise ssl/tls subsystem
-	stunnel.Init(syscall.SIGHUP)
-
-	// load SSL cert/key
-	err := stunnel.LoadCertAndKeyFromFile(ctx.String("cert"), ctx.String("key"))
-	if err != nil {
-		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
+	// if debug then show some extra goodies
+	if zerolog.GlobalLevel() == zerolog.DebugLevel {
+		// display number active goroutines
+		go logNumGoroutines(ctx, time.Minute*5)
 	}
 
-	// display number active goroutines
-	logNumGoroutinesStopChan := make(chan bool)
-	go logNumGoroutines(time.Minute*5, logNumGoroutinesStopChan)
-
-	// start statistics manager
-	err = stats.Init(ctx.String("listenapi"))
+	// initialise nats subsystem
+	// connect to nats for control/stats/etc
+	natsConf := nats_io.NatsConfig{
+		Url:       cliContext.String("natsurl"),
+		Instance:  cliContext.String("natsinstance"),
+		Version:   cliContext.App.Version,
+		StartTime: startTime,
+	}
+	err := natsConf.Init()
 	if err != nil {
-		log.Err(err).Msg("could not start statistics manager")
+		log.Err(err).Msg("error initialising nats subsystem")
+		return err
+	}
+
+	// initialise ssl/tls subsystem
+	err = stunnel.Init(ctx, syscall.SIGHUP)
+	if err != nil {
+		log.Err(err).Msg("error starting stunnel subsystem")
+		return err
+	}
+
+	// load SSL cert/key
+	err = stunnel.LoadCertAndKeyFromFile(cliContext.String("cert"), cliContext.String("key"))
+	if err != nil {
+		log.Err(err).Msg("error loading TLS cert and/or key")
+		return err
+	}
+
+	// initialise statistics manager
+	err = stats.Init(ctx, cliContext.String("listenapi"))
+	if err != nil {
+		log.Err(err).Msg("error initialising statistics manager")
 		return err
 	}
 
 	// initialise feedproxy
-	feedProxyConf := feedproxy.FeedProxyConfig{
-		UpdateFrequency: time.Minute * time.Duration(ctx.Int("atcupdatefreq")),
-		ATCUrl:          ctx.String("atcurl"),
-		ATCUser:         ctx.String("atcuser"),
-		ATCPass:         ctx.String("atcpass"),
+	feedProxyConf := feedproxy.ProxyConfig{
+		UpdateFrequency: time.Minute * time.Duration(cliContext.Int("atcupdatefreq")),
+		ATCUrl:          cliContext.String("atcurl"),
+		ATCUser:         cliContext.String("atcuser"),
+		ATCPass:         cliContext.String("atcpass"),
 	}
-	feedproxy.Init(&feedProxyConf)
+	err = feedproxy.Init(ctx, &feedProxyConf)
+	if err != nil {
+		log.Err(err).Msg("error initialising proxy subsystem")
+		return err
+	}
 
 	// initialise container manager
 	ContainerManager := containers.ContainerManager{
-		FeedInImageName:                    ctx.String("feedinimage"),
-		FeedInContainerPrefix:              ctx.String("feedincontainerprefix"),
-		FeedInContainerNetwork:             ctx.String("feedincontainernetwork"),
+		FeedInImageName:                    cliContext.String("feedinimage"),
+		FeedInImageBuildContext:            cliContext.String("feedinimagecontext"),
+		FeedInImageBuildContextDockerfile:  cliContext.String("feedinimagedockerfile"),
+		FeedInContainerPrefix:              cliContext.String("feedincontainerprefix"),
+		FeedInContainerNetwork:             cliContext.String("feedincontainernetwork"),
 		SignalSkipContainerRecreationDelay: syscall.SIGUSR1,
-		PWIngestSink:                       ctx.String("pwingestpublish"),
+		PWIngestSink:                       cliContext.String("pwingestpublish"),
 		Logger:                             log.Logger,
 	}
-	ContainerManager.Init()
+	err = ContainerManager.Run()
+	if err != nil {
+		log.Err(err).Msg("error initialising container manager")
+		return err
+	}
 
-	wg := sync.WaitGroup{}
+	// set up channel to catch SIGTERM
+	sigTermChan := make(chan os.Signal)
+	signal.Notify(sigTermChan, syscall.SIGTERM)
+
+	// handle SIGTERM
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// wait for SIGTERM
+		_ = <-sigTermChan
+		log.Info().Msg("received SIGTERM")
+		// close main context
+		cleanExit()
+	}()
 
 	// start listening for incoming BEAST connections
 	wg.Add(1)
 	go func() {
-		// listen forever
-		for {
-			err := listener(prepListenerConfig(ctx.String("listenbeast"), feedprotocol.BEAST, ctx.String("feedincontainerprefix")))
-			log.Err(err).Str("proto", feedprotocol.ProtocolNameBEAST).Msg("error with listener")
-			time.Sleep(time.Second) // if there's a problem, slow down restarting
-		}
-		wg.Done()
+		defer wg.Done()
+		// listen until context close
+		listenWithContext(ctx, cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"), 12345)
 	}()
 
 	// start listening for incoming MLAT connections
 	wg.Add(1)
 	go func() {
-		// listen forever
-		for {
-			err := listener(prepListenerConfig(ctx.String("listenmlat"), feedprotocol.MLAT, ctx.String("feedincontainerprefix")))
-			log.Err(err).Str("proto", feedprotocol.ProtocolNameMLAT).Msg("error with listener")
-			time.Sleep(time.Second) // if there's a problem, slow down restarting
-		}
-		wg.Done()
+		defer wg.Done()
+		// listen until context close
+		listenWithContext(ctx, cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"), 12346)
 	}()
 
-	// serve forever
+	// wait for listeners to finish (until context closure)
 	wg.Wait()
 
-	return nil
-}
-
-type listenConfig struct {
-	listenProto           feedprotocol.Protocol // Protocol handled by the listener
-	listenAddr            net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
-	feedInContainerPrefix string
-
-	stop   bool
-	stopMu sync.RWMutex
-}
-
-func listener(conf *listenConfig) error {
-	// incoming connection listener
-
-	protoName, err := feedprotocol.GetName(conf.listenProto)
+	// stop container manager
+	err = ContainerManager.Stop()
 	if err != nil {
-		return err
+		log.Err(err).Msg("error stopping container manager")
 	}
 
-	log := log.With().
-		Str("proto", protoName).
-		Str("ip", conf.listenAddr.IP.String()).
-		Int("port", conf.listenAddr.Port).
-		Logger()
-
-	// start TLS server
-	log.Info().Msg("starting listener")
-	stunnelListener, err := stunnelNewListenerWrapper(
-		"tcp",
-		fmt.Sprintf("%s:%d", conf.listenAddr.IP.String(), conf.listenAddr.Port),
-	)
+	// stop stats subsystem
+	err = stats.Close()
 	if err != nil {
-		log.Err(err).Msg("error staring listener")
-		return err
+		log.Err(err).Msg("error stopping statistics subsystem")
 	}
-	defer stunnelListener.Close()
 
-	// handle incoming connections
-	for {
+	// stop stunnel subsystem
+	err = stunnel.Close()
+	if err != nil {
+		log.Err(err).Msg("error stopping stunnel subsystem")
+	}
 
-		// quit if directed
-		conf.stopMu.RLock()
-		if conf.stop {
-			conf.stopMu.RUnlock()
-			return nil
-		}
-		conf.stopMu.RUnlock()
-
-		// accept incoming connection
-		conn, err := stunnelListener.Accept()
-		if err != nil {
-			log.Err(err).Msg("error accepting connection")
-			return err
-		}
-
-		// prep proxy config
-		connNum, err := feedproxyGetConnectionNumberWrapper()
-		if err != nil {
-			log.Err(err).Msg("could not get connection number")
-			return err
-		}
-		proxyConn := feedproxy.ProxyConnection{
-			Connection:                  conn,
-			ConnectionProtocol:          conf.listenProto,
-			ConnectionNumber:            connNum,
-			FeedInContainerPrefix:       conf.feedInContainerPrefix,
-			Logger:                      log,
-			FeederValidityCheckInterval: time.Second * 60,
-		}
-
-		// initiate proxying of the connection
-		go proxyConnStartWrapper(&proxyConn)
+	// stop nats subsystem
+	err = natsConf.Close()
+	if err != nil {
+		log.Err(err).Msg("error stopping nats subsystem")
 	}
 
 	return nil

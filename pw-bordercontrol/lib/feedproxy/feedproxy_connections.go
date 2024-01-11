@@ -1,6 +1,7 @@
 package feedproxy
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -27,7 +28,9 @@ type (
 		connections      []incomingConnection
 		connectionNumber uint // to allocate connection numbers
 	}
-	incomingConnection struct { // used to limit the number of connections over time from a single source IP
+
+	// used to limit the number of connections over time from a single source IP
+	incomingConnection struct {
 		srcIP    net.IP
 		connTime time.Time
 		connNum  uint
@@ -88,12 +91,6 @@ func GetConnectionNumber() (num uint, err error) {
 func (t *incomingConnectionTracker) getNum() (num uint) {
 	// return a non-duplicate connection number
 
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "getNum"}).
-	// 	Logger()
-
-	// log.Trace().Msg("started")
-
 	var dupe bool
 
 	t.mu.Lock()
@@ -107,18 +104,11 @@ func (t *incomingConnectionTracker) getNum() (num uint) {
 			t.connectionNumber++
 		}
 
-		// log.Trace().
-		// 	Uint("connectionNumber", t.connectionNumber).
-		// 	Msg("checking for duplicate connection number")
-
 		// is the connection number already in use
 		dupe = false
 		for _, c := range t.connections {
 			if t.connectionNumber == c.connNum {
 				dupe = true
-				// log.Trace().
-				// 	Uint("connectionNumber", t.connectionNumber).
-				// 	Msg("duplicate connection number!")
 				break
 			}
 		}
@@ -129,21 +119,11 @@ func (t *incomingConnectionTracker) getNum() (num uint) {
 		}
 	}
 
-	// log.Trace().
-	// 	Uint("connectionNumber", t.connectionNumber).
-	// 	Msg("finished")
-
 	return t.connectionNumber
 }
 
 func (t *incomingConnectionTracker) evict() {
 	// evicts connections from the tracker if older than 10 seconds
-
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "evict"}).
-	// 	Logger()
-
-	// log.Trace().Msg("started")
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -163,10 +143,6 @@ func (t *incomingConnectionTracker) evict() {
 	}
 	t.connections = t.connections[:i]
 
-	// log.Trace().
-	// 	Int("active_connections", i).
-	// 	Int("evicted_connections", evictedConnections).
-	// 	Msg("finished")
 }
 
 func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error) {
@@ -174,14 +150,6 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 	// allows 'maxIncomingConnectionRequestsPerProto' connections every 10 seconds
 
 	var connCount uint
-
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "check"}).
-	// 	IPAddr("srcIP", srcIP).
-	// 	Uint("connNum", connNum).
-	// 	Logger()
-
-	// log.Trace().Msg("started")
 
 	// count number of connections from this source IP
 	t.mu.RLock()
@@ -191,16 +159,10 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		}
 	}
 	t.mu.RUnlock()
-	// log.Trace().
-	// 	Uint("connCount", connCount).
-	// 	Msg("connections from this source")
 
 	if connCount >= maxIncomingConnectionRequestsPerSrcIP {
 		// if connecting too frequently, raise an error
-		err = errors.New(fmt.Sprintf("more than %d connections from src within a %d second period",
-			maxIncomingConnectionRequestsPerSrcIP,
-			maxIncomingConnectionRequestSeconds,
-		))
+		err = ErrConnectingTooFrequently(maxIncomingConnectionRequestsPerSrcIP, maxIncomingConnectionRequestSeconds)
 
 	} else {
 		// otherwise, don't raise an error but add this connection to the tracker
@@ -212,30 +174,20 @@ func (t *incomingConnectionTracker) check(srcIP net.IP, connNum uint) (err error
 		})
 		t.mu.Unlock()
 	}
-	// log.Trace().Uint("connCount", connCount).AnErr("err", err).Msg("finished")
 
 	return err
 }
 
 func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) {
+	// perform DNS lookup & return net.TCPAddr
 
-	// log := log.With().
-	// 	Strs("func", []string{"feeder_conn.go", "lookupContainerTCP"}).
-	// 	Str("container", container).
-	// 	Int("port", port).
-	// 	Logger()
-
-	// log.Trace().Msg("started")
-
-	// perform DNS lookup
 	var dstIP net.IP
 	dstIPs, err := net.LookupIP(container)
 	if err != nil {
 		// error performing lookup
-		// log.Trace().AnErr("err", err).Msg("error performing net.LookupIP")
+		log.Err(err).Msg("error performing net.LookupIP")
 	} else {
 		// if no error
-
 		// if dstIPs contains at least one element
 
 		// look for first IPv4
@@ -247,7 +199,7 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 			}
 		}
 		if !found {
-			err = errors.New("container DNS lookup returned no IPv4 addresses")
+			err = ErrDNSReturnsNoResults
 		}
 
 		// prep address to connect to
@@ -257,19 +209,18 @@ func lookupContainerTCP(container string, port int) (n *net.TCPAddr, err error) 
 		}
 	}
 
-	// log.Trace().Msg("finished")
 	return n, err
 }
 
 func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
+	// dials a host & returns net.TCPConn
 
+	// update log context
 	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "dialContainerTCP"}).
 		Str("container", container).
 		Int("port", port).
 		Logger()
-
-	// log.Trace().Msg("started")
 
 	// lookup container IP, return TCP address
 	dstTCPAddr, err := lookupContainerTCP(container, port)
@@ -277,56 +228,56 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 		return c, err
 	}
 
-	// update logger
+	// update log context
 	log = log.With().Str("dstTCPAddr", dstTCPAddr.IP.String()).Int("port", port).Logger()
 
 	// dial feed-in container
-	// log.Trace().Msg("performing DialTCP to IP")
 	c, err = net.DialTCP("tcp", nil, dstTCPAddr)
 	if err != nil {
 		return c, err
 	}
 
-	// log.Trace().Msg("finished")
 	return c, err
 }
 
 func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error) {
-	// authenticates a feeder
+	// authenticates a feeder by checking SNI against valid feeders
 
+	// prep variable to hold feeder details
 	clientDetails = feederClient{}
 
+	// update log context
 	log := log.With().
 		Strs("func", []string{"feeder_conn.go", "authenticateFeeder"}).
 		Logger()
 
-	// check TLS handshake
+	// if TLS handshake is not complete, then kill the connection
 	if !handshakeComplete(connIn) {
-		// if TLS handshake is not complete, then kill the connection
-		err := errors.New("tls handshake incomplete")
+		err := ErrTLSHandshakeIncomplete
 		return clientDetails, err
 	}
+
+	// update log context
 	log = log.With().Bool("TLSHandshakeComplete", true).Logger()
-	// log.Trace().Msg("TLS handshake complete")
 
 	// check valid uuid was returned as ServerName (sni)
 	clientDetails.clientApiKey, err = getUUIDfromSNI(connIn)
 	if err != nil {
 		return clientDetails, err
 	}
+
+	// update log context
 	log = log.With().
 		Str("uuid", clientDetails.clientApiKey.String()).
 		Str("code", clientDetails.feederCode).
 		Logger()
-	// log.Trace().Msg("feeder API key received from SNI")
 
-	// check valid api key against atc
+	// check api key against valid feeders from atc
 	if !isValidApiKey(clientDetails.clientApiKey) {
 		// if API is not valid, then kill the connection
-		err := errors.New("client sent invalid api key")
+		err := ErrClientSentInvalidAPIKey
 		return clientDetails, err
 	}
-	// log.Trace().Msg("feeder API key valid")
 
 	// get feeder info (lat/lon/mux/label) from atc cache
 	err = getFeederInfo(&clientDetails)
@@ -335,7 +286,6 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 	}
 
 	// update stats
-
 	err = RegisterFeederWithStats(stats.FeederDetails{
 		Label:      clientDetails.label,
 		FeederCode: clientDetails.feederCode,
@@ -359,129 +309,126 @@ func readFromClient(c net.Conn, buf []byte) (n int, err error) {
 	return n, err
 }
 
+type proxyDirection uint8
+
+const (
+	_              = iota // 0 = unsupported/invalid
+	clientToServer        // 1 = client to server
+	serverToClient        // 2 = server to client
+)
+
 type protocolProxyConfig struct {
-	clientConn                  net.Conn          // Client-side connection (feeder out on the internet).
-	serverConn                  net.Conn          // Server-side connection (feed-in container or mlat server).
-	connNum                     uint              // Connection number (used for statistics and stuff).
-	clientApiKey                uuid.UUID         // Client's API Key (from stunnel SNI).
-	mgmt                        *goRoutineManager // Goroutune manager. Provides the ability to tell the proxy to self-terminate.
-	lastAuthCheck               *time.Time        // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
-	lastAuthCheckMu             sync.RWMutex
-	log                         zerolog.Logger // Log. This allows the proxy to inherit a logging context.
-	feederValidityCheckInterval time.Duration  // How often to check the feeder is still valid.
+	clientConn                  net.Conn        // Client-side connection (feeder out on the internet).
+	serverConn                  net.Conn        // Server-side connection (feed-in container or mlat server).
+	connNum                     uint            // Connection number (used for statistics and stuff).
+	clientApiKey                uuid.UUID       // Client's API Key (from stunnel SNI).
+	lastAuthCheck               *time.Time      // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
+	lastAuthCheckMu             sync.RWMutex    // mutex for lastAuthCheck to prevent data race
+	log                         zerolog.Logger  // Log. This allows the proxy to inherit a logging context.
+	feederValidityCheckInterval time.Duration   // How often to check the feeder is still valid.
+	ctx                         context.Context // connection context
 }
 
-func feederStillValid(conf *protocolProxyConfig) bool {
+func feederStillValid(conf *protocolProxyConfig) error {
 	// checks feeder is still valid every feederValidityCheckInterval
+
+	// if validity check interval has been reached
 	conf.lastAuthCheckMu.RLock()
 	if time.Now().After(conf.lastAuthCheck.Add(conf.feederValidityCheckInterval)) {
 		conf.lastAuthCheckMu.RUnlock()
 
+		// check still valid
 		if !isValidApiKey(conf.clientApiKey) {
-			log.Warn().Msg("disconnecting feeder as uuid is no longer valid")
-			return false
+			return ErrFeederNoLongerValid
 		}
 
+		// if still valid, reset lastAuthCheck time to now
 		conf.lastAuthCheckMu.Lock()
 		*conf.lastAuthCheck = time.Now()
 		conf.lastAuthCheckMu.Unlock()
 	} else {
 		conf.lastAuthCheckMu.RUnlock()
 	}
-	return true
+	return nil
 }
 
-func proxyClientToServer(conf *protocolProxyConfig) {
-	log := conf.log.With().Str("proxy", "ClientToServer").Logger()
-	buf := make([]byte, sendRecvBufferSize)
-	for {
+func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
+	// proxies connection between client to server
 
-		// quit if directed
-		if conf.mgmt.CheckForStop() {
-			break
+	var (
+		connA, connB net.Conn
+		// connAName, connBName  string
+		incrementByteCounters func(uuid uuid.UUID, connNum uint, bytes uint64) error
+	)
+
+	// set up function for specific direction
+	switch direction {
+	case clientToServer:
+		connA = conf.clientConn
+		connB = conf.serverConn
+		// connAName = "client"
+		// connBName = "server"
+		incrementByteCounters = func(uuid uuid.UUID, connNum uint, bytes uint64) error {
+			return statsIncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytes), 0)
 		}
-
-		// read from feeder client
-		err := conf.clientConn.SetReadDeadline(time.Now().Add(time.Second * 2))
-		if err != nil {
-			log.Err(err).Msg("error setting read deadline on clientConn")
-			break
+	case serverToClient:
+		connA = conf.serverConn
+		connB = conf.clientConn
+		// connAName = "server"
+		// connBName = "client"
+		incrementByteCounters = func(uuid uuid.UUID, connNum uint, bytes uint64) error {
+			return statsIncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytes))
 		}
-		bytesRead, err := conf.clientConn.Read(buf)
-		if err != nil {
-			if !errors.Is(err, os.ErrDeadlineExceeded) {
-				log.Err(err).Msg("error reading from client")
-				break
-			}
-		} else {
-
-			// write to server
-			err := conf.serverConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
-			if err != nil {
-				log.Err(err).Msg("error setting write deadline on serverConn")
-				break
-			}
-			_, err = conf.serverConn.Write(buf[:bytesRead])
-			if err != nil {
-				log.Err(err).Msg("error writing to server")
-				break
-			}
-
-			// update stats
-			statsIncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead), 0)
-		}
-
-		// check feeder is still valid
-		if !feederStillValid(conf) {
-			break
-		}
-
 	}
-}
 
-func proxyServerToClient(conf *protocolProxyConfig) {
-	log := conf.log.With().Str("proxy", "ServerToClient").Logger()
+	// human readable direction
+	// directionStr := fmt.Sprintf("%s to %s", connAName, connBName)
+
+	// log := conf.log.With().Str("proxy", directionStr).Logger()
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
 		// quit if directed
-		if conf.mgmt.CheckForStop() {
-			break
-		}
+		select {
+		case <-conf.ctx.Done():
+			return nil
+		default:
 
-		// read from server
-		err := conf.serverConn.SetReadDeadline(time.Now().Add(time.Second * 2))
-		if err != nil {
-			log.Err(err).Msg("error setting read deadline on serverConn")
-			break
-		}
-		bytesRead, err := conf.serverConn.Read(buf)
-		if err != nil {
-			if !errors.Is(err, os.ErrDeadlineExceeded) {
-				log.Err(err).Msg("error reading from server")
-				break
-			}
-		} else {
-
-			// write to feeder client
-			err := conf.clientConn.SetWriteDeadline(time.Now().Add(time.Second * 2))
+			// read from feeder client
+			err := connA.SetReadDeadline(time.Now().Add(time.Second * 1))
 			if err != nil {
-				log.Err(err).Msg("error setting write deadline on clientConn")
-				break
+				return err
 			}
-			_, err = conf.clientConn.Write(buf[:bytesRead])
+			bytesRead, err := connA.Read(buf)
 			if err != nil {
-				log.Err(err).Msg("error writing to feeder")
-				break
+				// don't close connection on read deadline exceeded - client may have nothing to send...
+				if !errors.Is(err, os.ErrDeadlineExceeded) {
+					return err
+				}
+			} else {
+
+				// write to server
+				err := connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
+				if err != nil {
+					return err
+				}
+				_, err = connB.Write(buf[:bytesRead])
+				if err != nil {
+					return err
+				}
+
+				// update stats
+				err = incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead))
+				if err != nil {
+					return err
+				}
 			}
 
-			// update stats
-			statsIncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytesRead))
-		}
-
-		// check feeder is still valid
-		if !feederStillValid(conf) {
-			break
+			// check feeder is still valid
+			err = feederStillValid(conf)
+			if err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -490,14 +437,16 @@ type ProxyConnection struct {
 	Connection                  net.Conn              // Incoming connection from feeder out on the internet
 	ConnectionProtocol          feedprotocol.Protocol // Incoming connection protocol
 	ConnectionNumber            uint                  // Connection number
+	InnerConnectionPort         int                   // Server-side port to proxy connection to (default: 12345 for BEAST & 12346 MLAT)
 	FeedInContainerPrefix       string                // feed-in container prefix
 	Logger                      zerolog.Logger        // logger context to use
 	FeederValidityCheckInterval time.Duration         // how often to check feeder is still valid in atc
 
-	stop   bool
-	stopMu sync.RWMutex
-
 	protoProxyConf protocolProxyConfig // config for protocol proxy goroutines
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func (c *ProxyConnection) Stop() error {
@@ -507,19 +456,22 @@ func (c *ProxyConnection) Stop() error {
 		return ErrNotInitialised
 	}
 
-	c.stopMu.Lock()
-	defer c.stopMu.Unlock()
-	c.stop = true
+	c.cancel()
+
 	return nil
 }
 
-func (c *ProxyConnection) Start() error {
+func (c *ProxyConnection) Start(ctx context.Context) error {
 	// Starts proxying incoming connection. Will create feed-in container if required.
 
 	if !isInitialised() {
 		return ErrNotInitialised
 	}
 
+	// set up inner context
+	c.ctx, c.cancel = context.WithCancel(ctx)
+
+	// update log context
 	log := c.Logger.With().
 		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).
 		Uint("connNum", c.ConnectionNumber).
@@ -532,11 +484,8 @@ func (c *ProxyConnection) Start() error {
 		clientDetails    feederClient
 		lastAuthCheck    time.Time
 		err              error
-		wg               sync.WaitGroup
 		dstContainerName string
 	)
-
-	// log.Trace().Msg("started")
 
 	// update log context with client IP
 	remoteIP := net.ParseIP(strings.Split(c.Connection.RemoteAddr().String(), ":")[0])
@@ -559,7 +508,6 @@ func (c *ProxyConnection) Start() error {
 	bytesRead, err := readFromClient(c.Connection, buf)
 	if err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
-			// log.Trace().AnErr("err", err).Msg("error reading from client")
 			return err
 		} else {
 			log.Err(err).Msg("error reading from client")
@@ -575,7 +523,7 @@ func (c *ProxyConnection) Start() error {
 		return err
 	}
 
-	// update logger
+	// update log context
 	log = log.With().
 		Str("uuid", clientDetails.clientApiKey.String()).
 		Str("mux", clientDetails.mux).
@@ -583,21 +531,24 @@ func (c *ProxyConnection) Start() error {
 		Str("code", clientDetails.feederCode).
 		Logger()
 
+	// get number of connections to check for too frequent connections
 	numConnections, err := statsGetNumConnections(clientDetails.clientApiKey, c.ConnectionProtocol)
 	if err != nil {
 		log.Err(err).Msg("error getting number of connections")
 		return err
 	}
 
+	// update log context
 	log = log.With().Str("connections", fmt.Sprintf("%d/%d", numConnections+1, maxConnectionsPerProto)).Logger()
 
 	// check number of connections, and drop connection if limit exceeded
 	if numConnections >= maxConnectionsPerProto {
-		err := errors.New("connection limit exceeded")
+		err := ErrConnectionLimitExceeded
 		log.Err(err).Msg("dropping connection")
 		return err
 	}
 
+	// to check auth every FeederValidityCheckInterval
 	lastAuthCheck = time.Now()
 
 	// If the client has been authenticated, then we can do stuff with the data
@@ -626,7 +577,7 @@ func (c *ProxyConnection) Start() error {
 		}
 
 		// connect to feed-in container
-		connOut, err = dialContainerTCPWrapper(fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String()), 12345)
+		connOut, err = dialContainerTCPWrapper(fmt.Sprintf("%s%s", c.FeedInContainerPrefix, clientDetails.clientApiKey.String()), c.InnerConnectionPort)
 		if err != nil {
 			// handle connection errors to feed-in container
 			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
@@ -638,10 +589,10 @@ func (c *ProxyConnection) Start() error {
 		dstContainerName = "mlat-server"
 
 		// update log context
-		log.With().Str("dst", fmt.Sprintf("%s:12346", clientDetails.mux))
+		log.With().Str("dst", fmt.Sprintf("%s:%d", clientDetails.mux, c.InnerConnectionPort))
 
 		// attempt to connect to the mux container
-		connOut, err = dialContainerTCP(clientDetails.mux, 12346)
+		connOut, err = dialContainerTCP(clientDetails.mux, c.InnerConnectionPort)
 		if err != nil {
 			// handle connection errors to mux container
 			log.Err(err).Msg(fmt.Sprintf("error connecting to %s", dstContainerName))
@@ -649,8 +600,8 @@ func (c *ProxyConnection) Start() error {
 		}
 
 	default:
-		err := errors.New("unsupported protocol")
-		log.Err(err).Msg("unsupported protocol")
+		err := ErrUnsupportedProtocol
+		log.Err(err).Msg("could not start proxy")
 		return err
 	}
 
@@ -670,7 +621,7 @@ func (c *ProxyConnection) Start() error {
 		return err
 	}
 
-	log.Info().Msg(fmt.Sprintf("connected to %s", dstContainerName))
+	log.Info().Msg(fmt.Sprintf("%s connected", c.ConnectionProtocol.Name()))
 
 	// write any outstanding data
 	_, err = connOut.Write(buf[:bytesRead])
@@ -679,7 +630,7 @@ func (c *ProxyConnection) Start() error {
 		return err
 	}
 
-	// update stats
+	// register connection with stats subsystem
 	conn := stats.Connection{
 		ApiKey:     clientDetails.clientApiKey,
 		SrcAddr:    c.Connection.RemoteAddr(),
@@ -701,58 +652,56 @@ func (c *ProxyConnection) Start() error {
 		serverConn:                  connOut,
 		connNum:                     c.ConnectionNumber,
 		clientApiKey:                clientDetails.clientApiKey,
-		mgmt:                        &goRoutineManager{},
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log,
 		feederValidityCheckInterval: c.FeederValidityCheckInterval,
+		ctx:                         c.ctx,
 	}
 
-	// handle data from feeder client to feed-in container
-	wg.Add(1)
+	// handle data from feeder client to server (feed-in container, mux, etc)
+	c.wg.Add(1)
 	go func() {
-		defer wg.Done()
-		proxyClientToServer(&protoProxyConf)
+		defer c.wg.Done()
+		err := protocolProxy(&protoProxyConf, clientToServer)
+		if err != nil {
+			if err.Error() != "EOF" { // don't bother logging EOF here
+				log.Err(err).Msg("feeder connection error")
+			}
+		}
 
-		// tell other goroutine to exit
-		protoProxyConf.mgmt.Stop()
-
-		// stop proxy
-		c.stopMu.Lock()
-		defer c.stopMu.Unlock()
-		c.stop = true
+		// cancel context, causing related connections to close, and this ProxyConnection to close
+		c.cancel()
 	}()
 
-	// handle data from server container to feeder client (if required, no point doing this for BEAST)
+	// handle data from server to feeder client (if required, no point doing this for BEAST)
 	switch c.ConnectionProtocol {
 	case feedprotocol.MLAT:
-		wg.Add(1)
+		c.wg.Add(1)
 		go func() {
-			defer wg.Done()
-			proxyServerToClient(&protoProxyConf)
+			defer c.wg.Done()
+			err := protocolProxy(&protoProxyConf, serverToClient)
+			if err != nil {
+				if err.Error() != "EOF" { // don't bother logging EOF here
+					log.Err(err).Msg("feeder connection error")
+				}
+			}
 
-			// tell other goroutine to exit
-			protoProxyConf.mgmt.Stop()
-
-			// stop proxy
-			c.stopMu.Lock()
-			defer c.stopMu.Unlock()
-			c.stop = true
+			// cancel context, causing related connections to close, and this ProxyConnection to close
+			c.cancel()
 		}()
 	}
 
-	// "listen" for .Stop()
-	for {
-		c.stopMu.RLock()
-		if c.stop {
-			c.stopMu.RUnlock()
-			protoProxyConf.mgmt.Stop()
-			break
-		}
-		c.stopMu.RUnlock()
+	// wait for context closure (either inner or outer)
+	select {
+	case <-ctx.Done(): // if outer, then close inner
+		log.Info().Msg("shutting down connection")
+		c.cancel()
+	case <-c.ctx.Done(): // if inner, then do nothing (don't close outer!)
 	}
 
 	// wait for goroutines to finish
-	wg.Wait()
-	// log.Trace().Msg("finished")
+	c.wg.Wait()
+	log.Info().Msg(fmt.Sprintf("%s disconnected", c.ConnectionProtocol.Name()))
+
 	return nil
 }

@@ -1,3 +1,5 @@
+// Package feedprotocol provides standardised representations of supported feed protocols (BEAST/MLAT).
+
 package feedprotocol
 
 import (
@@ -5,23 +7,28 @@ import (
 	"strings"
 )
 
+// type for protocol
 type Protocol uint8
 
 const (
-	_ Protocol = iota
-	BEAST
-	MLAT
+	// protocol constants
+	_     Protocol = iota // 0 = invalid/unsupported
+	BEAST                 // 1 = BEAST
+	MLAT                  // 2 = MLAT
 
+	// standard protocol name for BEAST
 	ProtocolNameBEAST = "BEAST"
-	ProtocolNameMLAT  = "MLAT"
+
+	// standard protocol name for MLAT
+	ProtocolNameMLAT = "MLAT"
 )
 
 var (
 	ErrUnknownProtocol = errors.New("unknown protocol")
 )
 
+// Name returns the name of the Protocol as a string
 func (p *Protocol) Name() string {
-	// return the name of the protocol as a string
 	n, err := GetName(*p)
 	if err != nil {
 		panic(err)
@@ -29,8 +36,8 @@ func (p *Protocol) Name() string {
 	return n
 }
 
+// GetName returns a string of the name of the Protocol
 func GetName(p Protocol) (string, error) {
-	// returns a string of the name of the protocol
 	switch p {
 	case BEAST:
 		return ProtocolNameBEAST, nil
@@ -41,8 +48,8 @@ func GetName(p Protocol) (string, error) {
 	}
 }
 
+// IsValid returns true if the protocol is valid
 func IsValid(p Protocol) bool {
-	// returns true if the protocol is valid
 	switch p {
 	case BEAST:
 		return true
@@ -53,8 +60,8 @@ func IsValid(p Protocol) bool {
 	}
 }
 
+// GetProtoFromName returns a Protocol from name
 func GetProtoFromName(name string) (Protocol, error) {
-	// returns protocol from name
 	switch strings.ToUpper(name) {
 	case ProtocolNameBEAST:
 		return BEAST, nil
