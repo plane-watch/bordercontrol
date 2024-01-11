@@ -68,7 +68,7 @@ const (
 var (
 	// App config, command line & env var configuration
 	app = cli.App{
-		Version: "0.0.1",
+		Version: "0.0.2",
 		Name:    "plane.watch bordercontrol",
 		Usage:   "Proxy for multiple stunnel-based BEAST & MLAT endpoints",
 		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
