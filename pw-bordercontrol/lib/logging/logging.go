@@ -18,6 +18,7 @@ const (
 	Quiet = "quiet"
 )
 
+// IncludeVerbosityFlags adds debug and quiet flags to app
 func IncludeVerbosityFlags(app *cli.App) {
 	app.Flags = append(app.Flags,
 		&cli.BoolFlag{
@@ -33,6 +34,7 @@ func IncludeVerbosityFlags(app *cli.App) {
 	)
 }
 
+// SetLoggingLevel sets the log based on whether the user has asked for debug and/or quiet logging
 func SetLoggingLevel(c *cli.Context) {
 	SetVerboseOrQuiet(
 		c.Bool(Debug),
@@ -40,6 +42,7 @@ func SetLoggingLevel(c *cli.Context) {
 	)
 }
 
+// SetVerboseOrQuiet sets the log based on whether the user has asked for debug and/or quiet logging
 func SetVerboseOrQuiet(verbose, quiet bool) {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if verbose {
@@ -50,10 +53,12 @@ func SetVerboseOrQuiet(verbose, quiet bool) {
 	}
 }
 
+// cliWriter writes output to the console
 func cliWriter() zerolog.ConsoleWriter {
 	return zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate}
 }
 
+// ConfigureForCli sets log output to CLI
 func ConfigureForCli() {
 	isCli = true
 	log.Logger = log.Output(cliWriter())

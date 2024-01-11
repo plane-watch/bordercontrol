@@ -13,20 +13,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-
-	// mock ATC server credentials
-	TestUser      = "testuser"
-	TestPassword  = "testpass"
-	TestAuthToken = "testauthtoken"
-
-	// mock feeder details
-	TestFeederAPIKeyWorking = "6261B9C8-25C1-4B67-A5A2-51FC688E8A25" // not a real feeder api key, generated with uuidgen
+var (
+	TestFeederAPIKeyWorking = uuid.New()
 	TestFeederLabel         = "Test Feeder 123"
 	TestFeederLatitude      = 123.456789
 	TestFeederLongitude     = 98.765432
 	TestFeederMux           = "test-mux"
 	TestFeederCode          = "ABCD-1234"
+)
+
+const (
+	// mock ATC server credentials
+	TestUser      = "testuser"
+	TestPassword  = "testpass"
+	TestAuthToken = "testauthtoken"
 
 	// mock ATC server testing scenarios
 	MockServerTestScenarioWorking = iota
@@ -81,7 +81,7 @@ func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 				w.WriteHeader(http.StatusOK)
 			}
 
-		case fmt.Sprintf("/api/v1/feeders/%s.json", strings.ToLower(TestFeederAPIKeyWorking)):
+		case fmt.Sprintf("/api/v1/feeders/%s.json", strings.ToLower(TestFeederAPIKeyWorking.String())):
 
 			// check request
 			assert.Equal(t, TestAuthToken, r.Header.Get("Authorization"))
@@ -304,7 +304,7 @@ func TestGetFeeders_Working(t *testing.T) {
 
 	expectedFeeders := Feeders{
 		[]Feeder{{
-			ApiKey:     uuid.MustParse(TestFeederAPIKeyWorking),
+			ApiKey:     uuid.MustParse(TestFeederAPIKeyWorking.String()),
 			Label:      TestFeederLabel,
 			Latitude:   TestFeederLatitude,
 			Longitude:  TestFeederLongitude,

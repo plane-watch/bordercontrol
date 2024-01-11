@@ -38,7 +38,7 @@ RUN set -x && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
 
 COPY --from=pipeline /app/pw_ingest /usr/local/bin/pw_ingest
-COPY pw-feed-in/rootfs/ /
+COPY rootfs/ /
 
 # Deploy s6 overlay
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
