@@ -18,19 +18,6 @@ func KickFeederHandler(msg *nats.Msg) {
 		Str("subj", natsSubjFeederKick).
 		Logger()
 
-	forUs, inst, err := natsThisInstance(string(msg.Data))
-	if err != nil {
-		log.Err(err).Msg("could not get nats instance")
-		return
-	}
-
-	log = log.With().Str("instance", inst).Logger()
-
-	if !forUs {
-		log.Debug().Msg("not for this instance")
-		return
-	}
-
 	apiKey, err := uuid.ParseBytes(msg.Data)
 	if err != nil {
 		log.Err(err).Msg("could not parse api key from message body")
