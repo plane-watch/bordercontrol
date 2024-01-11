@@ -24,66 +24,106 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// HTML template for human readable stats page (contents of stats.tmpl)
+//
 //go:embed stats.tmpl
 var statsTemplate string
 
-// struct for per-feeder statistics
+// FeederStats represents per-feeder statistics
 type FeederStats struct {
-	// feeder details
-	Label string // feeder label
-	Code  string // feeder_code
 
-	// Connection details
+	// Feeder label
+	Label string
+
+	// Feeder code (eg: YPPH-01)
+	Code string
+
+	// Connection details.
 	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
 	Connections map[string]ProtocolDetail
 
-	TimeUpdated time.Time // time these stats were updated
+	// time these stats were updated
+	TimeUpdated time.Time
 }
 
+// ProtocolDetail represents per-protocol statistics
 type ProtocolDetail struct {
-	Status               bool      // is protocol connected
-	ConnectionCount      int       // number of connections for this protocol
-	MostRecentConnection time.Time // time of most recent connection
+
+	// is protocol connected
+	Status bool
+
+	// number of connections for this protocol
+	ConnectionCount int
+
+	// time of most recent connection
+	MostRecentConnection time.Time
 
 	// uint key = connection number within bordercontrol
 	ConnectionDetails map[uint]ConnectionDetail
 }
 
+// ProtocolDetail represents per-connection statistics
 type ConnectionDetail struct {
-	Src           net.Addr  // source ip:port of incoming connection
-	Dst           net.Addr  // destination ip:port of outgoing connection
-	TimeConnected time.Time // time connection was established
-	BytesIn       uint64    // bytes received from feeder client
-	BytesOut      uint64    // bytes sent to feeder client
+
+	// source ip:port of incoming connection
+	Src net.Addr
+
+	// destination ip:port of outgoing connection
+	Dst net.Addr
+
+	// time connection was established
+	TimeConnected time.Time
+
+	// bytes received from feeder client
+	BytesIn uint64
+
+	// bytes sent to feeder client
+	BytesOut uint64
 }
 
-// statistics subsystem struct (+ mutex for sync)
+// Statistics holds all statistics data
 type Statistics struct {
+
+	// mutex for syncronisation
 	mu sync.RWMutex
 
-	Feeders map[uuid.UUID]FeederStats // map of feeders with API Key as map key
+	// map of feeders with API Key as map key
+	Feeders map[uuid.UUID]FeederStats
 
-	BytesInBEAST  uint64 // total bytes from feeder to bordercontrol for BEAST proto
-	BytesOutBEAST uint64 // total bytes from bordercontrol to feeder for BEAST proto
+	// total bytes from feeder to bordercontrol for BEAST proto
+	BytesInBEAST uint64
 
-	BytesInMLAT  uint64 // total bytes from feeder to bordercontrol for MLAT proto
-	BytesOutMLAT uint64 // total bytes from bordercontrol to feeder for MLAT proto
+	// total bytes from bordercontrol to feeder for BEAST proto
+	BytesOutBEAST uint64
 
+	// total bytes from feeder to bordercontrol for MLAT proto
+	BytesInMLAT uint64
+
+	// total bytes from bordercontrol to feeder for MLAT proto
+	BytesOutMLAT uint64
 }
 
-// struct for http api responses
+// APIResponse represents a http api response
 type APIResponse struct {
 	Data interface{}
 }
 
 var (
-	srv     *http.Server // web server for stats
+
+	// statistics and API web server
+	srv *http.Server
+
+	// waitgroup for stats & api web server
 	statsWg sync.WaitGroup
 
-	ctx       context.Context
+	// context for stats & api web server
+	ctx context.Context
+
+	// cancel function for stats & api web server context
 	cancelCtx context.CancelFunc
 
-	stats Statistics // feeder statistics
+	// all feeder statistics
+	stats Statistics
 
 	// regex to match api request for single feeder stats
 	matchUrlSingleFeeder = regexp.MustCompile(`^/api/v1/feeder/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/?$`)
@@ -91,39 +131,41 @@ var (
 	// regex to match UUID
 	matchUUID = regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
 
-	// for functions to determine if Init() had been run
-	initialised   bool
+	// set to true when Init() is run
+	initialised bool
+
+	// mutex for initialised
 	initialisedMu sync.RWMutex
 
 	// custom errors
-	ErrNotInitialised     = errors.New("stats not initialised")
+
+	// error: stats not initialised
+	ErrNotInitialised = errors.New("stats not initialised")
+
+	// error: stats already initialised
 	ErrAlreadyInitialised = errors.New("stats already initialised")
-	ErrProtoNotFound      = errors.New("protocol not found")
-	ErrConnNumNotFound    = errors.New("connection number not found")
+
+	// error: protocol not found
+	ErrProtoNotFound = errors.New("protocol not found")
+
+	// error: connection number not found
+	ErrConnNumNotFound = errors.New("connection number not found")
 )
 
-func statsInitialised() bool {
-	// returns true if Init() has been called, else false
-	initialisedMu.RLock()
-	defer initialisedMu.RUnlock()
-	return initialised
-}
-
-func GetNumConnections(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) {
-	// returns the number of connections for a given uuid and protocol
-	if !statsInitialised() {
+// GetNumConnections returns the number of connections for a given apikey and protocol
+func GetNumConnections(apikey uuid.UUID, proto feedprotocol.Protocol) (int, error) {
+	if !isInitialised() {
 		return 0, ErrNotInitialised
 	}
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
-	return stats.Feeders[uuid].Connections[proto.Name()].ConnectionCount, nil
+	return stats.Feeders[apikey].Connections[proto.Name()].ConnectionCount, nil
 }
 
+// IncrementByteCounters increments the byte counters of a feeder by bytesIn / bytesOut, and sets TimeUpdated to time.Now().
 func IncrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error {
-	// Increment byte counters of a feeder by bytesIn / bytesOut
-	// Sets time_last_updated to now
 
-	if !statsInitialised() {
+	if !isInitialised() {
 		return ErrNotInitialised
 	}
 
@@ -187,6 +229,7 @@ func IncrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint6
 	return ErrConnNumNotFound
 }
 
+// initFeederStats prepares the stats object for the feeder (ensures maps are made, etc)
 func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	// does stats var have an entry for uuid?
 	// if not, create it
@@ -210,16 +253,24 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	}
 }
 
+// FeederDetails holds the basic information required to register a Feeder with the stats subsystem
 type FeederDetails struct {
-	Label      string    // feeder label
-	FeederCode string    // unique feeder code
-	ApiKey     uuid.UUID // feeder api key
+
+	// feeder label
+	Label string
+
+	// unique feeder code
+	FeederCode string
+
+	// feeder api key
+	ApiKey uuid.UUID
 }
 
+// RegisterFeeder registers a feeder with the stats subsystem
 func RegisterFeeder(f FeederDetails) error {
 	// updates the details of a feeder
 
-	if !statsInitialised() {
+	if !isInitialised() {
 		return ErrNotInitialised
 	}
 
@@ -243,6 +294,7 @@ func RegisterFeeder(f FeederDetails) error {
 	return nil
 }
 
+// Connection represents the basic information required to register a connection with the stats subsystem
 type Connection struct {
 	ApiKey     uuid.UUID
 	SrcAddr    net.Addr
@@ -252,11 +304,12 @@ type Connection struct {
 	ConnNum    uint
 }
 
+// RegisterConnection registers a connection with the stats subsystem (eg: on connection)
 func (conn *Connection) RegisterConnection() error {
 	// Registers a connection with the statistics subsystem.
 	// To be run when a feeder connects, after authentication.
 
-	if !statsInitialised() {
+	if !isInitialised() {
 		return ErrNotInitialised
 	}
 
@@ -302,11 +355,12 @@ func (conn *Connection) RegisterConnection() error {
 	return nil
 }
 
+// UnregisterConnection unregisters a connection with the stats subsystem (eg: on disconnection)
 func (conn *Connection) UnregisterConnection() error {
 	// Unregisters a connection with the statistics subsystem.
 	// To be run when a feeder disconnects.
 
-	if !statsInitialised() {
+	if !isInitialised() {
 		return ErrNotInitialised
 	}
 
@@ -383,6 +437,7 @@ func (conn *Connection) UnregisterConnection() error {
 	return err
 }
 
+// httpRenderStats renders statsTemplate including feeder stats
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 	log := log.With().
@@ -452,6 +507,7 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// statsEvictorInner loops through stats data and evicts any feeders that have been inactive for over 60 seconds
 func statsEvictorInner() {
 	toEvict := []uuid.UUID{}
 
@@ -474,8 +530,8 @@ func statsEvictorInner() {
 	}
 }
 
+// statsEvictor runs statsEvictorInner every minute, or until the context is cancelled.
 func statsEvictor() {
-	// loop through stats data, evict any feeders that have been inactive for over 60 seconds
 	for {
 		select {
 		case <-ctx.Done():
@@ -487,6 +543,7 @@ func statsEvictor() {
 	}
 }
 
+// apiReturnAllFeeders returns statistics data for all feeders in JSON format
 func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
 	log := log.With().
@@ -522,6 +579,7 @@ func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// apiReturnSingleFeeder returns statistics data for a single feeder in JSON format
 func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
 	log := log.With().
@@ -577,13 +635,14 @@ func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// isInitialised returns true if Init() has been called, else false
 func isInitialised() bool {
-	// returns true if Init() has been called, else false
 	initialisedMu.RLock()
 	defer initialisedMu.RUnlock()
 	return initialised
 }
 
+// Init initialises the statistics subsystem, and must be called during application init
 func Init(parentContext context.Context, addr string) error {
 
 	log := log.With().
@@ -674,6 +733,7 @@ func Init(parentContext context.Context, addr string) error {
 	return nil
 }
 
+// Close shuts down the statistics subsystem, and should be called during application shutdown
 func Close() error {
 
 	// ensure  initialised

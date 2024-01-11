@@ -11,10 +11,15 @@ import (
 )
 
 var (
-	promMetricFeederContainersImageCurrent    prometheus.GaugeFunc // prom metric "feedercontainers_image_current"
-	promMetricFeederContainersImageNotCurrent prometheus.GaugeFunc // prom metric "feedercontainers_image_not_current"
+
+	// prom metric "feedercontainers_image_current"
+	promMetricFeederContainersImageCurrent prometheus.GaugeFunc
+
+	// prom metric "feedercontainers_image_not_current"
+	promMetricFeederContainersImageNotCurrent prometheus.GaugeFunc
 )
 
+// promMetricFeederContainersImageCurrentGaugeFunc provides a count of feed-in containers that are running the current feed-in image
 func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContainerPrefix string) float64 {
 	n := float64(0)
 
@@ -49,6 +54,7 @@ func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContaine
 	return n
 }
 
+// promMetricFeederContainersImageCurrentGaugeFunc provides a count of feed-in containers that are not running the current feed-in image
 func promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInContainerPrefix string) float64 {
 	n := float64(0)
 
@@ -83,6 +89,7 @@ func promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInConta
 	return n
 }
 
+// registerPromMetrics registers promMetricFeederContainersImageCurrent & promMetricFeederContainersImageNotCurrent
 func registerPromMetrics(feedInImage, feedInContainerPrefix string) {
 
 	promMetricFeederContainersImageCurrent = promauto.NewGaugeFunc(prometheus.GaugeOpts{

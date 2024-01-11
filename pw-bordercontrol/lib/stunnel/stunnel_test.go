@@ -2,8 +2,14 @@ package stunnel
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
 	"strings"
@@ -15,11 +21,185 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/nettest"
 )
 
 var (
 	TestSNI = uuid.New()
 )
+
+func GenerateSelfSignedTLSCertAndKey(keyFile, certFile *os.File) error {
+	// Thanks to: https://go.dev/src/crypto/tls/generate_cert.go
+
+	if !initialised {
+		return ErrNotInitialised
+	}
+
+	// prep certificate info
+	hosts := []string{"localhost"}
+	ipAddrs := []net.IP{net.IPv4(127, 0, 0, 1)}
+	notBefore := time.Now()
+	notAfter := time.Now().Add(time.Minute * 15)
+	isCA := true
+
+	// generate private key
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	keyUsage := x509.KeyUsageDigitalSignature
+
+	// generate serial number
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return err
+	}
+
+	// prep cert template
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"plane.watch"},
+		},
+		NotBefore: notBefore,
+		NotAfter:  notAfter,
+
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+
+	// add hostname(s)
+	for _, host := range hosts {
+		template.DNSNames = append(template.DNSNames, host)
+	}
+
+	// add ip(s)
+	for _, ip := range ipAddrs {
+		template.IPAddresses = append(template.IPAddresses, ip)
+	}
+
+	// if self-signed, include CA
+	if isCA {
+		template.IsCA = true
+		template.KeyUsage |= x509.KeyUsageCertSign
+	}
+
+	// create certificate
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public().(ed25519.PublicKey), priv)
+	if err != nil {
+		return err
+	}
+
+	// encode certificate
+	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err != nil {
+		return err
+	}
+
+	// marhsal private key
+	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return err
+	}
+
+	// write private key
+	err = pem.Encode(keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func PrepTestEnvironmentTLSCertAndKey() error {
+	// prepares self-signed server certificate for testing
+
+	if !initialised {
+		return ErrNotInitialised
+	}
+
+	// prep cert file
+	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		certFile.Close()
+		os.Remove(certFile.Name())
+	}()
+
+	// prep key file
+	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		keyFile.Close()
+		os.Remove(keyFile.Name())
+	}()
+
+	// generate cert/key for testing
+	err = GenerateSelfSignedTLSCertAndKey(keyFile, certFile)
+	if err != nil {
+		return err
+	}
+
+	// prep tls config for mocked server
+	kpr, err := newKeypairReloader(certFile.Name(), keyFile.Name())
+	if err != nil {
+		return err
+	}
+	tlsConfig.GetCertificate = kpr.getCertificateFunc()
+	return nil
+}
+
+func PrepTestEnvironmentTLSListener() (l net.Listener, err error) {
+	// prepares server-side TLS listener for testing
+
+	if !initialised {
+		return l, ErrNotInitialised
+	}
+
+	// get temp listener address
+	tempListener, err := nettest.NewLocalListener("tcp")
+	if err != nil {
+		return l, err
+	}
+	tlsListenAddr := tempListener.Addr().String()
+	tempListener.Close()
+
+	// configure temp listener
+	return NewListener("tcp", tlsListenAddr)
+
+}
+
+func PrepTestEnvironmentTLSClientConfig(sni string) (*tls.Config, error) {
+	// prepares client-side TLS config for testing
+
+	if !initialised {
+		return &tls.Config{}, ErrNotInitialised
+	}
+
+	var tlsClientConfig tls.Config
+
+	// load root CAs
+	scp, err := x509.SystemCertPool()
+	if err != nil {
+		return &tls.Config{}, err
+	}
+
+	// set up tls config
+	tlsClientConfig = tls.Config{
+		RootCAs:            scp,
+		ServerName:         sni,
+		InsecureSkipVerify: true,
+	}
+
+	return &tlsClientConfig, nil
+}
 
 func TestStunnel(t *testing.T) {
 
@@ -41,7 +221,7 @@ func TestStunnel(t *testing.T) {
 			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 		t.Run("NewKeypairReloader", func(t *testing.T) {
-			_, err := NewKeypairReloader("", "")
+			_, err := newKeypairReloader("", "")
 			require.Error(t, err)
 			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})

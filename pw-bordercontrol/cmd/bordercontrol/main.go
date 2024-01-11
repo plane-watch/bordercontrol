@@ -1,3 +1,23 @@
+/*
+Bordercontrol provides authentication and proxying of incoming BEAST and MLAT connections.
+
+When an incoming connection is accepted, Bordercontrol will:
+
+  - Authenticate the incoming connection against ATC, based on the SNI information received as part of the TLS handshake.
+  - If BEAST, Bordercontrol will create a feed-in container for the feeder, and proxy the incoming connection through to the feed-in container.
+  - If MLAT, Bordercontrol will proxy the incoming connection through to the MLAT server identified by ATC.
+
+Bordercontrol provides statistics via:
+
+  - REST API
+  - Prometheus endpoint
+  - NATS requests
+
+Bordercontrol can be controlled via:
+
+  - Signals (SIGHUP, SIGUSR1, SIGTERM)
+  - NATS requests
+*/
 package main
 
 import (
@@ -46,7 +66,7 @@ const (
 )
 
 var (
-	// main app settings
+	// App config, command line & env var configuration
 	app = cli.App{
 		Version: "0.0.1",
 		Name:    "plane.watch bordercontrol",
@@ -177,10 +197,11 @@ var (
 		},
 	}
 
-	startTime time.Time // When app was started. To calculate uptime.
-
+	// When app was started. To calculate uptime.
+	startTime time.Time
 )
 
+// main initialises the application, before RunServer is called.
 func main() {
 
 	// record start time
@@ -208,8 +229,8 @@ func main() {
 	}
 }
 
+// getRepoInfo returns the git commit hash and commit time of the bordercontrol repo as strings.
 func getRepoInfo() (commitHash, commitTime string) {
-	// returns commit hash and commit time
 	commitHash = "unknown"
 	commitTime = "unknown"
 	if info, ok := debug.ReadBuildInfo(); ok {
@@ -231,8 +252,10 @@ func getRepoInfo() (commitHash, commitTime string) {
 	return commitHash, commitTime
 }
 
-func logNumGoroutines(freq time.Duration, stopChan chan bool) {
-	// logs number of goroutines to debug level
+// logNumGoroutines will log the number of goroutines at debug level.
+// The number of goroutines will be logged every freq.
+// The context ctx can be used to end this function.
+func logNumGoroutines(ctx context.Context, freq time.Duration) {
 	last := runtime.NumGoroutine()
 	for {
 		select {
@@ -241,19 +264,47 @@ func logNumGoroutines(freq time.Duration, stopChan chan bool) {
 			now := runtime.NumGoroutine()
 			log.Debug().Int("goroutines", now).Int("delta", now-last).Msg("number of goroutines")
 			last = now
-		case <-stopChan:
+		case <-ctx.Done():
+			log.Debug().Msg("shutting down logNumGoroutines")
 			return
 		}
 	}
 }
 
+// listenWithContext runs listener.NewListener until context ctx is cancelled.
+// listenAddr is the local ip:port to listen on for incomming connections.
+// proto is the protocol, defined in lib/feedprotocol.
+// feedInContainerPrefix is the prefix used for feed-in containers (for BEAST connections).
+// innerConnectionPort is the destination port for the feed-in container or MLAT sever.
+func listenWithContext(ctx context.Context, listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, innerConnectionPort int) {
+	for {
+		l, err := listener.NewListener(listenAddr, proto, feedInContainerPrefix, innerConnectionPort)
+		if err != nil {
+			log.Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("error creating listener")
+		}
+		err = l.Run(ctx)
+		if err != nil {
+			log.Err(err).Str("proto", proto.Name()).Msg("error with listener")
+		}
+		select {
+		case <-ctx.Done(): // exit on context closure
+			return
+		case <-time.After(time.Second): // if there's a problem, slow down restarting
+		}
+	}
+}
+
+// runServer runs the server (duh).
+// It is run via urfave/cli/v2 app.Run in main().
 func runServer(cliContext *cli.Context) error {
 
+	// prepare waitgroup for goroutines started by this func.
 	wg := sync.WaitGroup{}
 
 	// set up context for clean exit
 	ctx := context.Background()
 	ctx, cleanExit := context.WithCancel(ctx)
+	defer cleanExit()
 
 	// Set logging level
 	logging.SetLoggingLevel(cliContext)
@@ -266,10 +317,10 @@ func runServer(cliContext *cli.Context) error {
 	// if debug then show some extra goodies
 	if zerolog.GlobalLevel() == zerolog.DebugLevel {
 		// display number active goroutines
-		logNumGoroutinesStopChan := make(chan bool)
-		go logNumGoroutines(time.Minute*5, logNumGoroutinesStopChan)
+		go logNumGoroutines(ctx, time.Minute*5)
 	}
 
+	// initialise nats subsystem
 	// connect to nats for control/stats/etc
 	natsConf := nats_io.NatsConfig{
 		Url:       cliContext.String("natsurl"),
@@ -279,29 +330,33 @@ func runServer(cliContext *cli.Context) error {
 	}
 	err := natsConf.Init()
 	if err != nil {
-		log.Fatal().Err(err).Msg("could not init nats")
+		log.Err(err).Msg("error initialising nats subsystem")
+		return err
 	}
 
 	// initialise ssl/tls subsystem
 	err = stunnel.Init(ctx, syscall.SIGHUP)
 	if err != nil {
-		log.Fatal().Err(err).Msg("error starting stunnel subsystem")
+		log.Err(err).Msg("error starting stunnel subsystem")
+		return err
 	}
 
 	// load SSL cert/key
 	err = stunnel.LoadCertAndKeyFromFile(cliContext.String("cert"), cliContext.String("key"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("error loading TLS cert and/or key")
+		log.Err(err).Msg("error loading TLS cert and/or key")
+		return err
 	}
 
-	// start statistics manager
+	// initialise statistics manager
 	err = stats.Init(ctx, cliContext.String("listenapi"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("could not initialise statistics manager")
+		log.Err(err).Msg("error initialising statistics manager")
+		return err
 	}
 
 	// initialise feedproxy
-	feedProxyConf := feedproxy.FeedProxyConfig{
+	feedProxyConf := feedproxy.ProxyConfig{
 		UpdateFrequency: time.Minute * time.Duration(cliContext.Int("atcupdatefreq")),
 		ATCUrl:          cliContext.String("atcurl"),
 		ATCUser:         cliContext.String("atcuser"),
@@ -309,7 +364,8 @@ func runServer(cliContext *cli.Context) error {
 	}
 	err = feedproxy.Init(ctx, &feedProxyConf)
 	if err != nil {
-		log.Fatal().Err(err).Msg("could not initialise proxy subsystem")
+		log.Err(err).Msg("error initialising proxy subsystem")
+		return err
 	}
 
 	// initialise container manager
@@ -323,7 +379,11 @@ func runServer(cliContext *cli.Context) error {
 		PWIngestSink:                       cliContext.String("pwingestpublish"),
 		Logger:                             log.Logger,
 	}
-	ContainerManager.Run()
+	err = ContainerManager.Run()
+	if err != nil {
+		log.Err(err).Msg("error initialising container manager")
+		return err
+	}
 
 	// set up channel to catch SIGTERM
 	sigTermChan := make(chan os.Signal)
@@ -356,7 +416,7 @@ func runServer(cliContext *cli.Context) error {
 		listenWithContext(ctx, cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"), 12346)
 	}()
 
-	// serve until context closure
+	// wait for listeners to finish (until context closure)
 	wg.Wait()
 
 	// stop container manager
@@ -384,22 +444,4 @@ func runServer(cliContext *cli.Context) error {
 	}
 
 	return nil
-}
-
-func listenWithContext(ctx context.Context, listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, InnerConnectionPort int) {
-	for {
-		l, err := listener.NewListener(listenAddr, proto, feedInContainerPrefix, InnerConnectionPort)
-		if err != nil {
-			log.Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("error creating listener")
-		}
-		err = l.Run(ctx)
-		if err != nil {
-			log.Err(err).Str("proto", proto.Name()).Msg("error with listener")
-		}
-		select {
-		case <-ctx.Done(): // exit on context closure
-			return
-		case <-time.After(time.Second): // if there's a problem, slow down restarting
-		}
-	}
 }

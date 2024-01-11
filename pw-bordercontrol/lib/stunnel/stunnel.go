@@ -2,39 +2,47 @@ package stunnel
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
 	"errors"
-	"math/big"
 	"net"
 	"os"
 	"os/signal"
 	"pw_bordercontrol/lib/nats_io"
 	"sync"
-	"time"
 
 	"github.com/rs/zerolog/log"
-	"golang.org/x/net/nettest"
 )
 
 var (
-	tlsConfig  tls.Config
-	kpr        *keypairReloader
+
+	// tlsConfig contains tls.Config used to terminate stunnel connections
+	tlsConfig tls.Config
+
+	// kpr represents a keypairReloader, allowing for reload of cert & key files on signal
+	kpr *keypairReloader
+
+	// channel to receive cert & key reload signal
 	signalChan chan os.Signal
 
-	ctx             context.Context
-	cancelCtx       context.CancelFunc
+	// context for this module, allows for clean shutdown
+	ctx context.Context
+
+	// cancel function for ctx
+	cancelCtx context.CancelFunc
+
+	// waitgroup for signal catcher goroutine
 	signalCatcherWg sync.WaitGroup
 
+	// NATS subject to trigger cert/key reload
 	natsSubjReloadCertKey = "pw_bordercontrol.stunnel.reloadcertkey"
 
-	initialised   bool
+	// set to true when Init() is run
+	initialised bool
+
+	// mutex for initialised
 	initialisedMu sync.RWMutex
 
+	// error: TLS/SSL subsystem not initialised
 	ErrNotInitialised = errors.New("TLS/SSL subsystem not initialised")
 )
 
@@ -46,6 +54,8 @@ type keypairReloader struct {
 	keyPath  string
 }
 
+// Init initialises the TLS/SSL subsystem to enable listening and accepting stunnel connections.
+// Must be run during app initialisation, followed by LoadCertAndKeyFromFile.
 func Init(parentContext context.Context, reloadSignal os.Signal) error {
 
 	// prepares context
@@ -75,6 +85,7 @@ func Init(parentContext context.Context, reloadSignal os.Signal) error {
 	return nil
 }
 
+// Close shuts down the SSL/TLS subsystem. Should be run on application shutdown.
 func Close() error {
 
 	// only run if initialised
@@ -102,24 +113,25 @@ func Close() error {
 
 }
 
+// LoadCertAndKeyFromFile loads certificate and key from file.
+// Should be run immediately after Init.
 func LoadCertAndKeyFromFile(certFile, keyFile string) error {
-	// loads certificate and key from file
 
 	if !isInitialised() {
 		return ErrNotInitialised
 	}
 
 	var err error
-	kpr, err = NewKeypairReloader(certFile, keyFile)
+	kpr, err = newKeypairReloader(certFile, keyFile)
 	if err != nil {
 		return err
 	}
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
+	tlsConfig.GetCertificate = kpr.getCertificateFunc()
 	return nil
 }
 
+// NewListener returns a net.Listener preconfigured with TLS settings to listen for incoming stunnel connections
 func NewListener(network, laddr string) (l net.Listener, err error) {
-	// returns a net listener to listen for incoming stunnel connections
 
 	if !isInitialised() {
 		return l, ErrNotInitialised
@@ -134,14 +146,16 @@ func NewListener(network, laddr string) (l net.Listener, err error) {
 	return l, err
 }
 
+// isInitialised returns true if Init() has been called, else false
 func isInitialised() bool {
-	// returns true if Init() has been called, else false
 	initialisedMu.RLock()
 	defer initialisedMu.RUnlock()
 	return initialised
 }
 
-func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
+// newKeypairReloader handles loading TLS certificate and key from file (certPath, keyPath).
+// It also starts a goroutine to handle reloading TLS cert & key receive from signalChan.
+func newKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 
 	if !isInitialised() {
@@ -186,6 +200,7 @@ func NewKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	return result, nil
 }
 
+// maybeReload attempts to reload the TLS certificate & file. On error, will continue to use existing cert & key.
 func (kpr *keypairReloader) maybeReload() error {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	newCert, err := tls.LoadX509KeyPair(kpr.certPath, kpr.keyPath)
@@ -198,7 +213,8 @@ func (kpr *keypairReloader) maybeReload() error {
 	return nil
 }
 
-func (kpr *keypairReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+// getCertificateFunc provides a function for tls.Config{}.GetCertificate
+func (kpr *keypairReloader) getCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		kpr.certMu.RLock()
@@ -207,183 +223,12 @@ func (kpr *keypairReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tl
 	}
 }
 
-func GenerateSelfSignedTLSCertAndKey(keyFile, certFile *os.File) error {
-	// Thanks to: https://go.dev/src/crypto/tls/generate_cert.go
-
-	if !initialised {
-		return ErrNotInitialised
-	}
-
-	// prep certificate info
-	hosts := []string{"localhost"}
-	ipAddrs := []net.IP{net.IPv4(127, 0, 0, 1)}
-	notBefore := time.Now()
-	notAfter := time.Now().Add(time.Minute * 15)
-	isCA := true
-
-	// generate private key
-	_, priv, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return err
-	}
-
-	keyUsage := x509.KeyUsageDigitalSignature
-
-	// generate serial number
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-	if err != nil {
-		return err
-	}
-
-	// prep cert template
-	template := x509.Certificate{
-		SerialNumber: serialNumber,
-		Subject: pkix.Name{
-			Organization: []string{"plane.watch"},
-		},
-		NotBefore: notBefore,
-		NotAfter:  notAfter,
-
-		KeyUsage:              keyUsage,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-	}
-
-	// add hostname(s)
-	for _, host := range hosts {
-		template.DNSNames = append(template.DNSNames, host)
-	}
-
-	// add ip(s)
-	for _, ip := range ipAddrs {
-		template.IPAddresses = append(template.IPAddresses, ip)
-	}
-
-	// if self-signed, include CA
-	if isCA {
-		template.IsCA = true
-		template.KeyUsage |= x509.KeyUsageCertSign
-	}
-
-	// create certificate
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public().(ed25519.PublicKey), priv)
-	if err != nil {
-		return err
-	}
-
-	// encode certificate
-	err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	if err != nil {
-		return err
-	}
-
-	// marhsal private key
-	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
-	if err != nil {
-		return err
-	}
-
-	// write private key
-	err = pem.Encode(keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func PrepTestEnvironmentTLSCertAndKey() error {
-	// prepares self-signed server certificate for testing
-
-	if !initialised {
-		return ErrNotInitialised
-	}
-
-	// prep cert file
-	certFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_cert.pem")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		certFile.Close()
-		os.Remove(certFile.Name())
-	}()
-
-	// prep key file
-	keyFile, err := os.CreateTemp("", "bordercontrol_unit_testing_*_key.pem")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		keyFile.Close()
-		os.Remove(keyFile.Name())
-	}()
-
-	// generate cert/key for testing
-	err = GenerateSelfSignedTLSCertAndKey(keyFile, certFile)
-	if err != nil {
-		return err
-	}
-
-	// prep tls config for mocked server
-	kpr, err := NewKeypairReloader(certFile.Name(), keyFile.Name())
-	if err != nil {
-		return err
-	}
-	tlsConfig.GetCertificate = kpr.GetCertificateFunc()
-	return nil
-}
-
-func PrepTestEnvironmentTLSListener() (l net.Listener, err error) {
-	// prepares server-side TLS listener for testing
-
-	if !initialised {
-		return l, ErrNotInitialised
-	}
-
-	// get temp listener address
-	tempListener, err := nettest.NewLocalListener("tcp")
-	if err != nil {
-		return l, err
-	}
-	tlsListenAddr := tempListener.Addr().String()
-	tempListener.Close()
-
-	// configure temp listener
-	return NewListener("tcp", tlsListenAddr)
-
-}
-
-func PrepTestEnvironmentTLSClientConfig(sni string) (*tls.Config, error) {
-	// prepares client-side TLS config for testing
-
-	if !initialised {
-		return &tls.Config{}, ErrNotInitialised
-	}
-
-	var tlsClientConfig tls.Config
-
-	// load root CAs
-	scp, err := x509.SystemCertPool()
-	if err != nil {
-		return &tls.Config{}, err
-	}
-
-	// set up tls config
-	tlsClientConfig = tls.Config{
-		RootCAs:            scp,
-		ServerName:         sni,
-		InsecureSkipVerify: true,
-	}
-
-	return &tlsClientConfig, nil
-}
-
+// HandshakeComplete returns true of a connection's TLS handshake has completed successfully
 func HandshakeComplete(c net.Conn) bool {
 	return c.(*tls.Conn).ConnectionState().HandshakeComplete
 }
 
+// GetSNI returns the contents of the SNI field in the TLS handshake (used for feeder authentication - should contain API Key)
 func GetSNI(c net.Conn) string {
 	return c.(*tls.Conn).ConnectionState().ServerName
 }

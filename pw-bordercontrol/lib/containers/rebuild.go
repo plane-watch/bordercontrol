@@ -12,19 +12,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// struct to hold error from docker image build process
+// struct to hold error from docker image build process for JSON unmarshalling
 type ErrorLine struct {
 	Error       string      `json:"error"`
 	ErrorDetail ErrorDetail `json:"errorDetail"`
 }
 
-// struct to hold error from docker image build process
+// struct to hold error from docker image build process for JSON unmarshalling
 type ErrorDetail struct {
 	Message string `json:"message"`
 }
 
+// RebuildFeedInImageHandler handles the NATS request/reply for RebuildFeedInImage
 func RebuildFeedInImageHandler(msg *nats.Msg) {
-	// handles request from nats to rebuild feed-in image
 
 	// update log context
 	log := log.With().
@@ -74,6 +74,7 @@ func RebuildFeedInImageHandler(msg *nats.Msg) {
 	}
 }
 
+// RebuildFeedInImage will trigger a rebuild of the feed-in image
 func RebuildFeedInImage(imageName, buildContext, dockerfile string) (lastLine string, err error) {
 
 	// ensure container manager has been initialised

@@ -14,25 +14,43 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// struct for requests to the startFeederContainers goroutine start a container
+// Represents a request to the startFeederContainers goroutine start a container
 type FeedInContainer struct {
-	Lat, Lon   float64   // position of feeder
-	Label      string    // feeder label
-	ApiKey     uuid.UUID // feeder ATC api key
-	FeederCode string    // unique feeder code
-	Addr       net.IP    // client IP address
+
+	// position of feeder
+	Lat, Lon float64
+
+	// feeder label
+	Label string
+
+	// feeder api key
+	ApiKey uuid.UUID
+
+	// unique feeder code
+	FeederCode string
+
+	// client IP address
+	Addr net.IP
 }
 
-// struct for responses from the startFeederContainers goroutine start a container
+// Represents a response from the startFeederContainers goroutine start a container
 type startContainerResponse struct {
-	Err                 error  // holds error from starting container
-	ContainerStartDelay bool   // do we need to wait for container services to start? (pointer to allow calling function to read data)
-	ContainerName       string // feed-in container name
-	ContainerID         string // feed-in container ID
+
+	// holds error from starting container (or nil if no error)
+	Err error
+
+	// do we need to wait for container services to start? (pointer to allow calling function to read data)
+	ContainerStartDelay bool
+
+	// feed-in container name
+	ContainerName string
+
+	// feed-in container ID
+	ContainerID string
 }
 
+// Start starts a feed-in container and returns the container ID
 func (feedInContainer *FeedInContainer) Start() (containerID string, err error) {
-	// start a feed-in container, return the container ID
 
 	// ensure container manager has been initialised
 	if !isInitialised() {
@@ -74,19 +92,34 @@ func (feedInContainer *FeedInContainer) Start() (containerID string, err error) 
 	return containerID, nil
 }
 
+// startFeederContainersConfig provides the configuration for startFeederContainers func
 type startFeederContainersConfig struct {
-	feedInImageName            string                      // Name of docker image for feed-in containers.
-	feedInContainerPrefix      string                      // Feed-in containers will be prefixed with this. Recommend "feed-in-".
-	feedInContainerNetwork     string                      // Name of docker network to attach feed-in containers to.
-	pwIngestSink               string                      // URL to pass to the --sink flag of pw-ingest in feed-in container.
-	containersToStartRequests  chan FeedInContainer        // Channel to receive container start requests from.
-	containersToStartResponses chan startContainerResponse // Channel to send container start responses to.
-	logger                     zerolog.Logger              // Logging context
+
+	// Name of docker image for feed-in containers.
+	feedInImageName string
+
+	// Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	feedInContainerPrefix string
+
+	// Name of docker network to attach feed-in containers to.
+	feedInContainerNetwork string
+
+	// URL to pass to the --sink flag of pw-ingest in feed-in container.
+	pwIngestSink string
+
+	// Channel to receive container start requests from.
+	containersToStartRequests chan FeedInContainer
+
+	// Channel to send container start responses to.
+	containersToStartResponses chan startContainerResponse
+
+	// Logging context
+	logger zerolog.Logger
 }
 
+// startFeederContainers starts container with configuration defined by containerToStart
+// returns startContainerResponse
 func startFeederContainers(conf startFeederContainersConfig, containerToStart FeedInContainer) (startContainerResponse, error) {
-	// reads startContainerRequests from channel containersToStartRequests and starts container
-	// responds via channel containersToStartResponses
 
 	// update log context with function name
 	log := conf.logger.With().

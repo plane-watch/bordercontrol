@@ -130,8 +130,8 @@ func TestStats(t *testing.T) {
 	testAddr := testListener.Addr().String()
 	testListener.Close()
 
-	t.Run("test statsInitialised false", func(t *testing.T) {
-		require.False(t, statsInitialised())
+	t.Run("test isInitialised false", func(t *testing.T) {
+		require.False(t, isInitialised())
 	})
 
 	t.Run("test GetNumConnections ErrStatsNotInitialised", func(t *testing.T) {
@@ -190,7 +190,7 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("test statsInitialised true", func(t *testing.T) {
-		require.True(t, statsInitialised())
+		require.True(t, isInitialised())
 	})
 
 	t.Run("test RegisterFeeder", func(t *testing.T) {

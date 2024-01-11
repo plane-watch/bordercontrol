@@ -17,28 +17,39 @@ import (
 )
 
 var (
-	// allow override of these functions to simplify testing
+
+	// stunnelNewListenerWrapper is a wrapper for stunnel.NewListener.
+	// Variableised to allow overwriting for testing.
 	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
 		return stunnel.NewListener(network, laddr)
 	}
+
+	// proxyConnStartWrapper is a wrapper for *feedproxy.Start().
+	// Variableised to allow overwriting for testing.
 	proxyConnStartWrapper = func(f *feedproxy.ProxyConnection, ctx context.Context) error {
 		return f.Start(ctx)
 	}
+
+	// feedproxyGetConnectionNumberWrapper is a wrapper for feedproxy.GetConnectionNumber().
+	// Variableised to allow overwriting for testing.
 	feedproxyGetConnectionNumberWrapper = func() (num uint, err error) {
 		return feedproxy.GetConnectionNumber()
 	}
 )
 
+// NewListener returns a listener struct that can be Run() to start listening for incoming connections.
 func NewListener(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, InnerConnectionPort int) (*listener, error) {
-	// prep listener config
+	// get IP address from listenAddr
 	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
 	if ip == nil {
 		ip = net.IPv4(0, 0, 0, 0) // 0.0.0.0
 	}
+	// get port from listenAddr
 	port, err := strconv.Atoi(strings.Split(listenAddr, ":")[1])
 	if err != nil {
 		return &listener{}, err
 	}
+	// return listener struct
 	return &listener{
 		Protocol: proto,
 		ListenAddr: net.TCPAddr{
@@ -51,16 +62,26 @@ func NewListener(listenAddr string, proto feedprotocol.Protocol, feedInContainer
 	}, nil
 }
 
+// listener represents the configuration for a proxy service
 type listener struct {
-	Protocol              feedprotocol.Protocol // Protocol handled by the listener
-	ListenAddr            net.TCPAddr           // TCP address to listen on for incoming stunnel'd BEAST connections
+
+	// Protocol handled by the listener
+	Protocol feedprotocol.Protocol
+
+	// TCP address to listen on for incoming stunnel connections
+	ListenAddr net.TCPAddr
+
+	// Prefix for feed-in containers to be created.
 	FeedInContainerPrefix string
-	InnerConnectionPort   int
+
+	// Port to connect to on feed-in container or MLAT server.
+	InnerConnectionPort int
 }
 
+// Run starts a listener listening for incoming connections
 func (l *listener) Run(ctx context.Context) error {
-	// incoming connection listener
 
+	// waitgroup used for clean exit of goroutines
 	wg := sync.WaitGroup{}
 
 	// get protocol name

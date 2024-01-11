@@ -1,3 +1,5 @@
+// Package feedproxy contains the proxying implementation for bordercontrol.
+
 package feedproxy
 
 import (
@@ -12,12 +14,21 @@ import (
 )
 
 var (
-	initialised   bool
+
+	// set to true when Init() has been run
+	initialised bool
+
+	// mutex for initialised
 	initialisedMu sync.RWMutex
 
-	ctx       context.Context
+	// context for this package
+	ctx context.Context
+
+	// cancel function for this package's context
 	cancelCtx context.CancelFunc
-	wg        sync.WaitGroup
+
+	// waitgroup for goroutines started in this package
+	wg sync.WaitGroup
 
 	// prep prom collector for valid feeders
 	promCollectorNumFeeders = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
@@ -29,16 +40,27 @@ var (
 		feedersGaugeFunc)
 )
 
-type FeedProxyConfig struct {
-	UpdateFrequency time.Duration // how often to refresh allowed feeder DB from ATC
-	ATCUrl          string        // ATC API URL
-	ATCUser         string        // ATC API Username
-	ATCPass         string        // ATC API Password
+// ProxyConfig holds the configuration for the proxy
+type ProxyConfig struct {
+
+	// How often to refresh allowed feeder DB from ATC
+	UpdateFrequency time.Duration
+
+	// ATC API URL
+	ATCUrl string
+
+	// ATC API Username
+	ATCUser string
+
+	// ATC API Password
+	ATCPass string
 
 	atcUrl *url.URL
 }
 
-func Init(parentContext context.Context, conf *FeedProxyConfig) error {
+// Init initialises the proxy subsystem. It must be run prior to accepting connections.
+// parentContext holds a context that can be used to perform clean shutdown of associated goroutines.
+func Init(parentContext context.Context, conf *ProxyConfig) error {
 
 	if isInitialised() {
 		return ErrAlreadyInitialised
@@ -99,8 +121,10 @@ func Init(parentContext context.Context, conf *FeedProxyConfig) error {
 	return nil
 }
 
-func Close(conf *FeedProxyConfig) error {
+// Close shuts down the proxy subsystem.
+func Close(conf *ProxyConfig) error {
 
+	// Must be initialised to run
 	if !isInitialised() {
 		return ErrNotInitialised
 	}
@@ -111,6 +135,7 @@ func Close(conf *FeedProxyConfig) error {
 	// wait for goroutines to finish up
 	wg.Wait()
 
+	// unregister prom collectors
 	err := stats.UnregisterPromCollector(promCollectorNumFeeders)
 	if err != nil {
 		log.Err(err).Msg("cannot unregister prom collector")
@@ -124,6 +149,7 @@ func Close(conf *FeedProxyConfig) error {
 	return nil
 }
 
+// isInitialised returns true if Init() has been run
 func isInitialised() bool {
 	initialisedMu.RLock()
 	defer initialisedMu.RUnlock()

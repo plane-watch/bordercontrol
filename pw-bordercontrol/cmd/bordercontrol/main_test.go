@@ -29,15 +29,15 @@ func TestGetRepoInfo(t *testing.T) {
 }
 
 func TestLogNumGoroutines(t *testing.T) {
-	sc := make(chan bool)
+	ctx, cancel := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		logNumGoroutines(time.Second, sc)
+		logNumGoroutines(ctx, time.Second)
 		wg.Done()
 	}()
 	time.Sleep(time.Second * 2)
-	sc <- true
+	cancel()
 	wg.Wait()
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// KickFeederHandler handles the NATS request/reply for KickFeeder
 func KickFeederHandler(msg *nats.Msg) {
 
 	log := log.With().
@@ -53,8 +54,8 @@ func KickFeederHandler(msg *nats.Msg) {
 	}
 }
 
+// KickFeeder removes the feeder container used by feeder with apiKey
 func KickFeeder(apiKey uuid.UUID) error {
-	// kills the feeder container used by feeder with apiKey
 
 	// get docker client
 	getDockerClientMu.RLock()

@@ -1,3 +1,12 @@
+/*
+Package containers provides bordercontrol the ability to manage feed-in containers.
+
+  - Feed-in containers are created on accepting a BEAST connection
+  - Feed-in image can be rebuilt on signall or NATS request
+  - Feed-in containers can be removed (feeder kicked) if a feeder's API Key is no longer valid
+  - Feed-in containers are regularly checked. If out-of-date, they are removed (allowing an up-tp-date container to be created when feeder reconnects)
+*/
+
 package containers
 
 import (
@@ -19,62 +28,113 @@ import (
 )
 
 var (
-	chanSkipDelay                      chan os.Signal              // channel for received signals to skip container recreation delay
-	signalSkipContainerRecreationDelay os.Signal                   // signal to listen for to skip container recreation delay
-	containersToStartRequests          chan FeedInContainer        // channel for container start requests
-	containersToStartResponses         chan startContainerResponse // channel for container start responses
 
-	initialised   bool         // has ContainerManager.Init() been run?
-	initialisedMu sync.RWMutex // mutex for initialised
+	// channel for received signals to skip container recreation delay
+	chanSkipDelay chan os.Signal
 
-	feedInImageName                   string // Name of docker image for feed-in containers
-	feedInImageBuildContext           string // Build context (path) for feed-in image
-	feedInImageBuildContextDockerfile string // Dockerfile path for feed-in image
+	// signal to listen for to skip container recreation delay
+	signalSkipContainerRecreationDelay os.Signal
 
-	feedInContainerPrefix string // Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	// channel for container start requests
+	containersToStartRequests chan FeedInContainer
 
-	ctx       context.Context    // container subsystem context
-	ctxCancel context.CancelFunc // cancel function for container subsystem context
+	// channel for container start responses
+	containersToStartResponses chan startContainerResponse
+
+	// set to true when Init() has been run
+	initialised bool
+
+	// mutex for initialised
+	initialisedMu sync.RWMutex
+
+	// Name of docker image for feed-in containers
+	feedInImageName string
+
+	// Build context (path) for feed-in image
+	feedInImageBuildContext string
+
+	// Dockerfile path for feed-in image
+	feedInImageBuildContextDockerfile string
+
+	// Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	feedInContainerPrefix string
+
+	// container subsystem context
+	ctx context.Context
+
+	// cancel function for container subsystem context
+	ctxCancel context.CancelFunc
 
 	// the following functions are variable-ized so it can be overridden for unit testing
 
-	getDockerClientMu sync.RWMutex // mutex for getDockerClient func
-	getDockerClient   = func() (cli *client.Client, err error) {
-		// set up docker client
+	// mutex for getDockerClient func
+	getDockerClientMu sync.RWMutex
+
+	// Returns a docker client cli.
+	// Allows this function to be overridden for testing.
+	getDockerClient = func() (cli *client.Client, err error) {
 		cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		return cli, err
 	}
+
+	// Wrapper for nats_io.ThisInstance to allow overriding for testing.
 	natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
 		return nats_io.ThisInstance(sentToInstance)
 	}
+
+	// Wrapper for nats.Msg{}.RespondMsg() to allow overriding for testing.
 	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 		return original.RespondMsg(reply)
 	}
+
+	// Wrapper for nats.Msg{}.Ack() to allow overriding for testing.
 	natsAck = func(msg *nats.Msg) error {
 		return msg.Ack()
 	}
 )
 
 const (
-	// nats subjects
+
+	// nats subject to trigger feed-in image rebuild
 	natsSubjFeedInImageRebuild = "pw_bordercontrol.feedinimage.rebuild"
-	natsSubjFeederKick         = "pw_bordercontrol.feeder.kick"
+
+	// nats subject to trigger feed-in container removal (feeder kick)
+	natsSubjFeederKick = "pw_bordercontrol.feeder.kick"
 )
 
+// ContainerManager provides configuration and control for the container manager
 type ContainerManager struct {
-	FeedInImageName                    string         // Name of docker image for feed-in containers
-	FeedInImageBuildContext            string         // Build context (path) for feed-in image
-	FeedInImageBuildContextDockerfile  string         // Dockerfile path for feed-in image
-	FeedInContainerPrefix              string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
-	FeedInContainerNetwork             string         // Name of docker network to attach feed-in containers to
-	SignalSkipContainerRecreationDelay syscall.Signal // Signal that will skip container recreation delay
-	PWIngestSink                       string         // URL to pass to the --sink flag of pw-ingest in feed-in container
-	Logger                             zerolog.Logger // Logging context to use
-	wg                                 sync.WaitGroup // waitgroup to track running goroutines
+
+	// Name of docker image for feed-in containers
+	FeedInImageName string
+
+	// Build context (path) for feed-in image
+	FeedInImageBuildContext string
+
+	// Dockerfile path for feed-in image
+	FeedInImageBuildContextDockerfile string
+
+	// Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	FeedInContainerPrefix string
+
+	// Name of docker network to attach feed-in containers to
+	FeedInContainerNetwork string
+
+	// Signal that will skip container recreation delay
+	SignalSkipContainerRecreationDelay syscall.Signal
+
+	// URL to pass to the --sink flag of pw-ingest in feed-in container
+	PWIngestSink string
+
+	// Logging context to use
+	Logger zerolog.Logger
+
+	// waitgroup to track running goroutines
+	wg sync.WaitGroup
 }
 
+// Run runs container manager
 func (conf *ContainerManager) Run() error {
-	// start goroutines associated with container manager
 
 	if isInitialised() {
 		return ErrAlreadyInitialised
@@ -194,6 +254,7 @@ func (conf *ContainerManager) Run() error {
 	return nil
 }
 
+// Stop stops container manager.
 func (conf *ContainerManager) Stop() error {
 	// stop goroutines associated with container manager
 
@@ -231,8 +292,8 @@ func (conf *ContainerManager) Stop() error {
 	return nil
 }
 
+// initNats will initialise nats if nats subsystem has a connection
 func initNats() error {
-	// initialise nats if nats subsystem has a connection
 	if nats_io.IsConnected() {
 		err := nats_io.Sub(natsSubjFeedInImageRebuild, RebuildFeedInImageHandler)
 		if err != nil {
@@ -246,13 +307,14 @@ func initNats() error {
 	return nil
 }
 
+// isInitialised returns true if ContainerManager.Run as been run.
 func isInitialised() bool {
 	initialisedMu.RLock()
 	defer initialisedMu.RUnlock()
 	return initialised
 }
 
+// return feed in image container name for given api key
 func getFeedInContainerName(apiKey uuid.UUID) string {
-	// return feed in image container name for given api key
 	return fmt.Sprintf("%s%s", feedInContainerPrefix, apiKey.String())
 }

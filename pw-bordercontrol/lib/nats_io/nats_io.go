@@ -13,10 +13,13 @@ import (
 )
 
 const (
+
+	// NATS subject for ping operations
 	natsSubjPing = "pw_bordercontrol.ping"
 )
 
 var (
+
 	// module wide variable for nats connection
 	nc *nats.Conn
 
@@ -46,13 +49,14 @@ type NatsConfig struct {
 	StartTime time.Time // time when app was started (for working out uptime)
 }
 
+// returns true if Init() has been called, else false
 func isInitialised() bool {
-	// returns true if Init() has been called, else false
 	initialisedMu.RLock()
 	defer initialisedMu.RUnlock()
 	return initialised
 }
 
+// Close shuts down NATS subsystem
 func (conf *NatsConfig) Close() error {
 
 	// return error is not initialised
@@ -77,6 +81,7 @@ func (conf *NatsConfig) Close() error {
 	return nil
 }
 
+// Init starts up NATS subsystem
 func (conf *NatsConfig) Init() error {
 
 	// set up context
@@ -129,23 +134,36 @@ func (conf *NatsConfig) Init() error {
 	return nil
 }
 
+// GetInstance returns this bordercontrol's instance name
 func GetInstance() (instance string, err error) {
-	// returns this bordercontrol's instance name
 	if !isInitialised() {
 		return instance, ErrNotInitialised
 	}
 	return natsConfig.Instance, err
 }
 
+// ThisInstance will return information based on string sentToInstance.
+// sentToInstance can be:
+//
+//   - a string matching the name of an instance exactly; or
+//
+//   - a single '*' character to denote all instances; or
+//
+//   - a regex pattern to match one or more instances
+//
+// It will return:
+//
+//   - meantForThisInstance = true if the instance in the received NATS msg matches this instance
+//
+//   - thisInstance = the name of this app's configured NATS instance
 func ThisInstance(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
-	// returns meantForThisInstance = true if sentToInstance matches this instance
-	// returns thisInstanceName = the name of this instance
-	// sentToInstance supports regex
 
+	// ensure initialised before proceeding
 	if !isInitialised() {
 		return meantForThisInstance, thisInstanceName, ErrNotInitialised
 	}
 
+	// look for matches accordingly
 	thisInstanceName = natsConfig.Instance
 	if sentToInstance == "*" {
 		return true, thisInstanceName, err
@@ -157,16 +175,16 @@ func ThisInstance(sentToInstance string) (meantForThisInstance bool, thisInstanc
 	}
 }
 
+// IsConnectedreturns true if connected to nats server
 func IsConnected() bool {
-	// returns true if connected to nats server
 	if !isInitialised() {
 		return false
 	}
 	return nc.IsConnected()
 }
 
+// Sub subscribes to a subject "subj", and calls function "handler" with msg as argument
 func Sub(subj string, handler func(msg *nats.Msg)) error {
-	// subscribes to a subject "subj", and calls function "handler" with msg as argument
 
 	// error if not initialised
 	if !isInitialised() {
@@ -191,8 +209,10 @@ func Sub(subj string, handler func(msg *nats.Msg)) error {
 	return nil
 }
 
+// SignalSendOnSubj subscribes to subject subj, and when a msg is received, signal sig is sent to channel ch.
+// Intended to allow quick NATS integration to exiting signal.Notify configurations.
 func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
-	// when "subj" is received, signal "sig" is sent to channel "ch"
+
 	log := log.With().Str("subj", subj).Logger()
 	return Sub(subj, func(msg *nats.Msg) {
 		meantForThisInstance, _, err := ThisInstance(string(msg.Data))
@@ -209,8 +229,9 @@ func SignalSendOnSubj(subj string, sig os.Signal, ch chan os.Signal) error {
 	})
 }
 
+// PingHandler handles incoming ping requests and provides information about this instance of bordercontrol.
 func PingHandler(msg *nats.Msg) {
-	// handles ping requests
+
 	log := log.With().Str("subj", msg.Subject).Logger()
 
 	// get instance

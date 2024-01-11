@@ -24,20 +24,27 @@ const (
 )
 
 var (
+
+	// the name of this app's NATS instance
 	natsInstance string
 
-	// functions to override for testing
+	// natsGetInstance is a wrapper for nats_io.GetInstance() to allow override for testing
 	natsGetInstance = func() (instance string, err error) {
 		return nats_io.GetInstance()
 	}
+
+	// natsSub is a wrapper for nats_io.Sub() to allow override for testing
 	natsSub = func(subj string, handler func(msg *nats.Msg)) error {
 		return nats_io.Sub(subj, handler)
 	}
+
+	// natsRespondMsg is a wrapper for *nats.Msg.RespondMsg() to allow override for testing
 	natsRespondMsg = func(original *nats.Msg, reply *nats.Msg) error {
 		return original.RespondMsg(reply)
 	}
 )
 
+// perFeederPerProtocolMetrics is a struct to allow marshalling of stats data into valid JSON to be sent as a NATS reply
 type perFeederPerProtocolMetrics struct {
 	FeederCode     string    `json:"feeder_code"`
 	Label          string    `json:"label"`
@@ -47,6 +54,7 @@ type perFeederPerProtocolMetrics struct {
 	send           bool
 }
 
+// perFeederAllProtocolMetrics is a struct to allow marshalling of stats data into valid JSON to be sent as a NATS reply
 type perFeederAllProtocolMetrics struct {
 	FeederCode          string    `json:"feeder_code"`
 	Label               string    `json:"label"`
@@ -61,6 +69,7 @@ type perFeederAllProtocolMetrics struct {
 	send                bool
 }
 
+// initNats initialises the NATS stats subsystem if requested by the user as command line flags / env vars.
 func initNats() error {
 
 	var err error
@@ -98,8 +107,8 @@ func initNats() error {
 	return nil
 }
 
+// getProtocolFromLastToken returns the feeder protocol, where the protocol is the last token in the subject
 func getProtocolFromLastToken(subject string) (feedprotocol.Protocol, error) {
-	// returns the feeder protocol, where the protocol is the last token in the subject
 	tokens := strings.Split(subject, ".")
 	lastToken := strings.ToUpper(tokens[len(tokens)-1])
 	switch {
@@ -112,11 +121,12 @@ func getProtocolFromLastToken(subject string) (feedprotocol.Protocol, error) {
 	}
 }
 
+// parseApiKeyFromMsgData returns a uuid.UUID from msg.Data byte slice
 func parseApiKeyFromMsgData(msg *nats.Msg) (uuid.UUID, error) {
-	// parse API key
 	return uuid.ParseBytes(msg.Data)
 }
 
+// natsSubjFeedersMetricsHandler handles NATS requests for natsSubjFeedersMetrics
 func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 
 	// update log context
@@ -128,11 +138,13 @@ func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
 
+	// prep struct for later marshalling into JSON
 	afm := make(map[string]perFeederAllProtocolMetrics)
 
+	// populate struct
 	for apiKey, feeder := range stats.Feeders {
 
-		// prep reply struct
+		// prep feeder-level struct
 		fm := perFeederAllProtocolMetrics{}
 		fm.FeederCode = feeder.Code
 		fm.Label = feeder.Label
@@ -171,6 +183,7 @@ func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 			}
 		}
 
+		// if we have stats to send, then add to slice
 		if fm.send {
 			afm[apiKey.String()] = fm
 		}
@@ -197,6 +210,7 @@ func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 	return
 }
 
+// natsSubjFeederMetricsAllProtocolsHandler handles NATS requests for natsSubjFeederMetricsAllProtocols
 func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 
 	// verify api key
@@ -283,6 +297,7 @@ func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 	return
 }
 
+// natsSubjFeederHandler routes NATS requests for natsSubjFeederConnectedBEAST, natsSubjFeederConnectedMLAT, natsSubjFeederMetricsBEAST & natsSubjFeederMetricsMLAT.
 func natsSubjFeederHandler(msg *nats.Msg) {
 
 	// verify protocol
@@ -315,6 +330,7 @@ func natsSubjFeederHandler(msg *nats.Msg) {
 
 }
 
+// natsSubjFeederMetricsHandler handles NATS requests for natsSubjFeederMetricsBEAST & natsSubjFeederMetricsMLAT.
 func natsSubjFeederMetricsHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedprotocol.Protocol) {
 
 	// update log context
@@ -376,6 +392,7 @@ func natsSubjFeederMetricsHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedpro
 	return
 }
 
+// natsSubjFeederConnectedHandler handles NATS requests for natsSubjFeederConnectedBEAST & natsSubjFeederConnectedMLAT.
 func natsSubjFeederConnectedHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedprotocol.Protocol) {
 
 	// update log context

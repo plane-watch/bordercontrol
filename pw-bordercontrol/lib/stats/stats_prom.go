@@ -14,10 +14,14 @@ const (
 )
 
 var (
-	promCollectors   []prometheus.Collector // slice of all registered collectors (for unregistration during .Close())
-	promCollectorsMu sync.RWMutex           // mutex for promCollectors
 
-	// per-feeder prom metrics
+	// promCollectors contains a slice of all registered collectors (for unregistration during .Close())
+	promCollectors []prometheus.Collector
+
+	// mutex for promCollectors
+	promCollectorsMu sync.RWMutex
+
+	// per-feeder prom vecs for
 	promFeederDataInBytesTotal  *prometheus.CounterVec
 	promFeederDataOutBytesTotal *prometheus.CounterVec
 
@@ -26,6 +30,7 @@ var (
 	ErrPromCouldNotFindCounter     = errors.New("could not find counter in promCollectors")
 )
 
+// registerGlobalCollectors registers global (as opposed to per-feeder) prometheus metrics.
 func registerGlobalCollectors() error {
 	var (
 		counters []prometheus.Collector
@@ -168,6 +173,8 @@ func registerGlobalCollectors() error {
 	return nil
 }
 
+// RegisterPromCollector registers a prometheus collector, and adds the collector definition to slice promCollectors.
+// This allows for unregistration of all collectors on Close().
 func RegisterPromCollector(c prometheus.Collector) error {
 	// registers a prometheus collector
 
@@ -185,8 +192,8 @@ func RegisterPromCollector(c prometheus.Collector) error {
 	return nil
 }
 
+// UnregisterPromCollector unregisters a prometheus collector.
 func UnregisterPromCollector(c prometheus.Collector) error {
-	// unregisters a prometheus collector
 
 	b := prometheus.Unregister(c)
 	if b != true {
@@ -207,8 +214,8 @@ func UnregisterPromCollector(c prometheus.Collector) error {
 	return ErrPromCouldNotFindCounter
 }
 
+// registerPerFeederCounterVecs registers prometheus vectors for per-feeder metrics
 func registerPerFeederCounterVecs() error {
-	// define per-connection prometheus vectors
 
 	var err error
 

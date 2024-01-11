@@ -83,7 +83,7 @@ func TestFeedProxy(t *testing.T) {
 	pctx := context.Background()
 
 	t.Run("initialise feedproxy subsystem error", func(t *testing.T) {
-		c := FeedProxyConfig{
+		c := ProxyConfig{
 			UpdateFrequency: time.Second * 10,
 			ATCUrl:          "\n", // ASCII control character in URL is invalid
 		}
@@ -91,7 +91,7 @@ func TestFeedProxy(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	feedProxyConf := FeedProxyConfig{
+	feedProxyConf := ProxyConfig{
 		UpdateFrequency: time.Second * 10,
 	}
 

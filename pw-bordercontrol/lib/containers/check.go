@@ -10,24 +10,33 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// checkFeederContainersConfig provides configuration for function checkFeederContainers
 type checkFeederContainersConfig struct {
-	feedInImageName          string         // Name of docker image for feed-in containers.
-	feedInContainerPrefix    string         // Feed-in containers will be prefixed with this. Recommend "feed-in-".
-	checkFeederContainerSigs chan os.Signal // Channel to receive signals. Received signal will skip sleeps and cause containers to be checked/recreated immediately.
-	logger                   zerolog.Logger // Logging context
-	stop                     *chan bool
+
+	// Name of docker image for feed-in containers.
+	feedInImageName string
+
+	// Feed-in containers will be prefixed with this. Recommend "feed-in-".
+	feedInContainerPrefix string
+
+	// Channel to receive signals. Received signal will skip sleeps and cause containers to be checked/recreated immediately.
+	checkFeederContainerSigs chan os.Signal
+
+	// Logging context
+	logger zerolog.Logger
 }
 
+// checkFeederContainers checks feed-in containers are running the latest feed-in image.
+// If they aren't remove them. They will be recreated using the latest image when the client reconnects.
+// Returns a time.Duration sleepTime telling the calling function how long to sleep before calling this function again.
 func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Duration, err error) {
-	// Checks feed-in containers are running the latest image. If they aren't remove them.
-	// They will be recreated using the latest image when the client reconnects.
-
-	// TODO: One instance of this goroutine per region/mux would be good.
 
 	var (
-		containerRemoved bool // was a container removed this run
+		// was a container removed this run
+		containerRemoved bool
 	)
 
+	// update log context
 	log := conf.logger.With().
 		Strs("func", []string{"containers.go", "checkFeederContainers"}).
 		Logger()
