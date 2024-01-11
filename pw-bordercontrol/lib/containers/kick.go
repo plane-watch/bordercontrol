@@ -79,8 +79,14 @@ func KickFeeder(apiKey uuid.UUID) error {
 		return err
 	}
 
+	// update log context
+	log = log.
+		With().
+		Str("container", containers[0].Names[0]).
+		Logger()
+
 	// kill container
-	log.Info().Msg("killing feed-in container")
+	log.Info().Msg("requested to kill feed-in container via NATS request")
 	err = cli.ContainerRemove(ctx, containers[0].ID, types.ContainerRemoveOptions{
 		Force: true,
 	})
