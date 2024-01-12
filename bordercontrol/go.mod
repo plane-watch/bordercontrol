@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/google/uuid v1.5.0
-	github.com/nats-io/nats-server/v2 v2.10.7
+	github.com/nats-io/nats-server/v2 v2.10.9
 	github.com/nats-io/nats.go v1.31.0
 	github.com/prometheus/client_golang v1.18.0
 	github.com/rs/zerolog v1.31.0
