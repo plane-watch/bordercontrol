@@ -1,6 +1,6 @@
 FROM ghcr.io/plane-watch/pw-pipeline:pw_ingest as pipeline
 
-FROM debian:bookworm-20231218-slim
+FROM debian:bookworm-20240110-slim
 
 ARG S6_OVERLAY_VERSION=3.1.6.0
 
@@ -63,7 +63,7 @@ RUN set -x && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
 
 COPY --from=pipeline /app/pw_ingest /usr/local/bin/pw_ingest
-COPY pw-mux/rootfs/ /
+COPY mux/rootfs/ /
 
 # Deploy s6 overlay
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp

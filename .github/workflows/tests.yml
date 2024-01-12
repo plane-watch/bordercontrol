@@ -48,12 +48,12 @@ jobs:
       -
         name: go mod tidy
         run: |
-          pushd pw-bordercontrol
+          pushd bordercontrol
           sudo go mod tidy
       -
         name: go test
         run: |
-          pushd pw-bordercontrol
+          pushd bordercontrol
           sudo go test -v -timeout 8m --race -count=2 -coverprofile=../coverage.out -covermode=atomic ./...
       -
         name: Upload coverage reports to Codecov
@@ -82,8 +82,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: false
-          context: ./pw-feed-in
-          file: ./pw-feed-in/Dockerfile.feeder
+          context: ./feed-in
+          file: ./feed-in/Dockerfile.feeder
       -
         name: Build mlat-server
         uses: docker/build-push-action@v5

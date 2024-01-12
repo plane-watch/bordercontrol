@@ -1,14 +1,14 @@
 FROM golang:1.21.6-bookworm AS builder
 
-COPY / /src/pw-bordercontrol
+COPY / /src/bordercontrol
 
-WORKDIR /src/pw-bordercontrol/pw-bordercontrol
+WORKDIR /src/bordercontrol/bordercontrol
 
 RUN go mod tidy && \
     go build ./... && \
     go install ./...
 
-FROM debian:bookworm-20231218-slim
+FROM debian:bookworm-20240110-slim
 
 ARG S6_OVERLAY_VERSION=3.1.6.0
 
@@ -33,7 +33,7 @@ RUN set -x && \
     rm -rf /src/* /tmp/* /var/lib/apt/lists/*
 
 COPY --from=builder /go/bin/bordercontrol /usr/local/bin/bordercontrol
-COPY pw-bordercontrol/rootfs/ /
+COPY bordercontrol/rootfs/ /
 
 # Deploy s6 overlay
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp

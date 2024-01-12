@@ -1,10 +1,10 @@
-# pw-feed-in #
+# feed-in
 
 a.k.a "feed-in" containers.
 
 Spawns an instance of `pw_ingest` configured as-per below.
 
-## Environment Variables ##
+## Environment Variables
 
 | Variable | Detail | Default |
 | -------- | ------ | ------- |
