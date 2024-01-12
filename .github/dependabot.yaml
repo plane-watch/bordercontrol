@@ -13,7 +13,7 @@ updates:
 
   # Maintain dependencies for pw-feeder go modules
   - package-ecosystem: "gomod"
-    directory: "/pw-bordercontrol"
+    directory: "/bordercontrol"
     schedule:
       interval: "daily"
     assignees:

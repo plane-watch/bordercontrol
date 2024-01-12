@@ -40,7 +40,7 @@ var (
 	TestFeederMux       = "test-mux"
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
-	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
+	TestPWIngestSink    = "nats://ingest-sink:12345"
 
 	ErrTesting = errors.New("error injected for testing")
 )
@@ -61,7 +61,7 @@ func TestContainers(t *testing.T) {
 
 	// starting test docker daemon
 	t.Log("starting test docker daemon")
-	tmpDir, err := os.MkdirTemp("", "pw-bordercontrol-go-test-*") // get temp path for test docker daemon
+	tmpDir, err := os.MkdirTemp("", "bordercontrol-go-test-*") // get temp path for test docker daemon
 	require.NoError(t, err)
 	TestDaemon, err := daemon.NewDaemon( // create test docker daemon
 		tmpDir,
@@ -368,7 +368,7 @@ func TestContainers(t *testing.T) {
 			pwd, err := os.Getwd()
 			require.NoError(t, err)
 
-			buildContext := filepath.Join(pwd, "../../../pw-feed-in/")
+			buildContext := filepath.Join(pwd, "../../../feed-in/")
 			t.Logf("build context: %s", buildContext)
 
 			lastLine, err := RebuildFeedInImage(TestFeedInImageNameSecond, buildContext, "Dockerfile.feeder")
@@ -451,7 +451,7 @@ func TestContainers(t *testing.T) {
 			pwd, err := os.Getwd()
 			require.NoError(t, err)
 
-			feedInImageBuildContext = filepath.Join(pwd, "../../../pw-feed-in/")
+			feedInImageBuildContext = filepath.Join(pwd, "../../../feed-in/")
 			feedInImageBuildContextDockerfile = "Dockerfile.feeder"
 
 			// override functions for testing

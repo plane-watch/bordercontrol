@@ -68,7 +68,7 @@ const (
 var (
 	// App config, command line & env var configuration
 	app = cli.App{
-		Version: "0.0.2",
+		Version: "0.0.2a",
 		Name:    "plane.watch bordercontrol",
 		Usage:   "Proxy for multiple stunnel-based BEAST & MLAT endpoints",
 		Description: `This program acts as a server for multiple stunnel-based endpoints, ` +
@@ -163,7 +163,7 @@ var (
 				Category: "Docker Environment",
 				Name:     "feedinimagecontext",
 				Usage:    "feed-in-image build context",
-				Value:    "/opt/pw-feed-in/",
+				Value:    "/opt/feed-in/",
 				EnvVars:  []string{"FEED_IN_BUILD_CONTEXT"},
 			},
 			&cli.StringFlag{

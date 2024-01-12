@@ -231,7 +231,7 @@ func TestStunnel(t *testing.T) {
 			tName := strings.ReplaceAll(t.Name(), "/", "_")
 
 			// make temp file for cert
-			tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
+			tmpCertFileName := fmt.Sprintf("bordercontrol-testing-%s-certfile-*", tName)
 			tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
 			require.NoError(t, err)
 			t.Cleanup(func() {
@@ -240,7 +240,7 @@ func TestStunnel(t *testing.T) {
 			})
 
 			// make temp file for key
-			tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
+			tmpKeyFileName := fmt.Sprintf("bordercontrol-testing-%s-keyfile-*", tName)
 			tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
 			require.NoError(t, err)
 			t.Cleanup(func() {
@@ -289,7 +289,7 @@ func TestStunnel(t *testing.T) {
 		tName := strings.ReplaceAll(t.Name(), "/", "_")
 
 		// make temp file for cert
-		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
+		tmpCertFileName := fmt.Sprintf("bordercontrol-testing-%s-certfile-*", tName)
 		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
 		require.NoError(t, err)
 		t.Cleanup(func() {
@@ -299,7 +299,7 @@ func TestStunnel(t *testing.T) {
 		t.Logf("created temp certificate file: %s", tmpCertFile.Name())
 
 		// make temp file for key
-		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
+		tmpKeyFileName := fmt.Sprintf("bordercontrol-testing-%s-keyfile-*", tName)
 		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
 		require.NoError(t, err)
 		t.Cleanup(func() {
@@ -320,14 +320,14 @@ func TestStunnel(t *testing.T) {
 		tName := strings.ReplaceAll(t.Name(), "/", "_")
 
 		// make temp file for cert
-		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
+		tmpCertFileName := fmt.Sprintf("bordercontrol-testing-%s-certfile-*", tName)
 		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
 		require.NoError(t, err)
 		tmpCertFile.Close()
 		os.Remove(tmpCertFile.Name())
 
 		// make temp file for key
-		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
+		tmpKeyFileName := fmt.Sprintf("bordercontrol-testing-%s-keyfile-*", tName)
 		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
 		require.NoError(t, err)
 		tmpKeyFile.Close()
@@ -345,7 +345,7 @@ func TestStunnel(t *testing.T) {
 		tName := strings.ReplaceAll(t.Name(), "/", "_")
 
 		// make temp file for cert
-		tmpCertFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-certfile-*", tName)
+		tmpCertFileName := fmt.Sprintf("bordercontrol-testing-%s-certfile-*", tName)
 		tmpCertFile, err := os.CreateTemp("", tmpCertFileName)
 		require.NoError(t, err)
 		t.Cleanup(func() {
@@ -355,7 +355,7 @@ func TestStunnel(t *testing.T) {
 		t.Logf("created temp certificate file: %s", tmpCertFile.Name())
 
 		// make temp file for key
-		tmpKeyFileName := fmt.Sprintf("pw-bordercontrol-testing-%s-keyfile-*", tName)
+		tmpKeyFileName := fmt.Sprintf("bordercontrol-testing-%s-keyfile-*", tName)
 		tmpKeyFile, err := os.CreateTemp("", tmpKeyFileName)
 		require.NoError(t, err)
 		t.Cleanup(func() {

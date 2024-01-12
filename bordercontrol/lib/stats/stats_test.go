@@ -28,7 +28,7 @@ var (
 	TestFeederMux       = "test-mux"
 	TestFeederCode      = "ABCD-1234"
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
-	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
+	TestPWIngestSink    = "nats://ingest-sink:12345"
 	TestConnNumBEAST    = uint(2345)
 	TestConnNumMLAT     = uint(4567)
 )
