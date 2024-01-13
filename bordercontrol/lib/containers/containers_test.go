@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/nats-io/nats.go"
@@ -330,9 +331,15 @@ func TestContainers(t *testing.T) {
 		PWIngestSink:                       TestPWIngestSink,
 		Logger:                             log.Logger,
 	}
-	t.Run("running ContainerManager.Init()", func(t *testing.T) {
+	t.Run("ContainerManager.Run()", func(t *testing.T) {
 		err := cm.Run()
 		require.NoError(t, err)
+	})
+
+	t.Run("ContainerManager.Run() already running", func(t *testing.T) {
+		err := cm.Run()
+		require.Error(t, err)
+		assert.Equal(t, ErrAlreadyInitialised.Error(), err.Error())
 	})
 
 	t.Run("working client after init", func(t *testing.T) {
