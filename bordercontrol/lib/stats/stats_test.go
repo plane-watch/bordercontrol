@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"pw_bordercontrol/lib/feedprotocol"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
@@ -32,6 +34,10 @@ var (
 	TestConnNumBEAST    = uint(2345)
 	TestConnNumMLAT     = uint(4567)
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func getMetricsFromTestServer(t *testing.T, requestURL string) (body string) {
 	// request metrics

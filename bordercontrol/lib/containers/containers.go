@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
@@ -70,11 +71,20 @@ var (
 	// mutex for getDockerClient func
 	getDockerClientMu sync.RWMutex
 
-	// Returns a docker client cli.
-	// Allows this function to be overridden for testing.
+	// Wrapper for client.NewClientWithOpts to allow overriding for testing.
 	getDockerClient = func() (cli *client.Client, err error) {
 		cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		return cli, err
+	}
+
+	// Wrapper for cli.ContainerList to allow overriding for testing.
+	dockerContainerList = func(ctx context.Context, cli *client.Client, options types.ContainerListOptions) ([]types.Container, error) {
+		return cli.ContainerList(ctx, options)
+	}
+
+	// Wrapper for cli.ContainerRemove to allow overriding for testing.
+	dockerContainerRemove = func(ctx context.Context, cli *client.Client, containerID string, options types.ContainerRemoveOptions) error {
+		return cli.ContainerRemove(ctx, containerID, options)
 	}
 
 	// Wrapper for nats_io.ThisInstance to allow overriding for testing.
@@ -90,6 +100,11 @@ var (
 	// Wrapper for nats.Msg{}.Ack() to allow overriding for testing.
 	natsAck = func(msg *nats.Msg) error {
 		return msg.Ack()
+	}
+
+	// Wrapper for nats.Msg{}.Term() to allow overriding for testing.
+	natsTerm = func(msg *nats.Msg) error {
+		return msg.Term()
 	}
 )
 
@@ -159,7 +174,11 @@ func (conf *ContainerManager) Run() error {
 	// initialise nats if nats subsystem has a connection
 	err := initNats()
 	if err != nil {
-		return err
+		if err == nats_io.ErrNotInitialised {
+			log.Debug().Msg("skipping init of nats as no nats connection")
+		} else {
+			return err
+		}
 	}
 
 	// register prom metrics
@@ -265,12 +284,12 @@ func (conf *ContainerManager) Stop() error {
 	// cancel context
 	ctxCancel()
 
+	// wait for goroutines
+	conf.wg.Wait()
+
 	// close chans
 	close(containersToStartRequests)
 	close(containersToStartResponses)
-
-	// wait for goroutines
-	conf.wg.Wait()
 
 	// unregister prom metrics
 	ok := prometheus.Unregister(promMetricFeederContainersImageCurrent)
@@ -303,6 +322,8 @@ func initNats() error {
 		if err != nil {
 			return err
 		}
+	} else {
+		return nats_io.ErrNotInitialised
 	}
 	return nil
 }
