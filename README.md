@@ -1,5 +1,7 @@
 # plane.watch Border Control
 
+[![Airliner emitting visible radio waves. The radio waves are being received by a ground station. The ground station is surrounded by a border.](artwork.png)](https://hotpot.ai/art-generator)
+
 [![codecov](https://codecov.io/gh/plane-watch/bordercontrol/graph/badge.svg?token=E60EZBIPZN)](https://codecov.io/gh/plane-watch/bordercontrol)
 
 How plane.watch receives data from feeders.
@@ -491,3 +493,4 @@ Example:
 true
 
 ```
+
