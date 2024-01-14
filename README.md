@@ -1,6 +1,6 @@
 # plane.watch Border Control
 
-[![codecov](https://codecov.io/gh/plane-watch/pw-bordercontrol/graph/badge.svg?token=E60EZBIPZN)](https://codecov.io/gh/plane-watch/pw-bordercontrol)
+[![codecov](https://codecov.io/gh/plane-watch/bordercontrol/graph/badge.svg?token=E60EZBIPZN)](https://codecov.io/gh/plane-watch/bordercontrol)
 
 How plane.watch receives data from feeders.
 
