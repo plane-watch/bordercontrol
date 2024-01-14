@@ -8,4 +8,6 @@ var (
 	ErrContextCancelled          = errors.New("context cancelled")
 	ErrTimeoutContainerStartReq  = errors.New("timeout waiting to submit container start request")
 	ErrTimeoutContainerStartResp = errors.New("timeout waiting for container start response")
+	ErrMultipleContainersFound   = errors.New("multiple containers found")
+	ErrContainerNotFound         = errors.New("container not found")
 )

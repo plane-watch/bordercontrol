@@ -1,7 +1,6 @@
 package containers
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/docker/docker/api/types"
@@ -21,6 +20,7 @@ func KickFeederHandler(msg *nats.Msg) {
 	apiKey, err := uuid.ParseBytes(msg.Data)
 	if err != nil {
 		log.Err(err).Msg("could not parse api key from message body")
+		natsTerm(msg)
 		return
 	}
 
@@ -64,19 +64,18 @@ func KickFeeder(apiKey uuid.UUID) error {
 	filters.Add("name", containerName)
 
 	// find container
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
+	containers, err := dockerContainerList(ctx, cli, types.ContainerListOptions{
 		All:     true,
 		Filters: filters,
 	})
 
 	// ensure exactly one container found
 	if len(containers) <= 0 {
-		log.Debug().Msg("container not found")
-		return nil
+		log.Err(ErrContainerNotFound).Msg(ErrContainerNotFound.Error())
+		return ErrContainerNotFound
 	} else if len(containers) > 1 {
-		err := errors.New("multiple containers found")
-		log.Err(err).Msg("container not found")
-		return err
+		log.Err(ErrMultipleContainersFound).Msg(ErrMultipleContainersFound.Error())
+		return ErrMultipleContainersFound
 	}
 
 	// update log context
@@ -87,7 +86,7 @@ func KickFeeder(apiKey uuid.UUID) error {
 
 	// kill container
 	log.Info().Msg("requested to kill feed-in container via NATS request")
-	err = cli.ContainerRemove(ctx, containers[0].ID, types.ContainerRemoveOptions{
+	err = dockerContainerRemove(ctx, cli, containers[0].ID, types.ContainerRemoveOptions{
 		Force: true,
 	})
 	if err != nil {

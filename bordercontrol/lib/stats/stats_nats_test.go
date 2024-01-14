@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"pw_bordercontrol/lib/feedprotocol"
 	"sync"
 	"testing"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,6 +23,10 @@ var (
 
 	ErrTesting = errors.New("Error injected for testing")
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func TestNats(t *testing.T) {
 

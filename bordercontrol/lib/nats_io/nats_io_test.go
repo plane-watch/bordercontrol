@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
@@ -28,6 +30,10 @@ var (
 	testMsgHeaderValue = "testHeaderValue"
 	testMsgData        = "The quick brown fox jumped over the lazy dog 1234567890 times."
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func RunTestServer() (*natsserver.Server, error) {
 

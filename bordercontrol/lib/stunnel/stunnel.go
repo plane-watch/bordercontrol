@@ -22,7 +22,7 @@ var (
 	kpr *keypairReloader
 
 	// channel to receive cert & key reload signal
-	signalChan chan os.Signal
+	ReloadSignalChan chan os.Signal
 
 	// context for this module, allows for clean shutdown
 	ctx context.Context
@@ -65,11 +65,11 @@ func Init(parentContext context.Context, reloadSignal os.Signal) error {
 	signalCatcherWg = sync.WaitGroup{}
 
 	// prepares channels to catch signal to reload TLS/SSL cert/key
-	signalChan = make(chan os.Signal, 1)
-	signal.Notify(signalChan, reloadSignal)
+	ReloadSignalChan = make(chan os.Signal, 1)
+	signal.Notify(ReloadSignalChan, reloadSignal)
 
 	if nats_io.IsConnected() {
-		err := nats_io.SignalSendOnSubj(natsSubjReloadCertKey, reloadSignal, signalChan)
+		err := nats_io.SignalSendOnSubj(natsSubjReloadCertKey, reloadSignal, ReloadSignalChan)
 		if err != nil {
 			log.Err(err).Str("subj", natsSubjReloadCertKey).Err(err).Msg("subscribe failed")
 			return err
@@ -94,7 +94,7 @@ func Close() error {
 	}
 
 	// close signalChan so we will no longer perform cert/key reload on signal
-	close(signalChan)
+	close(ReloadSignalChan)
 
 	// cancel the context, so any goroutines will exit
 	cancelCtx()
@@ -189,7 +189,7 @@ func newKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 				log.Info().Msg("shutting down TLS certificate and key reloader")
 				return
 			// if signal caught, then reload certificates if they exist
-			case <-signalChan:
+			case <-ReloadSignalChan:
 				log.Info().Msg("reloading TLS certificate and key")
 				if err := result.maybeReload(); err != nil {
 					log.Err(err).Msg("error loading TLS certificate, continuing to use old TLS certificate")

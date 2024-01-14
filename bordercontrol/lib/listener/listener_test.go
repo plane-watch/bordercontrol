@@ -3,16 +3,23 @@ package listener
 import (
 	"context"
 	"net"
+	"os"
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/feedproxy"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func TestListener(t *testing.T) {
 

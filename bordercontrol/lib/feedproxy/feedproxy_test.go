@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"os"
 	"pw_bordercontrol/lib/atc"
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/stats"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
 )
@@ -31,6 +33,10 @@ var (
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://pw-ingest-sink:12345"
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func TestFeedProxy(t *testing.T) {
 

@@ -35,7 +35,6 @@ import (
 	"pw_bordercontrol/lib/feedprotocol"
 	"pw_bordercontrol/lib/feedproxy"
 	"pw_bordercontrol/lib/listener"
-	"pw_bordercontrol/lib/logging"
 	"pw_bordercontrol/lib/nats_io"
 	"pw_bordercontrol/lib/stats"
 	"pw_bordercontrol/lib/stunnel"
@@ -194,7 +193,22 @@ var (
 				Value:    "",
 				EnvVars:  []string{"NATS_INSTANCE"},
 			},
+			&cli.BoolFlag{
+				Category: "Logging",
+				Name:     "verbose",
+				Usage:    "Change default log level from Info to Debug",
+				Value:    false,
+				EnvVars:  []string{"BC_VERBOSE"},
+			},
 		},
+	}
+
+	// channel for SIGTERM
+	sigTermChan = make(chan os.Signal)
+
+	// finish is a wrapper for os.Exit that can be overridden for testing
+	Finish = func(code int) {
+		os.Exit(code)
 	}
 
 	// When app was started. To calculate uptime.
@@ -215,17 +229,16 @@ func main() {
 	app.Action = runServer
 
 	// set up logging
-	logging.IncludeVerbosityFlags(&app)
-	logging.ConfigureForCli()
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
 
 	// run & final exit
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Err(err).Msg("finished with error")
-		os.Exit(1)
+		Finish(1)
 	} else {
 		log.Info().Msg("finished without error")
-		os.Exit(0)
+		Finish(0)
 	}
 }
 
@@ -307,7 +320,11 @@ func runServer(cliContext *cli.Context) error {
 	defer cleanExit()
 
 	// Set logging level
-	logging.SetLoggingLevel(cliContext)
+	if cliContext.Bool("verbose") {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	} else {
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
 
 	// initial logging
 	log.Info().Msg(banner) // show awesome banner
@@ -386,7 +403,7 @@ func runServer(cliContext *cli.Context) error {
 	}
 
 	// set up channel to catch SIGTERM
-	sigTermChan := make(chan os.Signal)
+	// sigTermChan =
 	signal.Notify(sigTermChan, syscall.SIGTERM)
 
 	// handle SIGTERM
@@ -418,6 +435,12 @@ func runServer(cliContext *cli.Context) error {
 
 	// wait for listeners to finish (until context closure)
 	wg.Wait()
+
+	// stop container manager
+	err = feedproxy.Close(&feedProxyConf)
+	if err != nil {
+		log.Err(err).Msg("error closing proxy subsystem")
+	}
 
 	// stop container manager
 	err = ContainerManager.Stop()

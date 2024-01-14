@@ -7,6 +7,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"pw_bordercontrol/lib/nats_io"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,9 +21,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/nettest"
 
 	"github.com/nats-io/nats.go"
+
+	natsserver "github.com/nats-io/nats-server/v2/server"
 )
 
 var (
@@ -44,6 +50,42 @@ var (
 
 	ErrTesting = errors.New("error injected for testing")
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
+
+func RunTestNatsServer() (*natsserver.Server, error) {
+
+	// get host & port for testing
+	tmpListener, err := nettest.NewLocalListener("tcp4")
+	if err != nil {
+		return &natsserver.Server{}, err
+	}
+	natsHost := strings.Split(tmpListener.Addr().String(), ":")[0]
+	natsPort, err := strconv.Atoi(strings.Split(tmpListener.Addr().String(), ":")[1])
+	if err != nil {
+		return &natsserver.Server{}, err
+	}
+	tmpListener.Close()
+
+	// create nats server
+	server, err := natsserver.NewServer(&natsserver.Options{
+		ServerName: "bordercontrol_test_server",
+		Host:       natsHost,
+		Port:       natsPort,
+	})
+	if err != nil {
+		return &natsserver.Server{}, err
+	}
+
+	// start nats server
+	server.Start()
+	if !server.ReadyForConnections(time.Second * 5) {
+		return &natsserver.Server{}, errors.New("NATS server didn't start")
+	}
+	return server, nil
+}
 
 func TestGetDockerClient(t *testing.T) {
 	getDockerClientMu.RLock()
@@ -100,6 +142,13 @@ func TestContainers(t *testing.T) {
 			_, err := startFeederContainers(startFeederContainersConf, FeedInContainer{})
 			require.Error(t, err)
 			require.Equal(t, ErrTesting.Error(), err.Error())
+		})
+
+		// test KickFeeder with broken docker client
+		t.Run("KickFeeder", func(t *testing.T) {
+			err = KickFeeder(TestFeederAPIKey)
+			require.Error(t, err)
+			assert.Equal(t, ErrTesting.Error(), err.Error())
 		})
 
 	})
@@ -321,7 +370,7 @@ func TestContainers(t *testing.T) {
 
 	})
 
-	// init container manager
+	// container manager config
 	cm := ContainerManager{
 		FeedInImageName:                    TestFeedInImageNameFirst,
 		FeedInContainerPrefix:              TestFeedInContainerPrefix,
@@ -330,9 +379,54 @@ func TestContainers(t *testing.T) {
 		PWIngestSink:                       TestPWIngestSink,
 		Logger:                             log.Logger,
 	}
-	t.Run("running ContainerManager.Init()", func(t *testing.T) {
+
+	t.Run("attempt Stop() before .Run()", func(t *testing.T) {
+		err := cm.Stop()
+		require.Error(t, err)
+		assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+	})
+
+	t.Run("ContainerManager.Run() with nats", func(t *testing.T) {
+		natsServer, err := RunTestNatsServer()
+		require.NoError(t, err)
+
+		nc := nats_io.NatsConfig{
+			Url:       natsServer.ClientURL(),
+			Instance:  "testing",
+			Version:   "testver",
+			StartTime: time.Now(),
+		}
+
+		err = nc.Init()
+		require.NoError(t, err)
+
+		require.True(t, nats_io.IsConnected())
+
+		err = cm.Run()
+		require.NoError(t, err)
+
+		err = cm.Stop()
+		require.NoError(t, err)
+
+		err = nc.Close()
+		require.NoError(t, err)
+
+		natsServer.Shutdown()
+	})
+
+	t.Run("ContainerManager.Run() no nats", func(t *testing.T) {
 		err := cm.Run()
 		require.NoError(t, err)
+	})
+
+	t.Run("wait 35 seconds for checkFeederContainers", func(t *testing.T) {
+		time.Sleep(35 * time.Second)
+	})
+
+	t.Run("ContainerManager.Run() already running", func(t *testing.T) {
+		err := cm.Run()
+		require.Error(t, err)
+		assert.Equal(t, ErrAlreadyInitialised.Error(), err.Error())
 	})
 
 	t.Run("working client after init", func(t *testing.T) {
@@ -519,7 +613,29 @@ func TestContainers(t *testing.T) {
 			}
 		})
 
-		t.Run("KickFeeder", func(t *testing.T) {
+		t.Run("KickFeeder zero containers", func(t *testing.T) {
+			dockerContainerListOrig := dockerContainerList
+			dockerContainerList = func(ctx context.Context, cli *client.Client, options types.ContainerListOptions) ([]types.Container, error) {
+				return []types.Container{}, nil
+			}
+			err = KickFeeder(TestFeederAPIKey)
+			require.Error(t, err)
+			assert.Equal(t, ErrContainerNotFound.Error(), err.Error())
+			dockerContainerList = dockerContainerListOrig
+		})
+
+		t.Run("KickFeeder >1 container", func(t *testing.T) {
+			dockerContainerListOrig := dockerContainerList
+			dockerContainerList = func(ctx context.Context, cli *client.Client, options types.ContainerListOptions) ([]types.Container, error) {
+				return []types.Container{types.Container{}, types.Container{}}, nil
+			}
+			err = KickFeeder(TestFeederAPIKey)
+			require.Error(t, err)
+			assert.Equal(t, ErrMultipleContainersFound.Error(), err.Error())
+			dockerContainerList = dockerContainerListOrig
+		})
+
+		t.Run("start container to remove", func(t *testing.T) {
 			fic := FeedInContainer{
 				Lat:        TestFeederLatitude,
 				Lon:        TestFeederLongitude,
@@ -530,41 +646,131 @@ func TestContainers(t *testing.T) {
 			}
 			cid, err = fic.Start()
 			require.NoError(t, err)
+		})
 
+		t.Run("KickFeeder err removing", func(t *testing.T) {
+			dockerContainerRemoveOrig := dockerContainerRemove
+			dockerContainerRemove = func(ctx context.Context, cli *client.Client, containerID string, options types.ContainerRemoveOptions) error {
+				return ErrTesting
+			}
+			err = KickFeeder(TestFeederAPIKey)
+			require.Error(t, err)
+			assert.Equal(t, ErrTesting.Error(), err.Error())
+			dockerContainerRemove = dockerContainerRemoveOrig
+		})
+
+		t.Run("KickFeeder", func(t *testing.T) {
 			err = KickFeeder(TestFeederAPIKey)
 			require.NoError(t, err)
 		})
 
 		t.Run("KickFeederHandler", func(t *testing.T) {
 
-			wg := sync.WaitGroup{}
+			t.Run("error invalid api key", func(t *testing.T) {
 
-			fic := FeedInContainer{
-				Lat:        TestFeederLatitude,
-				Lon:        TestFeederLongitude,
-				Label:      TestFeederLabel,
-				ApiKey:     TestFeederAPIKey,
-				FeederCode: TestFeederCode,
-				Addr:       TestFeederAddr,
-			}
-			cid, err = fic.Start()
-			require.NoError(t, err)
+				wg := sync.WaitGroup{}
 
-			// override functions for testing
-			natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
-				return true, sentToInstance, nil
-			}
-			wg.Add(1)
-			natsAck = func(msg *nats.Msg) error {
-				wg.Done()
-				return nil
-			}
+				fic := FeedInContainer{
+					Lat:        TestFeederLatitude,
+					Lon:        TestFeederLongitude,
+					Label:      TestFeederLabel,
+					ApiKey:     TestFeederAPIKey,
+					FeederCode: TestFeederCode,
+					Addr:       TestFeederAddr,
+				}
+				cid, err = fic.Start()
+				require.NoError(t, err)
 
-			msg := nats.NewMsg("pw_bordercontrol.testing.KickFeederHandler")
-			msg.Data = []byte(TestFeederAPIKey.String())
-			KickFeederHandler(msg)
+				// override functions for testing
+				natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+					return true, sentToInstance, nil
+				}
+				wg.Add(1)
+				natsTerm = func(msg *nats.Msg) error {
+					wg.Done()
+					return nil
+				}
 
-			wg.Wait()
+				msg := nats.NewMsg("pw_bordercontrol.testing.KickFeederHandler")
+				msg.Data = []byte("invalid api key!")
+				KickFeederHandler(msg)
+
+				wg.Wait()
+
+			})
+
+			t.Run("error acking nats msg", func(t *testing.T) {
+
+				natsAckOrig := natsAck
+				natsAck = func(msg *nats.Msg) error {
+					return ErrTesting
+				}
+
+				wg := sync.WaitGroup{}
+
+				fic := FeedInContainer{
+					Lat:        TestFeederLatitude,
+					Lon:        TestFeederLongitude,
+					Label:      TestFeederLabel,
+					ApiKey:     TestFeederAPIKey,
+					FeederCode: TestFeederCode,
+					Addr:       TestFeederAddr,
+				}
+				cid, err = fic.Start()
+				require.NoError(t, err)
+
+				// override functions for testing
+				natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+					return true, sentToInstance, nil
+				}
+				wg.Add(1)
+				natsAck = func(msg *nats.Msg) error {
+					wg.Done()
+					return nil
+				}
+
+				msg := nats.NewMsg("pw_bordercontrol.testing.KickFeederHandler")
+				msg.Data = []byte(TestFeederAPIKey.String())
+				KickFeederHandler(msg)
+
+				wg.Wait()
+
+				natsAck = natsAckOrig
+
+			})
+
+			t.Run("no error", func(t *testing.T) {
+
+				wg := sync.WaitGroup{}
+
+				fic := FeedInContainer{
+					Lat:        TestFeederLatitude,
+					Lon:        TestFeederLongitude,
+					Label:      TestFeederLabel,
+					ApiKey:     TestFeederAPIKey,
+					FeederCode: TestFeederCode,
+					Addr:       TestFeederAddr,
+				}
+				cid, err = fic.Start()
+				require.NoError(t, err)
+
+				// override functions for testing
+				natsThisInstance = func(sentToInstance string) (meantForThisInstance bool, thisInstanceName string, err error) {
+					return true, sentToInstance, nil
+				}
+				wg.Add(1)
+				natsAck = func(msg *nats.Msg) error {
+					wg.Done()
+					return nil
+				}
+
+				msg := nats.NewMsg("pw_bordercontrol.testing.KickFeederHandler")
+				msg.Data = []byte(TestFeederAPIKey.String())
+				KickFeederHandler(msg)
+
+				wg.Wait()
+
+			})
 
 		})
 

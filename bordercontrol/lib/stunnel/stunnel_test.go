@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/nettest"
@@ -27,6 +29,10 @@ import (
 var (
 	TestSNI = uuid.New()
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func GenerateSelfSignedTLSCertAndKey(keyFile, certFile *os.File) error {
 	// Thanks to: https://go.dev/src/crypto/tls/generate_cert.go
@@ -386,7 +392,7 @@ func TestStunnel(t *testing.T) {
 
 		// send signal
 		t.Log("trigger cert/key reload")
-		signalChan <- syscall.SIGHUP
+		ReloadSignalChan <- syscall.SIGHUP
 
 		// wait for the channel to be read
 		time.Sleep(time.Second)
@@ -405,7 +411,7 @@ func TestStunnel(t *testing.T) {
 
 		// send signal
 		t.Log("trigger cert/key reload")
-		signalChan <- syscall.SIGHUP
+		ReloadSignalChan <- syscall.SIGHUP
 
 		// wait for the channel to be read
 		time.Sleep(time.Second)

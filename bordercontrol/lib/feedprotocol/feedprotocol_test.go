@@ -1,10 +1,18 @@
 package feedprotocol
 
 import (
+	"os"
 	"testing"
+	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func TestFeedProtocol(t *testing.T) {
 

@@ -6,10 +6,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,6 +43,10 @@ const (
 	MockServerTestScenarioBadCredentials
 	MockServerTestScenarioInvalidJSON
 )
+
+func init() {
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
 
 func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 
