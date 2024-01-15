@@ -67,6 +67,9 @@ In the root of the repository, create a `.env` file containing the following:
 | `BC_LISTEN_API`             | `--listenapi`              | O   | Address and TCP port server will listen on for API, stats & Prometheus metrics | `:8080`                                           |
 | `BC_LISTEN_BEAST`           | `--listenbeast`            | O   | Address and TCP port to listen on for BEAST connections                        | `0.0.0.0:12345`                                   |
 | `BC_LISTEN_MLAT`            | `--listenmlat`             | O   | Address and TCP port to listen on for MLAT connections                         | `0.0.0.0:12346`                                   |
+| `BC_VERBOSE`                | `--verbose`                | O   | Change default log level from Info to Debug                                    |                                                   |
+| `FEED_IN_BUILD_CONTEXT`     | `--feedinimagecontext`     | O   | Feed-in-image build context                                                    | `/opt/feed-in/`                                   |
+| `FEED_IN_BUILD_DOCKERFILE`  | `--feedinimagedockerfile`  | O   | Feed-in image build Dockerfile (relative to context)                           | `Dockerfile.feeder`                               |
 | `FEED_IN_CONTAINER_PREFIX`  | `--feedincontainerprefix`  | O   | Feed-in container prefix                                                       | `feed-in-`                                        |
 | `FEED_IN_CONTAINER_NETWORK` | `--feedincontainernetwork` | O   | Feed-in container network                                                      | `bordercontrol_feeder`                            |
 | `FEED_IN_IMAGE`             | `--feedinimage`            | O   | Feed-in image name                                                             | `feed-in`                                         |
@@ -286,6 +289,13 @@ Type: request
 | Subject                                | Header    | Body                                                        | Description                                   |
 |----------------------------------------|-----------|-------------------------------------------------------------|-----------------------------------------------|
 | `pw_bordercontrol.feedinimage.rebuild` | *Ignored* | Bordercontrol instance or wildcard (`*`) for all instances. | Bordercontrol will rebuild the feed-in image. |
+
+Bordercontrol will build the feed-in containers with the context and Dockerfile defined by:
+
+| Environment Variable       | Command Line Flag         | Description                                          |
+|----------------------------|---------------------------|------------------------------------------------------|
+| `FEED_IN_BUILD_CONTEXT`    | `--feedinimagecontext`    | Feed-in-image build context                          |
+| `FEED_IN_BUILD_DOCKERFILE` | `--feedinimagedockerfile` | Feed-in image build Dockerfile (relative to context) |
 
 Bordercontrol reply with the outcome of the build. More detailed build logs are logged to the bordercontrol log.
 
