@@ -168,7 +168,7 @@ var (
 			&cli.StringFlag{
 				Category: "Docker Environment",
 				Name:     "feedinimagedockerfile",
-				Usage:    "feed-in-image build Dockerfile (relative to context)",
+				Usage:    "feed-in image build Dockerfile (relative to context)",
 				Value:    "Dockerfile.feeder",
 				EnvVars:  []string{"FEED_IN_BUILD_DOCKERFILE"},
 			},
