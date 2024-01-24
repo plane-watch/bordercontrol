@@ -41,6 +41,13 @@ jobs:
         name: Checkout
         uses: actions/checkout@v4
       -
+        name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.19'
+      - name: Display Go version
+        run: go version
+      -
         name: Set up Docker
         run: |
             curl -fsSL https://get.docker.com -o /tmp/install-docker.sh
