@@ -40,6 +40,9 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21' # The Go version to download (if necessary) and use.
       -
         name: Set up Docker
         run: |
@@ -54,6 +57,7 @@ jobs:
         name: go test
         run: |
           pushd bordercontrol
+          go version
           sudo go test -v -timeout 15m -failfast -race -count=2 -coverprofile=../coverage.out -covermode=atomic ./...
       -
         name: Upload coverage reports to Codecov
