@@ -48,6 +48,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 'stable'
+      - name: troubleshoot go versions
+        run: |
+          go version
+          which go
+          sudo go version
+          sudo which go
       -
         name: go mod tidy
         run: |
