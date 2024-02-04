@@ -50,8 +50,10 @@ jobs:
           go-version: 'stable'
       - name: troubleshoot go versions
         run: |
+          set -x
           go version
           which go
+          sudo source $(go env GOENV)
           sudo go version
           sudo which go
       -
