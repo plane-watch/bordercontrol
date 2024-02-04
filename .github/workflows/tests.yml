@@ -53,21 +53,20 @@ jobs:
           set -x
           go version
           which go
-          sudo source $(go env GOENV)
-          sudo go version
-          sudo which go
+          sudo -E go version
+          sudo -E which go
       -
         name: go mod tidy
         run: |
           pushd bordercontrol
-          sudo go version
-          sudo go mod tidy
+          sudo -E go version
+          sudo -E go mod tidy
       -
         name: go test
         run: |
           pushd bordercontrol
-          sudo go version
-          sudo go test -v -timeout 15m -failfast -race -count=2 -coverprofile=../coverage.out -covermode=atomic ./...
+          sudo -E go version
+          sudo -E go test -v -timeout 15m -failfast -race -count=2 -coverprofile=../coverage.out -covermode=atomic ./...
       -
         name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
