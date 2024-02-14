@@ -248,7 +248,7 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("test IncrementByteCounters ErrProtoNotFound", func(t *testing.T) {
-		err := IncrementByteCounters(uuid.New(), 0, feedprotocol.Protocol(0), 1, 1)
+		err := IncrementByteCounters(TestFeederAPIKey, 0, feedprotocol.Protocol(0), 1, 1)
 		require.Error(t, err)
 		require.Equal(t, ErrProtoNotFound.Error(), err.Error())
 	})
