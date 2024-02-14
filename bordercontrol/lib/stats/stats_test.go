@@ -85,6 +85,9 @@ func TestStats(t *testing.T) {
 	// set logging to trace level
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
+	// run statsEvictor more often for testing
+	statsEvictorFreq = time.Second * 5
+
 	// prep test connections
 	TestConnBEAST := Connection{
 		ApiKey: TestFeederAPIKey,
@@ -700,8 +703,8 @@ func TestStats(t *testing.T) {
 		stats.Feeders[TestFeederAPIKey] = fs
 		stats.mu.RUnlock()
 
-		// run statsEvictorInner
-		statsEvictorInner()
+		// wait for stats evictor
+		time.Sleep(time.Second * 10)
 
 		// check stats.Feeders
 		_, ok = stats.Feeders[TestFeederAPIKey]

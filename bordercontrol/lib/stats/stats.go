@@ -137,6 +137,9 @@ var (
 	// mutex for initialised
 	initialisedMu sync.RWMutex
 
+	// frequency for statsEvictor
+	statsEvictorFreq = time.Minute
+
 	// custom errors
 
 	// error: unknown api key
@@ -521,13 +524,13 @@ func statsEvictorInner() {
 }
 
 // statsEvictor runs statsEvictorInner every minute, or until the context is cancelled.
-func statsEvictor() {
+func statsEvictor(freq time.Duration) {
 	for {
 		select {
 		case <-ctx.Done():
 			log.Debug().Msg("stopped stats evictor")
 			return
-		case <-time.After(time.Minute):
+		case <-time.After(freq):
 			statsEvictorInner()
 		}
 	}
@@ -671,7 +674,7 @@ func Init(parentContext context.Context, addr string) error {
 	statsWg.Add(1)
 	go func() {
 		defer statsWg.Done()
-		statsEvictor()
+		statsEvictor(statsEvictorFreq)
 	}()
 
 	// init NATS
