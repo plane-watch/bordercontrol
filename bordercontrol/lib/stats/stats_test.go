@@ -723,4 +723,10 @@ func TestStats(t *testing.T) {
 		err := Close()
 		require.NoError(t, err)
 	})
+
+	t.Run("Close ErrNotInitialised", func(t *testing.T) {
+		err := Close()
+		require.Error(t, err)
+		assert.Equal(t, ErrNotInitialised.Error(), err.Error())
+	})
 }
