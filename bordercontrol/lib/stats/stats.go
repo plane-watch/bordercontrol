@@ -463,9 +463,6 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 			if n > 1099511627776 {
 				prefix = 'T'
 			}
-			if n > 1125899906842624 {
-				prefix = 'P'
-			}
 
 			switch prefix {
 			case ' ':
@@ -478,8 +475,6 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 				out = fmt.Sprintf("%.3fG", float32(n)/1024.0/1024.0/1024.0)
 			case 'T':
 				out = fmt.Sprintf("%.4fT", float32(n)/1024.0/1024.0/1024.0/1024.0)
-			case 'P':
-				out = fmt.Sprintf("%.5fP", float32(n)/1024.0/1024.0/1024.0/1024.0/1024.0)
 			}
 
 			return out
