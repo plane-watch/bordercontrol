@@ -719,8 +719,10 @@ func TestStats(t *testing.T) {
 		time.Sleep(time.Second * 10)
 
 		// check stats.Feeders
+		stats.mu.RLock()
 		_, ok = stats.Feeders[TestFeederAPIKey]
 		require.False(t, ok)
+		stats.mu.RUnlock()
 
 	})
 
