@@ -43,6 +43,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
+
+	_ "net/http/pprof"
 )
 
 const (
