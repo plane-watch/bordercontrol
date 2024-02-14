@@ -44,6 +44,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"net/http"
 	_ "net/http/pprof"
 )
 
@@ -216,6 +217,12 @@ var (
 	// When app was started. To calculate uptime.
 	startTime time.Time
 )
+
+func init() {
+	go func() {
+		http.ListenAndServe(":1234", nil)
+	}()
+}
 
 // main initialises the application, before RunServer is called.
 func main() {

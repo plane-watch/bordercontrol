@@ -140,18 +140,13 @@ func TestStats(t *testing.T) {
 		require.False(t, isInitialised())
 	})
 
-	t.Run("test GetNumConnections ErrStatsNotInitialised", func(t *testing.T) {
+	t.Run("test GetNumConnections ErrNotInitialised", func(t *testing.T) {
 		_, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
-		require.Error(t, err)
-	})
-
-	t.Run("test IncrementByteCounters ErrStatsNotInitialised", func(t *testing.T) {
-		err := IncrementByteCounters(TestFeederAPIKey, 0, 1, 1)
 		require.Error(t, err)
 		require.Equal(t, ErrNotInitialised.Error(), err.Error())
 	})
 
-	t.Run("test RegisterFeeder ErrStatsNotInitialised", func(t *testing.T) {
+	t.Run("test RegisterFeeder ErrNotInitialised", func(t *testing.T) {
 		f := FeederDetails{
 			Label:      TestFeederLabel,
 			FeederCode: TestFeederCode,
@@ -161,17 +156,17 @@ func TestStats(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("test UnregisterConnection ErrStatsNotInitialised", func(t *testing.T) {
+	t.Run("test UnregisterConnection ErrNotInitialised", func(t *testing.T) {
 		conn := Connection{}
 		err := conn.UnregisterConnection()
 		require.Error(t, err)
 		require.Equal(t, ErrNotInitialised.Error(), err.Error())
 	})
 
-	t.Run("test RegisterConnection ErrStatsNotInitialised", func(t *testing.T) {
+	t.Run("test RegisterConnection ErrNotInitialised", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
 		require.Error(t, err)
-		require.Equal(t, ErrNotInitialised, err)
+		require.Equal(t, ErrNotInitialised.Error(), err.Error())
 	})
 
 	// initialising stats subsystem - no nats
@@ -184,7 +179,7 @@ func TestStats(t *testing.T) {
 		c.Proto = feedprotocol.Protocol(0)
 		err := c.UnregisterConnection()
 		require.Error(t, err)
-		require.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
+		require.Equal(t, feedprotocol.ErrUnknownProtocol(0).Error(), err.Error())
 	})
 
 	t.Run("test RegisterConnection ErrUnknownProtocol", func(t *testing.T) {
@@ -192,7 +187,7 @@ func TestStats(t *testing.T) {
 		c.Proto = feedprotocol.Protocol(0)
 		err := c.RegisterConnection()
 		require.Error(t, err)
-		require.Equal(t, feedprotocol.ErrUnknownProtocol, err)
+		require.Equal(t, feedprotocol.ErrUnknownProtocol(0).Error(), err.Error())
 	})
 
 	t.Run("test statsInitialised true", func(t *testing.T) {
@@ -222,7 +217,7 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("test IncrementByteCounters ErrConnNumNotFound", func(t *testing.T) {
-		err := IncrementByteCounters(TestFeederAPIKey, 0, 1, 1)
+		err := IncrementByteCounters(TestFeederAPIKey, 0, feedprotocol.MLAT, 1, 1)
 		require.Error(t, err)
 		require.Equal(t, ErrConnNumNotFound.Error(), err.Error())
 	})
@@ -267,11 +262,13 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("test /api/v1/feeder zero values", func(t *testing.T) {
+
 		testURL := fmt.Sprintf("http://%s/api/v1/feeder/%s", testAddr, TestFeederAPIKey)
 		body := getMetricsFromTestServer(t, testURL)
 
 		// unmarshall json into struct
 		r := &APIResponse{}
+
 		err := json.Unmarshal([]byte(body), r)
 		require.NoError(t, err)
 
@@ -282,7 +279,7 @@ func TestStats(t *testing.T) {
 
 		timeUpdated, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
 		require.NoError(t, err)
-		require.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
+		require.WithinDuration(t, time.Now(), timeUpdated, time.Second*5)
 
 		// check struct contents of connection 1
 		require.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
@@ -356,12 +353,12 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("test IncrementByteCounters BEAST", func(t *testing.T) {
-		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, 10, 20)
+		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, feedprotocol.BEAST, 10, 20)
 		require.NoError(t, err)
 	})
 
 	t.Run("test IncrementByteCounters MLAT", func(t *testing.T) {
-		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumMLAT, 100, 200)
+		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumMLAT, feedprotocol.MLAT, 100, 200)
 		require.NoError(t, err)
 	})
 
@@ -402,7 +399,7 @@ func TestStats(t *testing.T) {
 
 		timeUpdated, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["TimeUpdated"].(string))
 		require.NoError(t, err)
-		require.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
+		require.WithinDuration(t, time.Now(), timeUpdated, time.Second*5)
 
 		// check struct contents of connection 1
 		require.True(t, r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
@@ -410,7 +407,7 @@ func TestStats(t *testing.T) {
 
 		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
 		require.NoError(t, err)
-		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Second*5)
 
 		srcAddrIP := r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort := int(r.Data.(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
@@ -491,7 +488,7 @@ func TestStats(t *testing.T) {
 
 		timeUpdated, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["TimeUpdated"].(string))
 		require.NoError(t, err)
-		require.WithinDuration(t, time.Now(), timeUpdated, time.Minute*5)
+		require.WithinDuration(t, time.Now(), timeUpdated, time.Second*5)
 
 		// check struct contents of connection 1
 		require.True(t, r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["Status"].(bool))
@@ -499,7 +496,7 @@ func TestStats(t *testing.T) {
 
 		timeMostRecentConnection, err := time.Parse("2006-01-02T15:04:05Z", r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["MostRecentConnection"].(string))
 		require.NoError(t, err)
-		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Minute*5)
+		require.WithinDuration(t, time.Now(), timeMostRecentConnection, time.Second*5)
 
 		srcAddrIP := r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["IP"].(string)
 		srcAddrPort := int(r.Data.(map[string]interface{})[TestFeederAPIKey.String()].(map[string]interface{})["Connections"].(map[string]interface{})[feedprotocol.ProtocolNameBEAST].(map[string]interface{})["ConnectionDetails"].(map[string]interface{})[fmt.Sprint(TestConnNumBEAST)].(map[string]interface{})["Src"].(map[string]interface{})["Port"].(float64))
@@ -571,9 +568,9 @@ func TestStats(t *testing.T) {
 		require.NotPanics(t, ptf)
 
 		// increase counters
-		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, 1024, 1024*1024)
+		err := IncrementByteCounters(TestFeederAPIKey, TestConnNumBEAST, feedprotocol.BEAST, 1024, 1024*1024)
 		require.NoError(t, err)
-		err = IncrementByteCounters(TestFeederAPIKey, TestConnNumMLAT, 1024*1024*1024, 1024*1024*1024*1024)
+		err = IncrementByteCounters(TestFeederAPIKey, TestConnNumMLAT, feedprotocol.MLAT, 1024*1024*1024, 1024*1024*1024*1024)
 		require.NoError(t, err)
 
 		// check again
@@ -665,7 +662,7 @@ func TestStats(t *testing.T) {
 		fs.TimeUpdated = time.Now().Add(-time.Second * 120)
 
 		// delete connections so it will be evicted
-		fs.Connections = map[string]ProtocolDetail{}
+		fs.Connections = map[feedprotocol.Protocol]ProtocolDetail{}
 
 		// update feeder stats
 		stats.Feeders[TestFeederAPIKey] = fs

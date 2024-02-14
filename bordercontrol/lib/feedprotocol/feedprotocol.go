@@ -3,7 +3,9 @@
 package feedprotocol
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -23,9 +25,30 @@ const (
 	ProtocolNameMLAT = "MLAT"
 )
 
-var (
-	ErrUnknownProtocol = errors.New("unknown protocol")
-)
+func ErrUnknownProtocol(p any) error {
+	return errors.New(fmt.Sprintf("unknown protocol: %v", p))
+}
+
+func (p Protocol) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.Name())
+}
+
+func (p Protocol) MarshalText() ([]byte, error) {
+	return []byte(p.Name()), nil
+}
+
+func (p *Protocol) UnmarshalJSON(data []byte) error {
+	var str string
+	err := json.Unmarshal(data, &str)
+	if err != nil {
+		return err
+	}
+	*p, err = GetProtoFromName(str)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // Name returns the name of the Protocol as a string
 func (p *Protocol) Name() string {
@@ -44,7 +67,7 @@ func GetName(p Protocol) (string, error) {
 	case MLAT:
 		return ProtocolNameMLAT, nil
 	default:
-		return "", ErrUnknownProtocol
+		return "", ErrUnknownProtocol(p)
 	}
 }
 
@@ -68,6 +91,6 @@ func GetProtoFromName(name string) (Protocol, error) {
 	case ProtocolNameMLAT:
 		return MLAT, nil
 	default:
-		return Protocol(0), ErrUnknownProtocol
+		return Protocol(0), ErrUnknownProtocol(name)
 	}
 }
