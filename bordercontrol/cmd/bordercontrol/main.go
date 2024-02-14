@@ -43,9 +43,9 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
-
-	"net/http"
-	_ "net/http/pprof"
+	//
+	// uncomment for profiling
+	// _ "net/http/pprof"
 )
 
 const (
@@ -218,11 +218,13 @@ var (
 	startTime time.Time
 )
 
-func init() {
-	go func() {
-		http.ListenAndServe(":1234", nil)
-	}()
-}
+// uncomment for profiling
+//
+// func init() {
+// 	go func() {
+// 		http.ListenAndServe(":1234", nil)
+// 	}()
+// }
 
 // main initialises the application, before RunServer is called.
 func main() {
