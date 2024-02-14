@@ -340,7 +340,9 @@ func TestFeedProxy(t *testing.T) {
 			registerConnectionStats = func(conn stats.Connection) error { return nil }
 			unregisterConnectionStats = func(conn stats.Connection) error { return nil }
 			statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
-			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
+				return nil
+			}
 			authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
 				return feederClient{
 					clientApiKey: TestFeederAPIKey,
@@ -550,7 +552,9 @@ func TestFeedProxy(t *testing.T) {
 			registerConnectionStats = func(conn stats.Connection) error { return nil }
 			unregisterConnectionStats = func(conn stats.Connection) error { return nil }
 			statsGetNumConnections = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) { return 0, nil }
-			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
+				return nil
+			}
 			authenticateFeederWrapper = func(connIn net.Conn) (clientDetails feederClient, err error) {
 				return feederClient{
 					clientApiKey: TestFeederAPIKey,
@@ -722,7 +726,9 @@ func TestFeedProxy(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 
-			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
+				return nil
+			}
 
 			conn1, conn2 := net.Pipe()
 			conn3, conn4 := net.Pipe()
@@ -787,7 +793,9 @@ func TestFeedProxy(t *testing.T) {
 
 			wg := sync.WaitGroup{}
 
-			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error { return nil }
+			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
+				return nil
+			}
 
 			conn1, conn2 := net.Pipe()
 			conn3, conn4 := net.Pipe()

@@ -43,6 +43,9 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/urfave/cli/v2"
+	//
+	// uncomment for profiling
+	// _ "net/http/pprof"
 )
 
 const (
@@ -214,6 +217,14 @@ var (
 	// When app was started. To calculate uptime.
 	startTime time.Time
 )
+
+// uncomment for profiling
+//
+// func init() {
+// 	go func() {
+// 		http.ListenAndServe(":1234", nil)
+// 	}()
+// }
 
 // main initialises the application, before RunServer is called.
 func main() {

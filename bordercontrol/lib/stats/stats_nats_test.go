@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"pw_bordercontrol/lib/feedprotocol"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -95,7 +96,7 @@ func TestNats(t *testing.T) {
 
 		_, err = getProtocolFromLastToken("x.x.x.x.gopher")
 		require.Error(t, err)
-		require.Equal(t, feedprotocol.ErrUnknownProtocol.Error(), err.Error())
+		require.True(t, strings.Contains(err.Error(), "unknown protocol"))
 	})
 
 	t.Run("parseApiKeyFromMsgData", func(t *testing.T) {
@@ -122,16 +123,16 @@ func TestNats(t *testing.T) {
 		stats.Feeders[TestFeederAPIKey] = FeederStats{
 			Label:       TestFeederLabel,
 			Code:        TestFeederCode,
-			Connections: make(map[string]ProtocolDetail),
+			Connections: make(map[feedprotocol.Protocol]ProtocolDetail),
 			TimeUpdated: time.Now(),
 		}
-		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST] = ProtocolDetail{
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.BEAST] = ProtocolDetail{
 			Status:               true,
 			ConnectionCount:      1,
 			MostRecentConnection: time.Now(),
 			ConnectionDetails:    make(map[uint]ConnectionDetail),
 		}
-		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameBEAST].ConnectionDetails[1] = ConnectionDetail{
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.BEAST].ConnectionDetails[1] = ConnectionDetail{
 			Src: &net.TCPAddr{
 				IP:   net.IPv4(1, 2, 3, 4),
 				Port: 22222,
@@ -144,13 +145,13 @@ func TestNats(t *testing.T) {
 			BytesIn:       uint64(123456789),
 			BytesOut:      uint64(987654321),
 		}
-		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT] = ProtocolDetail{
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.MLAT] = ProtocolDetail{
 			Status:               true,
 			ConnectionCount:      2,
 			MostRecentConnection: time.Now(),
 			ConnectionDetails:    make(map[uint]ConnectionDetail),
 		}
-		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.ProtocolNameMLAT].ConnectionDetails[2] = ConnectionDetail{
+		stats.Feeders[TestFeederAPIKey].Connections[feedprotocol.MLAT].ConnectionDetails[2] = ConnectionDetail{
 			Src: &net.TCPAddr{
 				IP:   net.IPv4(1, 2, 3, 4),
 				Port: 33333,

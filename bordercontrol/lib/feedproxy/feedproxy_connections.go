@@ -68,8 +68,8 @@ var (
 	statsGetNumConnections    = func(uuid uuid.UUID, proto feedprotocol.Protocol) (int, error) {
 		return stats.GetNumConnections(uuid, proto)
 	}
-	statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error {
-		return stats.IncrementByteCounters(uuid, connNum, bytesIn, bytesOut)
+	statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
+		return stats.IncrementByteCounters(uuid, connNum, proto, bytesIn, bytesOut)
 	}
 	startFeedInContainer    = func(c *containers.FeedInContainer) (containerID string, err error) { return c.Start() }
 	dialContainerTCPWrapper = func(addr string, port int) (c *net.TCPConn, err error) {
@@ -318,15 +318,16 @@ const (
 )
 
 type protocolProxyConfig struct {
-	clientConn                  net.Conn        // Client-side connection (feeder out on the internet).
-	serverConn                  net.Conn        // Server-side connection (feed-in container or mlat server).
-	connNum                     uint            // Connection number (used for statistics and stuff).
-	clientApiKey                uuid.UUID       // Client's API Key (from stunnel SNI).
-	lastAuthCheck               *time.Time      // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
-	lastAuthCheckMu             sync.RWMutex    // mutex for lastAuthCheck to prevent data race
-	log                         zerolog.Logger  // Log. This allows the proxy to inherit a logging context.
-	feederValidityCheckInterval time.Duration   // How often to check the feeder is still valid.
-	ctx                         context.Context // connection context
+	clientConn                  net.Conn              // Client-side connection (feeder out on the internet).
+	serverConn                  net.Conn              // Server-side connection (feed-in container or mlat server).
+	connNum                     uint                  // Connection number (used for statistics and stuff).
+	proto                       feedprotocol.Protocol // Connection protocol
+	clientApiKey                uuid.UUID             // Client's API Key (from stunnel SNI).
+	lastAuthCheck               *time.Time            // Timestamp for when the client's API key was checked for validity (to handle kicked/banned feeders).
+	lastAuthCheckMu             sync.RWMutex          // mutex for lastAuthCheck to prevent data race
+	log                         zerolog.Logger        // Log. This allows the proxy to inherit a logging context.
+	feederValidityCheckInterval time.Duration         // How often to check the feeder is still valid.
+	ctx                         context.Context       // connection context
 }
 
 func feederStillValid(conf *protocolProxyConfig) error {
@@ -358,7 +359,7 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 	var (
 		connA, connB net.Conn
 		// connAName, connBName  string
-		incrementByteCounters func(uuid uuid.UUID, connNum uint, bytes uint64) error
+		incrementByteCounters func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytes uint64) error
 	)
 
 	// set up function for specific direction
@@ -368,16 +369,16 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 		connB = conf.serverConn
 		// connAName = "client"
 		// connBName = "server"
-		incrementByteCounters = func(uuid uuid.UUID, connNum uint, bytes uint64) error {
-			return statsIncrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytes), 0)
+		incrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytes uint64) error {
+			return statsIncrementByteCounters(uuid, connNum, proto, uint64(bytes), 0)
 		}
 	case serverToClient:
 		connA = conf.serverConn
 		connB = conf.clientConn
 		// connAName = "server"
 		// connBName = "client"
-		incrementByteCounters = func(uuid uuid.UUID, connNum uint, bytes uint64) error {
-			return statsIncrementByteCounters(conf.clientApiKey, conf.connNum, 0, uint64(bytes))
+		incrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytes uint64) error {
+			return statsIncrementByteCounters(uuid, connNum, proto, 0, uint64(bytes))
 		}
 	}
 
@@ -418,7 +419,7 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 				}
 
 				// update stats
-				err = incrementByteCounters(conf.clientApiKey, conf.connNum, uint64(bytesRead))
+				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, uint64(bytesRead))
 				if err != nil {
 					return err
 				}
@@ -651,6 +652,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		clientConn:                  c.Connection,
 		serverConn:                  connOut,
 		connNum:                     c.ConnectionNumber,
+		proto:                       c.ConnectionProtocol,
 		clientApiKey:                clientDetails.clientApiKey,
 		lastAuthCheck:               &lastAuthCheck,
 		log:                         log,

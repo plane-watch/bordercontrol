@@ -503,6 +503,23 @@ func TestEndToEnd(t *testing.T) {
 	mlatAddr, err := nettest.NewLocalListener("tcp4")
 	require.NoError(t, err)
 	mlatAddr.Close()
+	apiAddr, err := nettest.NewLocalListener("tcp4")
+	require.NoError(t, err)
+	apiAddr.Close()
+
+	// store original BC_LISTEN_API
+	origEnvListenAPI := os.Getenv("BC_LISTEN_API")
+	t.Logf("original BC_LISTEN_API: %s", os.Getenv("BC_LISTEN_API"))
+	defer func(t *testing.T) {
+		err := os.Setenv("BC_LISTEN_API", origEnvListenAPI)
+		require.NoError(t, err)
+		t.Logf("final BC_LISTEN_API: %s", os.Getenv("BC_LISTEN_API"))
+	}(t)
+
+	// update BC_LISTEN_API with socket for test docker daemon
+	err = os.Setenv("BC_LISTEN_API", apiAddr.Addr().String())
+	require.NoError(t, err)
+	t.Logf("updated BC_LISTEN_API: %s", os.Getenv("BC_LISTEN_API"))
 
 	// store original BC_LISTEN_BEAST
 	origEnvListenBeast := os.Getenv("BC_LISTEN_BEAST")

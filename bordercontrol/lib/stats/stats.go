@@ -40,7 +40,7 @@ type FeederStats struct {
 
 	// Connection details.
 	// string key = protocol (BEAST/MLAT, and in future ACARS/VDLM2 etc)
-	Connections map[string]ProtocolDetail
+	Connections map[feedprotocol.Protocol]ProtocolDetail
 
 	// time these stats were updated
 	TimeUpdated time.Time
@@ -137,7 +137,13 @@ var (
 	// mutex for initialised
 	initialisedMu sync.RWMutex
 
+	// frequency for statsEvictor
+	statsEvictorFreq = time.Minute
+
 	// custom errors
+
+	// error: unknown api key
+	ErrAPIKeyNotFound = errors.New("client API key not found")
 
 	// error: stats not initialised
 	ErrNotInitialised = errors.New("stats not initialised")
@@ -159,74 +165,61 @@ func GetNumConnections(apikey uuid.UUID, proto feedprotocol.Protocol) (int, erro
 	}
 	stats.mu.RLock()
 	defer stats.mu.RUnlock()
-	return stats.Feeders[apikey].Connections[proto.Name()].ConnectionCount, nil
+	return stats.Feeders[apikey].Connections[proto].ConnectionCount, nil
 }
 
 // IncrementByteCounters increments the byte counters of a feeder by bytesIn / bytesOut, and sets TimeUpdated to time.Now().
-func IncrementByteCounters(uuid uuid.UUID, connNum uint, bytesIn, bytesOut uint64) error {
+func IncrementByteCounters(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
 
-	if !isInitialised() {
-		return ErrNotInitialised
-	}
-
-	// ensure feeder exists in stats subsystem
-	stats.initFeederStats(uuid)
-
-	// copy stats entry
 	stats.mu.Lock()
 	defer stats.mu.Unlock()
 
 	// update counters
-	y := stats.Feeders[uuid]
-
-	// find connection to update
-	for proto, p := range y.Connections {
-		for cn, c := range p.ConnectionDetails {
-			if cn == connNum {
-
-				p, err := feedprotocol.GetProtoFromName(proto)
-				if err != nil {
-					return err
-				}
-
-				// increment per-connection counters
-				c.BytesIn += bytesIn
-				c.BytesOut += bytesOut
-				y.Connections[proto].ConnectionDetails[connNum] = c
-
-				// prep prom labels
-				pl := prometheus.Labels{
-					"protocol":    strings.ToLower(proto),
-					"uuid":        uuid.String(),
-					"connnum":     fmt.Sprint(cn),
-					"feeder_code": y.Code,
-				}
-
-				// increment prom counters
-				promFeederDataInBytesTotal.With(pl).Add(float64(bytesIn))
-				promFeederDataOutBytesTotal.With(pl).Add(float64(bytesOut))
-
-				// increment global counters
-				switch p {
-				case feedprotocol.BEAST:
-					stats.BytesInBEAST += bytesIn
-					stats.BytesOutBEAST += bytesOut
-				case feedprotocol.MLAT:
-					stats.BytesInMLAT += bytesIn
-					stats.BytesOutMLAT += bytesOut
-				}
-
-				// update time last updated
-				y.TimeUpdated = time.Now()
-
-				// write stats entry
-				stats.Feeders[uuid] = y
-
-				return nil
-			}
-		}
+	y, ok := stats.Feeders[uuid]
+	if !ok {
+		return ErrAPIKeyNotFound
 	}
-	return ErrConnNumNotFound
+	p, ok := y.Connections[proto]
+	if !ok {
+		return ErrProtoNotFound
+	}
+	c, ok := p.ConnectionDetails[connNum]
+	if !ok {
+		return ErrConnNumNotFound
+	}
+
+	c.BytesIn += bytesIn
+	c.BytesOut += bytesOut
+	y.Connections[proto].ConnectionDetails[connNum] = c
+
+	// prep prom labels
+	pl := prometheus.Labels{
+		"protocol":    strings.ToLower(proto.Name()),
+		"uuid":        uuid.String(),
+		"connnum":     fmt.Sprint(connNum),
+		"feeder_code": y.Code,
+	}
+
+	// increment prom counters
+	promFeederDataInBytesTotal.With(pl).Add(float64(bytesIn))
+	promFeederDataOutBytesTotal.With(pl).Add(float64(bytesOut))
+
+	// increment global counters
+	switch proto {
+	case feedprotocol.BEAST:
+		stats.BytesInBEAST += bytesIn
+		stats.BytesOutBEAST += bytesOut
+	case feedprotocol.MLAT:
+		stats.BytesInMLAT += bytesIn
+		stats.BytesOutMLAT += bytesOut
+	}
+
+	// update time last updated
+	y.TimeUpdated = time.Now()
+
+	stats.Feeders[uuid] = y
+
+	return nil
 }
 
 // initFeederStats prepares the stats object for the feeder (ensures maps are made, etc)
@@ -240,14 +233,14 @@ func (stats *Statistics) initFeederStats(uuid uuid.UUID) {
 	_, ok := stats.Feeders[uuid]
 	if !ok {
 		stats.Feeders[uuid] = FeederStats{
-			Connections: make(map[string]ProtocolDetail),
+			Connections: make(map[feedprotocol.Protocol]ProtocolDetail),
 		}
 
-		stats.Feeders[uuid].Connections[feedprotocol.ProtocolNameBEAST] = ProtocolDetail{
+		stats.Feeders[uuid].Connections[feedprotocol.BEAST] = ProtocolDetail{
 			ConnectionDetails: make(map[uint]ConnectionDetail),
 		}
 
-		stats.Feeders[uuid].Connections[feedprotocol.ProtocolNameMLAT] = ProtocolDetail{
+		stats.Feeders[uuid].Connections[feedprotocol.MLAT] = ProtocolDetail{
 			ConnectionDetails: make(map[uint]ConnectionDetail),
 		}
 	}
@@ -314,7 +307,7 @@ func (conn *Connection) RegisterConnection() error {
 	}
 
 	if !feedprotocol.IsValid(conn.Proto) {
-		return feedprotocol.ErrUnknownProtocol
+		return feedprotocol.ErrUnknownProtocol(conn.Proto)
 	}
 
 	// ensure feeder exists in stats subsystem
@@ -334,15 +327,15 @@ func (conn *Connection) RegisterConnection() error {
 	defer stats.mu.Unlock()
 
 	// add connection to feeder connections map
-	stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()].ConnectionDetails[conn.ConnNum] = c
+	stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum] = c
 
 	// update connection state
-	if len(stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()].ConnectionDetails) > 0 {
-		pd := stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()]
+	if len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails) > 0 {
+		pd := stats.Feeders[conn.ApiKey].Connections[conn.Proto]
 		pd.Status = true
 		pd.MostRecentConnection = c.TimeConnected
-		pd.ConnectionCount = len(stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()].ConnectionDetails)
-		stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()] = pd
+		pd.ConnectionCount = len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails)
+		stats.Feeders[conn.ApiKey].Connections[conn.Proto] = pd
 	}
 
 	// update time updated
@@ -404,23 +397,23 @@ func (conn *Connection) UnregisterConnection() error {
 	defer stats.mu.Unlock()
 
 	// ensure connection number is found under this feeder
-	_, found := stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()].ConnectionDetails[conn.ConnNum]
+	_, found := stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails[conn.ConnNum]
 	if !found {
 		return ErrConnNumNotFound
 	}
 
 	// delete the connection from stats subsystem
-	delete(stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()].ConnectionDetails, conn.ConnNum)
+	delete(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails, conn.ConnNum)
 
 	// update connection status & count
-	c, _ := stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()]
-	c.ConnectionCount = len(stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()].ConnectionDetails)
-	if len(stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()].ConnectionDetails) > 0 {
+	c, _ := stats.Feeders[conn.ApiKey].Connections[conn.Proto]
+	c.ConnectionCount = len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails)
+	if len(stats.Feeders[conn.ApiKey].Connections[conn.Proto].ConnectionDetails) > 0 {
 		c.Status = true
 	} else {
 		c.Status = false
 	}
-	stats.Feeders[conn.ApiKey].Connections[conn.Proto.Name()] = c
+	stats.Feeders[conn.ApiKey].Connections[conn.Proto] = c
 
 	// update time last updated
 	feeder, _ := stats.Feeders[conn.ApiKey]
@@ -428,8 +421,8 @@ func (conn *Connection) UnregisterConnection() error {
 	stats.Feeders[conn.ApiKey] = feeder
 
 	// completely remove the feeder if no remaining connections
-	if stats.Feeders[conn.ApiKey].Connections[feedprotocol.ProtocolNameBEAST].ConnectionCount == 0 {
-		if stats.Feeders[conn.ApiKey].Connections[feedprotocol.ProtocolNameMLAT].ConnectionCount == 0 {
+	if stats.Feeders[conn.ApiKey].Connections[feedprotocol.BEAST].ConnectionCount == 0 {
+		if stats.Feeders[conn.ApiKey].Connections[feedprotocol.MLAT].ConnectionCount == 0 {
 			delete(stats.Feeders, conn.ApiKey)
 		}
 	}
@@ -450,6 +443,11 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 	// Template helper functions
 	funcMap := template.FuncMap{
 
+		// protocol name
+		"protocolName": func(p feedprotocol.Protocol) string {
+			return p.Name()
+		},
+
 		// human readable / pretty printable data units
 		"humanReadableDataUnits": func(n uint64) string {
 
@@ -468,9 +466,6 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 			if n > 1099511627776 {
 				prefix = 'T'
 			}
-			if n > 1125899906842624 {
-				prefix = 'P'
-			}
 
 			switch prefix {
 			case ' ':
@@ -483,8 +478,6 @@ func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 				out = fmt.Sprintf("%.3fG", float32(n)/1024.0/1024.0/1024.0)
 			case 'T':
 				out = fmt.Sprintf("%.4fT", float32(n)/1024.0/1024.0/1024.0/1024.0)
-			case 'P':
-				out = fmt.Sprintf("%.5fP", float32(n)/1024.0/1024.0/1024.0/1024.0/1024.0)
 			}
 
 			return out
@@ -531,13 +524,13 @@ func statsEvictorInner() {
 }
 
 // statsEvictor runs statsEvictorInner every minute, or until the context is cancelled.
-func statsEvictor() {
+func statsEvictor(freq time.Duration) {
 	for {
 		select {
 		case <-ctx.Done():
 			log.Debug().Msg("stopped stats evictor")
 			return
-		case <-time.After(time.Minute):
+		case <-time.After(freq):
 			statsEvictorInner()
 		}
 	}
@@ -681,7 +674,7 @@ func Init(parentContext context.Context, addr string) error {
 	statsWg.Add(1)
 	go func() {
 		defer statsWg.Done()
-		statsEvictor()
+		statsEvictor(statsEvictorFreq)
 	}()
 
 	// init NATS
