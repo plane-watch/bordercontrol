@@ -192,6 +192,13 @@ func TestStats(t *testing.T) {
 		err = Init(context.Background(), testAddr)
 		require.NoError(t, err)
 	})
+
+	t.Run("Init ErrAlreadyInitialised", func(t *testing.T) {
+		err = Init(context.Background(), testAddr)
+		require.Error(t, err)
+		assert.Equal(t, ErrAlreadyInitialised.Error(), err.Error())
+	})
+
 	t.Run("test UnregisterConnection ErrUnknownProtocol", func(t *testing.T) {
 		c := TestConnBEAST
 		c.Proto = feedprotocol.Protocol(0)
