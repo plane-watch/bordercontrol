@@ -32,6 +32,7 @@ var (
 	TestFeederAddr      = net.IPv4(127, 0, 0, 1)
 	TestPWIngestSink    = "nats://ingest-sink:12345"
 	TestConnNumBEAST    = uint(2345)
+	TestConnNumBEAST2   = uint(3456)
 	TestConnNumMLAT     = uint(4567)
 )
 
@@ -98,6 +99,20 @@ func TestStats(t *testing.T) {
 		Proto:      feedprotocol.BEAST,
 		FeederCode: TestFeederCode,
 		ConnNum:    TestConnNumBEAST,
+	}
+	TestConnBEAST2 := Connection{
+		ApiKey: TestFeederAPIKey,
+		SrcAddr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 23459,
+		},
+		DstAddr: &net.TCPAddr{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 12349,
+		},
+		Proto:      feedprotocol.BEAST,
+		FeederCode: TestFeederCode,
+		ConnNum:    TestConnNumBEAST2,
 	}
 	TestConnMLAT := Connection{
 		ApiKey: TestFeederAPIKey,
@@ -216,6 +231,18 @@ func TestStats(t *testing.T) {
 		require.Equal(t, 0, i)
 	})
 
+	t.Run("test IncrementByteCounters ErrAPIKeyNotFound", func(t *testing.T) {
+		err := IncrementByteCounters(uuid.New(), 0, feedprotocol.MLAT, 1, 1)
+		require.Error(t, err)
+		require.Equal(t, ErrAPIKeyNotFound.Error(), err.Error())
+	})
+
+	t.Run("test IncrementByteCounters ErrProtoNotFound", func(t *testing.T) {
+		err := IncrementByteCounters(uuid.New(), 0, feedprotocol.Protocol(0), 1, 1)
+		require.Error(t, err)
+		require.Equal(t, ErrProtoNotFound.Error(), err.Error())
+	})
+
 	t.Run("test IncrementByteCounters ErrConnNumNotFound", func(t *testing.T) {
 		err := IncrementByteCounters(TestFeederAPIKey, 0, feedprotocol.MLAT, 1, 1)
 		require.Error(t, err)
@@ -224,6 +251,11 @@ func TestStats(t *testing.T) {
 
 	t.Run("test RegisterConnection BEAST", func(t *testing.T) {
 		err := TestConnBEAST.RegisterConnection()
+		require.NoError(t, err)
+	})
+
+	t.Run("test RegisterConnection BEAST 2", func(t *testing.T) {
+		err := TestConnBEAST2.RegisterConnection()
 		require.NoError(t, err)
 	})
 
