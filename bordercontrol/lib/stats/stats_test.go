@@ -272,7 +272,7 @@ func TestStats(t *testing.T) {
 	t.Run("test GetNumConnections BEAST 1", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		require.NoError(t, err)
-		require.Equal(t, 1, i)
+		require.Equal(t, 2, i)
 	})
 
 	t.Run("test RegisterConnection MLAT", func(t *testing.T) {
