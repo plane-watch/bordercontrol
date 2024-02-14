@@ -1,6 +1,7 @@
 package feedprotocol
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -46,7 +48,7 @@ func TestFeedProtocol(t *testing.T) {
 	t.Run("test GetName unsupported protocol", func(t *testing.T) {
 		_, err := GetName(protoUnsupported)
 		assert.Error(t, err)
-		assert.Equal(t, ErrUnknownProtocol.Error(), err.Error())
+		assert.Equal(t, ErrUnknownProtocol(protoUnsupported).Error(), err.Error())
 	})
 
 	t.Run("test .Name panic with unsupported protocol", func(t *testing.T) {
@@ -83,6 +85,61 @@ func TestFeedProtocol(t *testing.T) {
 	t.Run("test GetProtoFromName unsupported", func(t *testing.T) {
 		_, err := GetProtoFromName("unsupported")
 		assert.Error(t, err)
-		assert.Equal(t, ErrUnknownProtocol.Error(), err.Error())
+		assert.Equal(t, ErrUnknownProtocol("unsupported").Error(), err.Error())
 	})
+}
+
+func TestProtocolMarshalUnmarshal(t *testing.T) {
+
+	var err error
+	// var TestProto = Protocol(BEAST)
+	var JSONbytes []byte
+
+	type TestStruct struct {
+		Proto Protocol
+	}
+
+	tsToMarshal := TestStruct{
+		Proto: BEAST,
+	}
+
+	t.Run("MarshalText", func(t *testing.T) {
+		p := Protocol(BEAST)
+		b, err := p.MarshalText()
+		require.NoError(t, err)
+		assert.Equal(t, ProtocolNameBEAST, string(b))
+	})
+
+	t.Run("MarshalJSON working", func(t *testing.T) {
+		JSONbytes, err = json.Marshal(tsToMarshal)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"Proto":"BEAST"}`, string(JSONbytes))
+	})
+
+	t.Run("UnmarshalJSON bad JSON", func(t *testing.T) {
+		p := Protocol(0)
+		err := p.UnmarshalJSON([]byte(`BEAST"`))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid")
+	})
+
+	t.Run("UnmarshalJSON unknown protocol", func(t *testing.T) {
+		tsFromUnmarshal := TestStruct{}
+		err := json.Unmarshal([]byte(`{"Proto":"telnet"}`), &tsFromUnmarshal)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown protocol")
+	})
+
+	t.Run("UnmarshalJSON working", func(t *testing.T) {
+		tsFromUnmarshal := TestStruct{}
+		err := json.Unmarshal(JSONbytes, &tsFromUnmarshal)
+		require.NoError(t, err)
+		assert.Equal(t, tsToMarshal, tsFromUnmarshal)
+	})
+}
+
+func TestErrUnknownProtocol(t *testing.T) {
+	err := ErrUnknownProtocol("BLORT")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown protocol: BLORT")
 }

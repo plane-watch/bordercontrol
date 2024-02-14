@@ -117,7 +117,7 @@ func getProtocolFromLastToken(subject string) (feedprotocol.Protocol, error) {
 	case lastToken == strings.ToUpper(feedprotocol.ProtocolNameMLAT):
 		return feedprotocol.MLAT, nil
 	default:
-		return feedprotocol.Protocol(0), feedprotocol.ErrUnknownProtocol
+		return feedprotocol.Protocol(0), feedprotocol.ErrUnknownProtocol(0)
 	}
 }
 
@@ -150,7 +150,7 @@ func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 		fm.Label = feeder.Label
 
 		// beast connection
-		conns, ok := feeder.Connections[feedprotocol.ProtocolNameBEAST]
+		conns, ok := feeder.Connections[feedprotocol.BEAST]
 		if !ok {
 			log.Debug().Msg("no beast connection")
 		} else {
@@ -167,7 +167,7 @@ func natsSubjFeedersMetricsHandler(msg *nats.Msg) {
 		}
 
 		// mlat connection
-		conns, ok = feeder.Connections[feedprotocol.ProtocolNameMLAT]
+		conns, ok = feeder.Connections[feedprotocol.MLAT]
 		if !ok {
 			log.Debug().Msg("no mlat connection")
 		} else {
@@ -242,7 +242,7 @@ func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 	fm.Label = feeder.Label
 
 	// beast connection
-	conns, ok := feeder.Connections[feedprotocol.ProtocolNameBEAST]
+	conns, ok := feeder.Connections[feedprotocol.BEAST]
 	if !ok {
 		log.Debug().Msg("no beast connection")
 	} else {
@@ -259,7 +259,7 @@ func natsSubjFeederMetricsAllProtocolsHandler(msg *nats.Msg) {
 	}
 
 	// mlat connection
-	conns, ok = feeder.Connections[feedprotocol.ProtocolNameMLAT]
+	conns, ok = feeder.Connections[feedprotocol.MLAT]
 	if !ok {
 		log.Debug().Msg("no mlat connection")
 	} else {
@@ -351,7 +351,7 @@ func natsSubjFeederMetricsHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedpro
 	}
 
 	// find connection
-	conns, ok := feeder.Connections[proto.Name()]
+	conns, ok := feeder.Connections[proto]
 	if !ok {
 		log.Debug().Msg("no connection")
 		return
@@ -413,7 +413,7 @@ func natsSubjFeederConnectedHandler(msg *nats.Msg, apiKey uuid.UUID, proto feedp
 	}
 
 	// find connection
-	conn, ok := feeder.Connections[proto.Name()]
+	conn, ok := feeder.Connections[proto]
 	if !ok {
 		log.Debug().Msg("no connection")
 		return

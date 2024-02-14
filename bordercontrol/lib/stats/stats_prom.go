@@ -50,7 +50,7 @@ func registerGlobalCollectors() error {
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				n += float64(stats.Feeders[u].Connections[feedprotocol.ProtocolNameBEAST].ConnectionCount)
+				n += float64(stats.Feeders[u].Connections[feedprotocol.BEAST].ConnectionCount)
 			}
 			return n
 		}))
@@ -67,7 +67,7 @@ func registerGlobalCollectors() error {
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				n += float64(stats.Feeders[u].Connections[feedprotocol.ProtocolNameMLAT].ConnectionCount)
+				n += float64(stats.Feeders[u].Connections[feedprotocol.MLAT].ConnectionCount)
 			}
 			return n
 		}))
@@ -84,7 +84,7 @@ func registerGlobalCollectors() error {
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections[feedprotocol.ProtocolNameBEAST].Status == true {
+				if stats.Feeders[u].Connections[feedprotocol.BEAST].Status == true {
 					n++
 				}
 			}
@@ -103,7 +103,7 @@ func registerGlobalCollectors() error {
 			defer stats.mu.RUnlock()
 			n := float64(0)
 			for u := range stats.Feeders {
-				if stats.Feeders[u].Connections[feedprotocol.ProtocolNameMLAT].Status == true {
+				if stats.Feeders[u].Connections[feedprotocol.MLAT].Status == true {
 					n++
 				}
 			}
