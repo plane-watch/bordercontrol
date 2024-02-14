@@ -269,6 +269,11 @@ func TestStats(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("test UnregisterConnection BEAST 2", func(t *testing.T) {
+		err := TestConnBEAST2.UnregisterConnection()
+		require.NoError(t, err)
+	})
+
 	t.Run("test GetNumConnections BEAST 1", func(t *testing.T) {
 		i, err := GetNumConnections(TestFeederAPIKey, feedprotocol.BEAST)
 		require.NoError(t, err)
