@@ -118,9 +118,9 @@ Any updated containers will be rebuilt and recreated.
 
 #### Updating just feed-in containers
 
-This can be done via rebuilding the `feed-in-builder` container, or a NATS request to `pw_bordercontrol.stunnel.reloadcertkey` with the body containing the NATS instance or wildcard (`*`) for all instances.
+This can be done via rebuilding the `feed-in-builder` container, or a NATS request to `pw_bordercontrol.feedinimage.rebuild` with the body containing the NATS instance or wildcard (`*`) for all instances:
 
-* From the root of the repository, run: `docker compose build --pull feed-in-builder`.
+* From the root of the repository, run: `docker compose build --pull feed-in-builder`; or
 * via NATS: `nats req --timeout=2m pw_bordercontrol.feedinimage.rebuild "*"`
 
 For the feed-in containers, bordercontrol checks these every 5 minutes. Containers are updated one at a time. After updating a container, bordercontrol waits 30 seconds, to hopefully prevent any visible impact on the web UI. These timeouts/sleeps can be skipped by sending a `SIGUSR1` signal to bordercontrol. This is shown in the logs:
