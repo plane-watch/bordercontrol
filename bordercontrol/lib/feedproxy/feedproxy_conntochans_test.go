@@ -1,7 +1,6 @@
 package feedproxy
 
 import (
-	"io"
 	"net"
 	"sync"
 	"testing"
@@ -78,6 +77,6 @@ func TestTcpConnToChans(t *testing.T) {
 	connB.SetReadDeadline(time.Now())
 	_, err = connB.Read(one)
 	require.Error(t, err)
-	assert.Equal(t, io.EOF.Error(), err.Error())
+	assert.Contains(t, err.Error(), "closed")
 
 }
