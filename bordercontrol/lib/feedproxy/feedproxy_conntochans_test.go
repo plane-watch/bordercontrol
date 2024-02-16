@@ -2,6 +2,7 @@ package feedproxy
 
 import (
 	"net"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -14,7 +15,10 @@ func TestTcpConnToChans(t *testing.T) {
 
 	// set up connections
 	connA, connB := net.Pipe()
+
+	t.Log(runtime.NumGoroutine())
 	rC, wC := connToChans(connB, 1024)
+	t.Log(runtime.NumGoroutine())
 
 	t.Run("write ok", func(t *testing.T) {
 
@@ -61,12 +65,16 @@ func TestTcpConnToChans(t *testing.T) {
 
 	})
 
+	t.Log(runtime.NumGoroutine())
+
 	// close channel
 	err := connA.Close()
 	require.NoError(t, err)
 
 	// wait for goroutines to finish
 	time.Sleep(time.Second)
+
+	t.Log(runtime.NumGoroutine())
 
 	// ensure read channel closed
 	_, ok := <-rC
@@ -78,5 +86,7 @@ func TestTcpConnToChans(t *testing.T) {
 	_, err = connB.Read(one)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "closed")
+
+	t.Log(runtime.NumGoroutine())
 
 }
