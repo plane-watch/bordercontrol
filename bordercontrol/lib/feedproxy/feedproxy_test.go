@@ -77,13 +77,12 @@ func TestFeedProxy(t *testing.T) {
 			require.Equal(t, ErrNotInitialised.Error(), err.Error())
 		})
 
-		t.Run("ProxyConnection.Stop", func(t *testing.T) {
-			c := ProxyConnection{}
-			err := c.Stop()
-			require.Error(t, err)
-			require.Equal(t, ErrNotInitialised.Error(), err.Error())
-		})
-
+		// t.Run("ProxyConnection.Stop", func(t *testing.T) {
+		// 	c := ProxyConnection{}
+		// 	err := c.Stop()
+		// 	require.Error(t, err)
+		// 	require.Equal(t, ErrNotInitialised.Error(), err.Error())
+		// })
 	})
 
 	pctx := context.Background()
@@ -451,8 +450,6 @@ func TestFeedProxy(t *testing.T) {
 				testsFinished <- true
 				_ = <-stopListener
 
-				c.Stop()
-
 				wg.Done()
 
 			}(t)
@@ -658,8 +655,6 @@ func TestFeedProxy(t *testing.T) {
 				testsFinished <- true
 				_ = <-stopListener
 
-				c.Stop()
-
 				wg.Done()
 
 			}(t)
@@ -712,141 +707,6 @@ func TestFeedProxy(t *testing.T) {
 			// clean up
 			stopServer <- true
 			stopListener <- true
-			wg.Wait()
-
-		})
-
-	})
-
-	t.Run("proxyClientToServer", func(t *testing.T) {
-
-		t.Run("normal operation", func(t *testing.T) {
-
-			testData := "Hello World!"
-
-			wg := sync.WaitGroup{}
-
-			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
-				return nil
-			}
-
-			conn1, conn2 := net.Pipe()
-			conn3, conn4 := net.Pipe()
-			t.Cleanup(func() {
-				conn1.Close()
-			})
-			t.Cleanup(func() {
-				conn2.Close()
-			})
-			t.Cleanup(func() {
-				conn3.Close()
-			})
-			t.Cleanup(func() {
-				conn4.Close()
-			})
-
-			connNum, err := GetConnectionNumber()
-			require.NoError(t, err)
-
-			ctx := context.Background()
-
-			lastAuthCheck := time.Now()
-
-			conf := protocolProxyConfig{
-				clientConn:   conn2,
-				serverConn:   conn3,
-				connNum:      connNum,
-				clientApiKey: TestFeederAPIKey,
-				ctx:          ctx,
-
-				lastAuthCheck:               &lastAuthCheck,
-				feederValidityCheckInterval: time.Second * 5,
-			}
-
-			wg.Add(1)
-			go func(t *testing.T) {
-				protocolProxy(&conf, clientToServer)
-				wg.Done()
-			}(t)
-
-			n, err := conn1.Write([]byte(testData))
-			require.NoError(t, err)
-			require.Equal(t, len(testData), n)
-
-			buf := make([]byte, len(testData))
-			n, err = conn4.Read(buf)
-			require.NoError(t, err)
-			require.Equal(t, len(testData), n)
-			require.Equal(t, []byte(testData), buf)
-
-			wg.Wait()
-
-		})
-
-	})
-
-	t.Run("proxyServerToClient", func(t *testing.T) {
-
-		t.Run("normal operation", func(t *testing.T) {
-
-			testData := "Hello World!"
-
-			wg := sync.WaitGroup{}
-
-			statsIncrementByteCounters = func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytesIn, bytesOut uint64) error {
-				return nil
-			}
-
-			conn1, conn2 := net.Pipe()
-			conn3, conn4 := net.Pipe()
-			t.Cleanup(func() {
-				conn1.Close()
-			})
-			t.Cleanup(func() {
-				conn2.Close()
-			})
-			t.Cleanup(func() {
-				conn3.Close()
-			})
-			t.Cleanup(func() {
-				conn4.Close()
-			})
-
-			connNum, err := GetConnectionNumber()
-			require.NoError(t, err)
-
-			lastAuthCheck := time.Now()
-
-			ctx := context.Background()
-
-			conf := protocolProxyConfig{
-				clientConn:   conn2,
-				serverConn:   conn3,
-				connNum:      connNum,
-				clientApiKey: TestFeederAPIKey,
-
-				lastAuthCheck:               &lastAuthCheck,
-				feederValidityCheckInterval: time.Second * 5,
-
-				ctx: ctx,
-			}
-
-			wg.Add(1)
-			go func(t *testing.T) {
-				protocolProxy(&conf, serverToClient)
-				wg.Done()
-			}(t)
-
-			n, err := conn4.Write([]byte(testData))
-			require.NoError(t, err)
-			require.Equal(t, len(testData), n)
-
-			buf := make([]byte, len(testData))
-			n, err = conn1.Read(buf)
-			require.NoError(t, err)
-			require.Equal(t, len(testData), n)
-			require.Equal(t, []byte(testData), buf)
-
 			wg.Wait()
 
 		})
