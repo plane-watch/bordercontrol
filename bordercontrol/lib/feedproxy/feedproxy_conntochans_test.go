@@ -175,3 +175,57 @@ func TestTcpConnToChans_CloseWriteChan(t *testing.T) {
 	assert.Equal(t, origNumGoRoutines, runtime.NumGoroutine())
 
 }
+
+func TestTcpConnToChans_WriteToClosedChan(t *testing.T) {
+
+	// set up connections
+	connA, connB := net.Pipe()
+
+	origNumGoRoutines := runtime.NumGoroutine()
+
+	rC, wC := connToChans(connB, 1024)
+
+	// ensure goroutines are started
+	assert.Equal(t, origNumGoRoutines+2, runtime.NumGoroutine())
+
+	// close write channel
+	close(wC)
+	time.Sleep(time.Second) // wait for goroutines
+
+	t.Run("read error", func(t *testing.T) {
+
+		var wg sync.WaitGroup
+
+		// write to connection on other end of pipe
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := connA.Write([]byte("Hello World! 67890"))
+			require.NoError(t, err)
+		}()
+
+		// receive data from read channel
+		msg, ok := <-rC
+
+		wg.Wait()
+
+		require.True(t, ok)
+		assert.Equal(t, []byte("Hello World! 67890"), msg)
+
+	})
+
+	// // ensure read channel closed
+	// _, ok := <-rC
+	// require.False(t, ok)
+
+	// // ensure connection closed
+	// one := make([]byte, 1)
+	// connB.SetReadDeadline(time.Now())
+	// _, err := connB.Read(one)
+	// require.Error(t, err)
+	// assert.Contains(t, err.Error(), "closed")
+
+	// // ensure goroutines are gone
+	// assert.Equal(t, origNumGoRoutines, runtime.NumGoroutine())
+
+}
