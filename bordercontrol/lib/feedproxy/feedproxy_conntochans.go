@@ -3,6 +3,7 @@ package feedproxy
 import (
 	"flag"
 	"net"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )
@@ -12,11 +13,14 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 	// readChan will be populated with reads from conn.
 	// Any thing sent to writeChan will be written to conn.
 
+	var wg sync.WaitGroup
+
 	// make channels
 	readChan = make(chan []byte)
 	writeChan = make(chan []byte)
 
 	// read conn into readChan
+	wg.Add(1)
 	go func() {
 
 		// logging for during testing
@@ -26,6 +30,9 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 		}
 
 		buf := make([]byte, readBufSize)
+
+		wg.Done() // goroutine is running
+
 		for {
 			n, err := conn.Read(buf)
 			if err != nil {
@@ -40,6 +47,7 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 	}()
 
 	// write to conn from writeChan
+	wg.Add(1)
 	go func() {
 
 		// logging for during testing
@@ -47,6 +55,8 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 			log.Trace().Msg("write goroutine started")
 			defer log.Trace().Msg("write goroutine finished")
 		}
+
+		wg.Done() // goroutine is running
 
 		for {
 			buf, ok := <-writeChan
@@ -63,6 +73,9 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 		// If here, then there's been an error. Close channel & connection.
 		conn.Close()
 	}()
+
+	// wait for goroutines to initialise
+	wg.Wait()
 
 	return readChan, writeChan
 }
