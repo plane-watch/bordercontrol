@@ -1,6 +1,7 @@
 package feedproxy
 
 import (
+	"flag"
 	"net"
 
 	"github.com/rs/zerolog/log"
@@ -11,13 +12,18 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 	// readChan will be populated with reads from conn.
 	// Any thing sent to writeChan will be written to conn.
 
+	// make channels
 	readChan = make(chan []byte)
 	writeChan = make(chan []byte)
 
 	// read conn into readChan
 	go func() {
-		log.Trace().Msg("read goroutine started")
-		defer log.Trace().Msg("read goroutine finished")
+
+		// logging for during testing
+		if flag.Lookup("test.v") != nil {
+			log.Trace().Msg("read goroutine started")
+			defer log.Trace().Msg("read goroutine finished")
+		}
 
 		buf := make([]byte, readBufSize)
 		for {
@@ -35,8 +41,12 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 
 	// write to conn from writeChan
 	go func() {
-		log.Trace().Msg("write goroutine started")
-		defer log.Trace().Msg("write goroutine finished")
+
+		// logging for during testing
+		if flag.Lookup("test.v") != nil {
+			log.Trace().Msg("write goroutine started")
+			defer log.Trace().Msg("write goroutine finished")
+		}
 
 		for {
 			buf, ok := <-writeChan
