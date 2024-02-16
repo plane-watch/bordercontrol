@@ -80,15 +80,18 @@ func TestTcpConnToChans(t *testing.T) {
 	_, ok := <-rC
 	require.False(t, ok)
 
-	// close write channel
-	close(wC)
-
 	// ensure connection closed
 	one := make([]byte, 1)
 	connB.SetReadDeadline(time.Now())
 	_, err = connB.Read(one)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "closed")
+
+	// close write channel
+	close(wC)
+
+	// wait for goroutines to finish
+	time.Sleep(time.Second)
 
 	t.Log(runtime.NumGoroutine())
 
