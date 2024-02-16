@@ -202,7 +202,7 @@ func TestTcpConnToChans_WriteToClosedChan(t *testing.T) {
 			defer wg.Done()
 			_, err := connA.Write([]byte("Hello World! 67890"))
 			require.Error(t, err)
-			assert.Contains(t, err, "closed")
+			assert.Contains(t, err.Error(), "closed")
 		}()
 
 		// receive data from read channel
