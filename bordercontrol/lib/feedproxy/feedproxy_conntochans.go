@@ -51,7 +51,6 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 			}
 		}
 		// If here, then there's been an error. Close channel & connection.
-		close(readChan)
 		conn.Close()
 	}()
 
