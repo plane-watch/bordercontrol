@@ -16,12 +16,12 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 	go func() {
 		buf := make([]byte, readBufSize)
 		for {
-			_, err := conn.Read(buf)
+			n, err := conn.Read(buf)
 			if err != nil {
 				// if read error, break out of loop
 				break
 			}
-			readChan <- buf
+			readChan <- buf[:n]
 		}
 		// If here, then there's been an error. Close channel & connection.
 		close(readChan)
