@@ -80,6 +80,9 @@ func TestTcpConnToChans(t *testing.T) {
 	_, ok := <-rC
 	require.False(t, ok)
 
+	// close write channel
+	close(wC)
+
 	// ensure connection closed
 	one := make([]byte, 1)
 	connB.SetReadDeadline(time.Now())
