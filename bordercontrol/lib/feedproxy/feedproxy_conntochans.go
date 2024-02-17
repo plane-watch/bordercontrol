@@ -25,12 +25,6 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 	wg.Add(1)
 	go func() {
 
-		// logging for during testing
-		if flag.Lookup("test.v") != nil {
-			log.Trace().Msg("read goroutine started")
-			defer log.Trace().Msg("read goroutine finished")
-		}
-
 		buf := make([]byte, readBufSize)
 
 		wg.Done() // goroutine is running
@@ -39,6 +33,7 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 			n, err := conn.Read(buf)
 			if err != nil {
 				// if read error, break out of loop
+				log.Err(err).Msg("error reading from connection")
 				break
 			}
 			readChan <- buf[:n]
@@ -64,11 +59,13 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 			buf, ok := <-writeChan
 			if !ok {
 				// if error reading from chan, break out of loop
+				log.Error().Msg("read from writeChan not ok")
 				break
 			}
 			_, err := conn.Write(buf)
 			if err != nil {
 				// if write error, break out of loop
+				log.Err(err).Msg("error writing to connection")
 				break
 			}
 		}
