@@ -232,7 +232,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		select {
 
 		// if no data, check feeder still valid every minute
-		case <-time.After(noDataWaitDuration):
+		// case <-time.After(noDataWaitDuration):
 
 		// handle context closure
 		case <-ctx.Done():
