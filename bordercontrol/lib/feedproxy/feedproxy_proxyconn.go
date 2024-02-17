@@ -243,6 +243,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		// attempt read from client
 		case b, ok := <-clientReadChan:
 			if !ok {
+				log.Trace().Msg("read from clientReadChan not ok")
 				finishProxying = true
 				break
 			}
@@ -254,6 +255,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		// attempt read from server
 		case b, ok := <-serverReadChan:
 			if !ok {
+				log.Trace().Msg("read from serverReadChan not ok")
 				finishProxying = true
 				break
 			}
