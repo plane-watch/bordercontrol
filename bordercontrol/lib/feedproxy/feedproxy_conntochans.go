@@ -4,6 +4,7 @@ import (
 	"flag"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -16,6 +17,20 @@ func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byt
 	// readChan will be closed when writeChan is closed or the connection is closed.
 
 	var wg sync.WaitGroup
+
+	// turn off deadlines
+	err := conn.SetDeadline(time.Time{})
+	if err != nil {
+		log.Err(err).Msg("error disabling deadline")
+	}
+	err = conn.SetReadDeadline(time.Time{})
+	if err != nil {
+		log.Err(err).Msg("error disabling read deadline")
+	}
+	err = conn.SetWriteDeadline(time.Time{})
+	if err != nil {
+		log.Err(err).Msg("error disabling write deadline")
+	}
 
 	// make channels
 	readChan = make(chan []byte)
