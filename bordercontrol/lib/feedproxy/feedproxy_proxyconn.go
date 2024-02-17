@@ -243,7 +243,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		// attempt read from client
 		case b, ok := <-clientReadChan:
 			if !ok {
-				log.Trace().Msg("read from clientReadChan not ok")
+				log.Debug().Msg("read from clientReadChan not ok")
 				finishProxying = true
 				break
 			}
@@ -255,7 +255,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		// attempt read from server
 		case b, ok := <-serverReadChan:
 			if !ok {
-				log.Trace().Msg("read from serverReadChan not ok")
+				log.Debug().Msg("read from serverReadChan not ok")
 				finishProxying = true
 				break
 			}
@@ -278,6 +278,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 				uint64(bytesOut))
 			// if error, bail out
 			if err != nil {
+				log.Debug().Msg("error updating stats")
 				break
 			}
 			// zero counters
@@ -287,6 +288,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 
 		// if there's been an issue, then break out of the loop
 		if finishProxying {
+			log.Debug().Msg("finishProxying")
 			break
 		}
 	}
