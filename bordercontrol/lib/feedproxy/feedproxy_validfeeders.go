@@ -90,6 +90,16 @@ func updateFeederDB(conf *ProxyConfig) {
 	// loop until context cancellation
 	for {
 
+		// either sleep or exit depending on which comes first
+		select {
+
+		// check for context cancellation
+		case <-ctx.Done():
+			log.Debug().Msg("shutting down updateFeederDB")
+			return
+		default:
+		}
+
 		// get data from atc
 		getDataFromATCMu.RLock()
 		f, err := getDataFromATC(
@@ -100,6 +110,8 @@ func updateFeederDB(conf *ProxyConfig) {
 		getDataFromATCMu.RUnlock()
 		if err != nil {
 			log.Err(err).Msg("error updating feeder cache from atc")
+			time.Sleep(time.Second)
+			continue
 		}
 
 		// get uuids

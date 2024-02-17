@@ -15,11 +15,6 @@ var (
 	ErrUnsupportedProtocol     = errors.New("unsupported protocol")
 	ErrFeederNotFound          = errors.New("feeder not found")
 	ErrFeederNoLongerValid     = errors.New("feeder no longer valid")
+	ErrConnectingTooFrequently = errors.New(fmt.Sprintf("client connecting too frequently: more than %d connections from src within a %d second period",
+		maxIncomingConnectionRequestsPerSrcIP, maxIncomingConnectionRequestSeconds))
 )
-
-func ErrConnectingTooFrequently(maxIncomingConnectionRequestsPerSrcIP, maxIncomingConnectionRequestSeconds int) error {
-	return errors.New(fmt.Sprintf("client connecting too frequently: more than %d connections from src within a %d second period",
-		maxIncomingConnectionRequestsPerSrcIP,
-		maxIncomingConnectionRequestSeconds,
-	))
-}

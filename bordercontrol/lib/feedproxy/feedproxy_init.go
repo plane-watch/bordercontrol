@@ -75,6 +75,7 @@ func Init(parentContext context.Context, conf *ProxyConfig) error {
 
 	// parse atc url
 	var err error
+
 	conf.atcUrl, err = url.Parse(conf.ATCUrl)
 	if err != nil {
 		log.Error().Msg("--atcurl is invalid")

@@ -11,7 +11,9 @@ import (
 func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byte) {
 	// tcpConnToChans provides two channels, a readChan & writeChan.
 	// readChan will be populated with reads from conn.
-	// Any thing sent to writeChan will be written to conn.
+	// Data sent to writeChan will be written to conn.
+	// User should defer close(writeChan).
+	// readChan will be closed when writeChan is closed or the connection is closed.
 
 	var wg sync.WaitGroup
 
