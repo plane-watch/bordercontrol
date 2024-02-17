@@ -210,9 +210,9 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	log.Trace().Msg("after registerConnectionStats")
 
 	// prepare channels
-	clientReadChan, clientWriteChan := connToChans(c.Connection, sendRecvBufferSize)
+	clientReadChan, clientWriteChan := connToChans(c.Connection, sendRecvBufferSize, log)
 	defer close(clientWriteChan)
-	serverReadChan, serverWriteChan := connToChans(connOut, sendRecvBufferSize)
+	serverReadChan, serverWriteChan := connToChans(connOut, sendRecvBufferSize, log)
 	defer close(serverWriteChan)
 
 	lastStatsUpdate = time.Now()
@@ -232,7 +232,7 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 		select {
 
 		// if no data, check feeder still valid every minute
-		// case <-time.After(noDataWaitDuration):
+		case <-time.After(noDataWaitDuration):
 
 		// handle context closure
 		case <-ctx.Done():

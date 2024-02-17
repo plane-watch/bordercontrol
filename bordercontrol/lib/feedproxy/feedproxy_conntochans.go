@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
-func connToChans(conn net.Conn, readBufSize int) (readChan, writeChan chan []byte) {
+func connToChans(conn net.Conn, readBufSize int, log zerolog.Logger) (readChan, writeChan chan []byte) {
 	// tcpConnToChans provides two channels, a readChan & writeChan.
 	// readChan will be populated with reads from conn.
 	// Data sent to writeChan will be written to conn.
