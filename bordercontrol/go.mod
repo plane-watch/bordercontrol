@@ -5,7 +5,7 @@ go 1.21.6
 require (
 	github.com/docker/docker v25.0.3+incompatible
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/nats-server/v2 v2.10.10
+	github.com/nats-io/nats-server/v2 v2.10.11
 	github.com/nats-io/nats.go v1.33.1
 	github.com/prometheus/client_golang v1.18.0
 	github.com/rs/zerolog v1.32.0
@@ -53,7 +53,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-memdb v1.3.4 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
-	github.com/klauspost/compress v1.17.5 // indirect
+	github.com/klauspost/compress v1.17.6 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
