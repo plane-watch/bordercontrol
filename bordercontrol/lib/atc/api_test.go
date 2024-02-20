@@ -55,6 +55,8 @@ func PrepMockATCServer(t *testing.T, testScenario int) *httptest.Server {
 	// prep test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		t.Logf("mock atc server RequestURI: %s", r.RequestURI)
+
 		switch r.URL.Path {
 
 		case "/api/user/sign_in":
