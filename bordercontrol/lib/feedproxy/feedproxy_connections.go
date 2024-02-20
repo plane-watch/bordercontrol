@@ -420,15 +420,14 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 					return err
 				}
 
-				// don't update stats every read
+				// increase byte counter
 				byteCount += bytesRead
 
 			}
 
-			// update stats ever second
+			// update stats every second or when counter is close to wrapping
 			if time.Now().After(timer.Add(time.Second)) || byteCount > 20000 {
 				timer = time.Now()
-				// update stats
 				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, uint64(byteCount))
 				if err != nil {
 					return err
