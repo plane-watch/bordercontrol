@@ -53,7 +53,7 @@ const (
 	maxIncomingConnectionRequestSeconds   = 10
 
 	// network send/recv buffer size
-	sendRecvBufferSize = 256 * 1024 // 256kB
+	sendRecvBufferSize = 32000 // 32kB
 )
 
 var (
@@ -389,7 +389,7 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 
 	// log := conf.log.With().Str("proxy", directionStr).Logger()
 	timer := time.Now()
-	byteCount := int(0)
+	byteCount := uint64(0)
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
@@ -423,14 +423,14 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 				}
 
 				// increase byte counter
-				byteCount += bytesRead
+				byteCount += uint64(bytesRead)
 
 			}
 
-			// update stats every second or when counter is close to wrapping
-			if time.Now().After(timer.Add(time.Second)) || byteCount > 20000 {
+			// update stats every second
+			if time.Now().After(timer.Add(time.Second)) {
 				timer = time.Now()
-				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, uint64(byteCount))
+				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, byteCount)
 				if err != nil {
 					return err
 				}
