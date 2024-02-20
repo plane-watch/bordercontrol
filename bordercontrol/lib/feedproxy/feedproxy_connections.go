@@ -53,7 +53,7 @@ const (
 	maxIncomingConnectionRequestSeconds   = 10
 
 	// network send/recv buffer size
-	sendRecvBufferSize = 256 * 1024 // 256kB
+	sendRecvBufferSize = 32000 // 32kB
 )
 
 var (
@@ -360,6 +360,8 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 		connA, connB net.Conn
 		// connAName, connBName  string
 		incrementByteCounters func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytes uint64) error
+		bytesRead             int
+		err                   error
 	)
 
 	// set up function for specific direction
@@ -386,6 +388,8 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 	// directionStr := fmt.Sprintf("%s to %s", connAName, connBName)
 
 	// log := conf.log.With().Str("proxy", directionStr).Logger()
+	timer := time.Now()
+	byteCount := uint64(0)
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
@@ -396,11 +400,11 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 		default:
 
 			// read from feeder client
-			err := connA.SetReadDeadline(time.Now().Add(time.Second * 1))
+			err = connA.SetReadDeadline(time.Now().Add(time.Second * 1))
 			if err != nil {
 				return err
 			}
-			bytesRead, err := connA.Read(buf)
+			bytesRead, err = connA.Read(buf)
 			if err != nil {
 				// don't close connection on read deadline exceeded - client may have nothing to send...
 				if !errors.Is(err, os.ErrDeadlineExceeded) {
@@ -409,7 +413,7 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 			} else {
 
 				// write to server
-				err := connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
+				err = connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
 				if err != nil {
 					return err
 				}
@@ -418,11 +422,19 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 					return err
 				}
 
-				// update stats
-				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, uint64(bytesRead))
+				// increase byte counter
+				byteCount += uint64(bytesRead)
+
+			}
+
+			// update stats every second
+			if time.Now().After(timer.Add(time.Second)) {
+				timer = time.Now()
+				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, byteCount)
 				if err != nil {
 					return err
 				}
+				byteCount = 0
 			}
 
 			// check feeder is still valid
