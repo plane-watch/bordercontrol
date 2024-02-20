@@ -386,6 +386,8 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 	// directionStr := fmt.Sprintf("%s to %s", connAName, connBName)
 
 	// log := conf.log.With().Str("proxy", directionStr).Logger()
+	timer := time.Now()
+	byteCount := int(0)
 	buf := make([]byte, sendRecvBufferSize)
 	for {
 
@@ -418,11 +420,20 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 					return err
 				}
 
+				// don't update stats every read
+				byteCount += bytesRead
+
+			}
+
+			// update stats ever second
+			if time.Now().After(timer.Add(time.Second)) || byteCount > 20000 {
+				timer = time.Now()
 				// update stats
-				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, uint64(bytesRead))
+				err = incrementByteCounters(conf.clientApiKey, conf.connNum, conf.proto, uint64(byteCount))
 				if err != nil {
 					return err
 				}
+				byteCount = 0
 			}
 
 			// check feeder is still valid
