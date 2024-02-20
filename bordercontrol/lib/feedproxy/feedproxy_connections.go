@@ -360,6 +360,8 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 		connA, connB net.Conn
 		// connAName, connBName  string
 		incrementByteCounters func(uuid uuid.UUID, connNum uint, proto feedprotocol.Protocol, bytes uint64) error
+		bytesRead             int
+		err                   error
 	)
 
 	// set up function for specific direction
@@ -398,11 +400,11 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 		default:
 
 			// read from feeder client
-			err := connA.SetReadDeadline(time.Now().Add(time.Second * 1))
+			err = connA.SetReadDeadline(time.Now().Add(time.Second * 1))
 			if err != nil {
 				return err
 			}
-			bytesRead, err := connA.Read(buf)
+			bytesRead, err = connA.Read(buf)
 			if err != nil {
 				// don't close connection on read deadline exceeded - client may have nothing to send...
 				if !errors.Is(err, os.ErrDeadlineExceeded) {
@@ -411,7 +413,7 @@ func protocolProxy(conf *protocolProxyConfig, direction proxyDirection) error {
 			} else {
 
 				// write to server
-				err := connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
+				err = connB.SetWriteDeadline(time.Now().Add(time.Second * 2))
 				if err != nil {
 					return err
 				}
