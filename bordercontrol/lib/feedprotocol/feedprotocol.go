@@ -25,18 +25,22 @@ const (
 	ProtocolNameMLAT = "MLAT"
 )
 
+// function that returns an error for unknown protocol
 func ErrUnknownProtocol(p any) error {
 	return errors.New(fmt.Sprintf("unknown protocol: %v", p))
 }
 
+// when this struct is marshalled to JSON, this function returns a string of the protocol name
 func (p Protocol) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p.Name())
 }
 
+// when this struct is marshalled to text, this function returns a string of the protocol name
 func (p Protocol) MarshalText() ([]byte, error) {
 	return []byte(p.Name()), nil
 }
 
+// when this struct is unmarshalled from JSON, this function returns a Protocol type from protocol name
 func (p *Protocol) UnmarshalJSON(data []byte) error {
 	var str string
 	err := json.Unmarshal(data, &str)
