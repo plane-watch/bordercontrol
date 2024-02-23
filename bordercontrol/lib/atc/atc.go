@@ -2,6 +2,7 @@ package atc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,11 +29,20 @@ type Client struct {
 
 	// Authorization Bearer Token
 	authorization string
+
+	// Context
+	ctx context.Context
 }
 
 func NewClient(atcURL, username, password string) (*Client, error) {
+	return NewClientWithContext(context.Background(), atcURL, username, password)
+}
+
+func NewClientWithContext(ctx context.Context, atcURL, username, password string) (*Client, error) {
 	var errParse, errJMarshal error
-	c := &Client{}
+	c := &Client{
+		ctx: ctx,
+	}
 	c.atcURL, errParse = url.Parse(atcURL)
 	c.credsJson, errJMarshal = json.Marshal(atcUser{
 		User: atcCredentials{
@@ -53,7 +63,7 @@ func (c *Client) authenticate(force bool) error {
 
 	if c.authorization == "" || force {
 
-		req, _ = http.NewRequest(http.MethodPost, c.atcURL.JoinPath("api/user/sign_in").String(), bytes.NewBuffer(c.credsJson))
+		req, _ = http.NewRequestWithContext(c.ctx, http.MethodPost, c.atcURL.JoinPath("api/user/sign_in").String(), bytes.NewBuffer(c.credsJson))
 		// No need to check for error on line above, as there's no context passed and method is using built-in type.
 
 		req.Header.Set("Content-Type", "application/json")
@@ -107,7 +117,7 @@ func (c *Client) getFeeders() (*Feeders, error) {
 		atcUrl := c.atcURL.JoinPath("/api/v1/feeders.json")
 
 		// perform api request
-		req, err := http.NewRequest("GET", atcUrl.String(), nil)
+		req, err := http.NewRequestWithContext(c.ctx, "GET", atcUrl.String(), nil)
 		if err != nil {
 			return &Feeders{}, err
 		}
