@@ -45,9 +45,14 @@ jobs:
         run: |
             curl -fsSL https://get.docker.com -o /tmp/install-docker.sh
             sudo sh /tmp/install-docker.sh
-      - uses: actions/setup-go@v5
+      - 
+        uses: actions/setup-go@v5
         with:
           go-version: 'stable'
+          check-latest: true
+          cache-dependency-path: |
+            bordercontrol/go.sum
+    
       -
         name: go mod tidy
         run: |
