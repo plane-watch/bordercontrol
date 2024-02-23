@@ -103,6 +103,7 @@ func (c *Client) authenticate(force bool) error {
 		res *http.Response
 	)
 
+	// prevent multiple auth requests happening at once
 	c.authMu.Lock()
 	defer c.authMu.Unlock()
 
