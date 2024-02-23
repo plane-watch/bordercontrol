@@ -23,7 +23,7 @@ var (
 	initialisedMu sync.RWMutex
 
 	// client struct for ATC API calls
-	atcClient atc.Client
+	atcClient *atc.Client
 
 	// context for this package
 	ctx context.Context
@@ -83,6 +83,7 @@ func Init(parentContext context.Context, conf *ProxyConfig) error {
 	atcClient, err = atc.NewClientWithContext(parentContext, conf.ATCUrl, conf.ATCUser, conf.ATCPass)
 	if err != nil {
 		log.Err(err).Msg("error creating ATC client")
+		return err
 	}
 
 	// start updateFeederDB
