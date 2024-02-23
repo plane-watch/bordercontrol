@@ -3,6 +3,7 @@ package feedproxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"pw_bordercontrol/lib/atc"
@@ -35,6 +36,22 @@ var (
 
 func init() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.UnixDate})
+}
+
+func TestGetDataFromATC(t *testing.T) {
+	var err error
+
+	nl, err := nettest.NewLocalListener("tcp")
+	require.NoError(t, err)
+	defer nl.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	atcUrl := fmt.Sprintf("http://%s", nl.Addr().String())
+	atcClient, err = atc.NewClientWithContext(ctx, atcUrl, "", "")
+	_, err = getDataFromATC()
+	require.Error(t, err)
 }
 
 func TestFeedProxy(t *testing.T) {
