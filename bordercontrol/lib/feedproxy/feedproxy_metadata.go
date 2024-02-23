@@ -1,7 +1,6 @@
 package feedproxy
 
 import (
-	"net/url"
 	"pw_bordercontrol/lib/atc"
 	"sync"
 	"time"
@@ -74,8 +73,8 @@ func getFeederInfo(f *feederClient) error {
 var getDataFromATCMu sync.RWMutex
 
 // getDataFromATC is a wrapper for atc.GetFeeders. Variableised to allow overriding for testing.
-var getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
-	return atc.GetFeeders(&atc.Server{Url: *atcurl, Username: atcuser, Password: atcpass})
+var getDataFromATC = func() (*atc.Feeders, error) {
+	return atcClient.GetFeeders()
 }
 
 // updateFeederDB updates validFeeders with data from atc.
@@ -92,11 +91,7 @@ func updateFeederDB(conf *ProxyConfig) {
 
 		// get data from atc
 		getDataFromATCMu.RLock()
-		f, err := getDataFromATC(
-			conf.atcUrl,
-			conf.ATCUser,
-			conf.ATCPass,
-		)
+		f, err := getDataFromATC()
 		getDataFromATCMu.RUnlock()
 		if err != nil {
 			log.Err(err).Msg("error updating feeder cache from atc")

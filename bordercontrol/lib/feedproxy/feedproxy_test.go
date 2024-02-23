@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"net/url"
 	"os"
 	"pw_bordercontrol/lib/atc"
 	"pw_bordercontrol/lib/feedprotocol"
@@ -44,7 +43,7 @@ func TestFeedProxy(t *testing.T) {
 	zerolog.SetGlobalLevel(zerolog.TraceLevel)
 
 	getDataFromATCMu.Lock()
-	getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+	getDataFromATC = func() (*atc.Feeders, error) {
 		f := atc.Feeders{
 			Feeders: []atc.Feeder{
 				{
@@ -57,7 +56,7 @@ func TestFeedProxy(t *testing.T) {
 				},
 			},
 		}
-		return f, nil
+		return &f, nil
 	}
 	getDataFromATCMu.Unlock()
 
@@ -491,11 +490,11 @@ func TestFeedProxy(t *testing.T) {
 			// make feeder invalid
 			t.Log("making feeder invalid")
 			getDataFromATCMu.Lock()
-			getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+			getDataFromATC = func() (*atc.Feeders, error) {
 				f := atc.Feeders{
 					Feeders: []atc.Feeder{},
 				}
-				return f, nil
+				return &f, nil
 			}
 			getDataFromATCMu.Unlock()
 
@@ -518,7 +517,7 @@ func TestFeedProxy(t *testing.T) {
 
 		// restore original function
 		getDataFromATCMu.Lock()
-		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+		getDataFromATC = func() (*atc.Feeders, error) {
 			f := atc.Feeders{
 				Feeders: []atc.Feeder{
 					{
@@ -531,7 +530,7 @@ func TestFeedProxy(t *testing.T) {
 					},
 				},
 			}
-			return f, nil
+			return &f, nil
 		}
 		getDataFromATCMu.Unlock()
 
@@ -691,11 +690,11 @@ func TestFeedProxy(t *testing.T) {
 			// make feeder invalid
 			t.Log("making feeder invalid")
 			getDataFromATCMu.Lock()
-			getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
+			getDataFromATC = func() (*atc.Feeders, error) {
 				f := atc.Feeders{
 					Feeders: []atc.Feeder{},
 				}
-				return f, nil
+				return &f, nil
 			}
 			getDataFromATCMu.Unlock()
 
@@ -886,8 +885,8 @@ func TestFeedProxy(t *testing.T) {
 
 	t.Run("getDataFromATC error", func(t *testing.T) {
 		getDataFromATCMu.Lock()
-		getDataFromATC = func(atcurl *url.URL, atcuser, atcpass string) (atc.Feeders, error) {
-			return atc.Feeders{}, errors.New("injected error for testing")
+		getDataFromATC = func() (*atc.Feeders, error) {
+			return &atc.Feeders{}, errors.New("injected error for testing")
 		}
 		getDataFromATCMu.Unlock()
 		// wait for error

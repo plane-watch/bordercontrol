@@ -9,6 +9,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -18,6 +21,42 @@ var (
 	}
 	ErrRequestFailed = errors.New("Request failed")
 )
+
+// Feeders holds all feeder information from ATC.
+// Schema for /api/v1/feeders.json atc endpoint
+// To facilitate unmarshall of JSON to go struct.
+type Feeders struct {
+	Feeders []Feeder
+}
+
+// Feeder represents a feeder's information from ATC.
+// Part of schema for /api/v1/feeders.json atc endpoint.
+// To facilitate unmarshall of JSON to go struct.
+type Feeder struct {
+	Altitude      float64 `json:",string"`
+	ApiKey        uuid.UUID
+	FeederCode    string
+	FeedDirection string
+	FeedProtocol  string
+	ID            int
+	Label         string
+	Latitude      float64 `json:",string"`
+	Longitude     float64 `json:",string"`
+	MlatEnabled   bool
+	Mux           string
+	User          string
+}
+
+// Schema to marshall atc credentials into JSON
+type atcCredentials struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Schema to marshall atc credentials into JSON
+type atcUser struct {
+	User atcCredentials `json:"user"`
+}
 
 type Client struct {
 
@@ -30,17 +69,20 @@ type Client struct {
 	// Authorization Bearer Token
 	authorization string
 
+	// Mutex for authorization - to ensure only one auth process happens at once
+	authMu sync.Mutex
+
 	// Context
 	ctx context.Context
 }
 
-func NewClient(atcURL, username, password string) (*Client, error) {
+func NewClient(atcURL, username, password string) (Client, error) {
 	return NewClientWithContext(context.Background(), atcURL, username, password)
 }
 
-func NewClientWithContext(ctx context.Context, atcURL, username, password string) (*Client, error) {
+func NewClientWithContext(ctx context.Context, atcURL, username, password string) (Client, error) {
 	var errParse, errJMarshal error
-	c := &Client{
+	c := Client{
 		ctx: ctx,
 	}
 	c.atcURL, errParse = url.Parse(atcURL)
@@ -60,6 +102,9 @@ func (c *Client) authenticate(force bool) error {
 		req *http.Request
 		res *http.Response
 	)
+
+	c.authMu.Lock()
+	defer c.authMu.Unlock()
 
 	if c.authorization == "" || force {
 
@@ -92,7 +137,7 @@ func (c *Client) authenticate(force bool) error {
 	return nil
 }
 
-func (c *Client) getFeeders() (*Feeders, error) {
+func (c *Client) GetFeeders() (*Feeders, error) {
 	// return all feeder data from ATC HTTP API
 
 	var (

@@ -5,6 +5,7 @@ package feedproxy
 import (
 	"context"
 	"net/url"
+	"pw_bordercontrol/lib/atc"
 	"pw_bordercontrol/lib/stats"
 	"sync"
 	"time"
@@ -20,6 +21,9 @@ var (
 
 	// mutex for initialised
 	initialisedMu sync.RWMutex
+
+	// client struct for ATC API calls
+	atcClient atc.Client
 
 	// context for this package
 	ctx context.Context
@@ -62,6 +66,8 @@ type ProxyConfig struct {
 // parentContext holds a context that can be used to perform clean shutdown of associated goroutines.
 func Init(parentContext context.Context, conf *ProxyConfig) error {
 
+	var err error
+
 	if isInitialised() {
 		return ErrAlreadyInitialised
 	}
@@ -73,12 +79,10 @@ func Init(parentContext context.Context, conf *ProxyConfig) error {
 	// prep context
 	ctx, cancelCtx = context.WithCancel(parentContext)
 
-	// parse atc url
-	var err error
-	conf.atcUrl, err = url.Parse(conf.ATCUrl)
+	// prep ATC connection
+	atcClient, err = atc.NewClientWithContext(parentContext, conf.ATCUrl, conf.ATCUser, conf.ATCPass)
 	if err != nil {
-		log.Error().Msg("--atcurl is invalid")
-		return err
+		log.Err(err).Msg("error creating ATC client")
 	}
 
 	// start updateFeederDB

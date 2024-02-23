@@ -260,7 +260,7 @@ func TestClient(t *testing.T) {
 
 	})
 
-	t.Run("getFeeders/working", func(t *testing.T) {
+	t.Run("GetFeeders/working", func(t *testing.T) {
 
 		server := StartMockATCServer(t, MockServerTestScenarioWorking)
 		defer server.Close()
@@ -268,7 +268,7 @@ func TestClient(t *testing.T) {
 		c, err := NewClient(server.URL, TestUser, TestPassword)
 		require.NoError(t, err)
 
-		feeders, err := c.getFeeders()
+		feeders, err := c.GetFeeders()
 		require.NoError(t, err)
 
 		expectedFeeders := &Feeders{
@@ -285,7 +285,7 @@ func TestClient(t *testing.T) {
 		assert.Equal(t, expectedFeeders, feeders)
 	})
 
-	t.Run("getFeeders/auth_problems", func(t *testing.T) {
+	t.Run("GetFeeders/auth_problems", func(t *testing.T) {
 
 		server := StartMockATCServer(t, MockServerTestScenarioFeedersUnauthorized)
 		defer server.Close()
@@ -293,13 +293,13 @@ func TestClient(t *testing.T) {
 		c, err := NewClient(server.URL, TestUser, TestPassword)
 		require.NoError(t, err)
 
-		_, err = c.getFeeders()
+		_, err = c.GetFeeders()
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrRequestFailed)
 
 	})
 
-	t.Run("getFeeders/nil_context", func(t *testing.T) {
+	t.Run("GetFeeders/nil_context", func(t *testing.T) {
 
 		server := StartMockATCServer(t, MockServerTestScenarioWorking)
 		defer server.Close()
@@ -315,13 +315,13 @@ func TestClient(t *testing.T) {
 		// induce error
 		c.ctx = nil
 
-		_, err = c.getFeeders()
+		_, err = c.GetFeeders()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "nil Context")
 
 	})
 
-	t.Run("getFeeders/context_cancelled", func(t *testing.T) {
+	t.Run("GetFeeders/context_cancelled", func(t *testing.T) {
 
 		server := StartMockATCServer(t, MockServerTestScenarioFeedersUnauthorized)
 		defer server.Close()
@@ -337,13 +337,13 @@ func TestClient(t *testing.T) {
 		// induce error
 		cancel()
 
-		_, err = c.getFeeders()
+		_, err = c.GetFeeders()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "context canceled")
 
 	})
 
-	t.Run("getFeeders/context_timeout", func(t *testing.T) {
+	t.Run("GetFeeders/context_timeout", func(t *testing.T) {
 
 		server := StartMockATCServer(t, MockServerTestScenarioFeeders5SecondResponse)
 		defer server.Close()
@@ -353,13 +353,13 @@ func TestClient(t *testing.T) {
 		c, err := NewClientWithContext(ctx, server.URL, TestUser, TestPassword)
 		require.NoError(t, err)
 
-		_, err = c.getFeeders()
+		_, err = c.GetFeeders()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "context deadline exceeded")
 
 	})
 
-	t.Run("getFeeders/invalid_json", func(t *testing.T) {
+	t.Run("GetFeeders/invalid_json", func(t *testing.T) {
 
 		server := StartMockATCServer(t, MockServerTestScenarioInvalidJSON)
 		defer server.Close()
@@ -369,13 +369,13 @@ func TestClient(t *testing.T) {
 		c, err := NewClientWithContext(ctx, server.URL, TestUser, TestPassword)
 		require.NoError(t, err)
 
-		_, err = c.getFeeders()
+		_, err = c.GetFeeders()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid")
 
 	})
 
-	t.Run("getFeeders/bad_response_code", func(t *testing.T) {
+	t.Run("GetFeeders/bad_response_code", func(t *testing.T) {
 
 		server := StartMockATCServer(t, MockServerTestScenarioFeedersBadResponseCode)
 		defer server.Close()
@@ -385,7 +385,7 @@ func TestClient(t *testing.T) {
 		c, err := NewClientWithContext(ctx, server.URL, TestUser, TestPassword)
 		require.NoError(t, err)
 
-		_, err = c.getFeeders()
+		_, err = c.GetFeeders()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Unsupported response code")
 
