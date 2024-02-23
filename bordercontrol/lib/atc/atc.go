@@ -76,11 +76,11 @@ type Client struct {
 	ctx context.Context
 }
 
-func NewClient(atcURL, username, password string) (Client, error) {
+func NewClient(atcURL, username, password string) (*Client, error) {
 	return NewClientWithContext(context.Background(), atcURL, username, password)
 }
 
-func NewClientWithContext(ctx context.Context, atcURL, username, password string) (Client, error) {
+func NewClientWithContext(ctx context.Context, atcURL, username, password string) (*Client, error) {
 	var errParse, errJMarshal error
 	c := Client{
 		ctx: ctx,
@@ -92,7 +92,7 @@ func NewClientWithContext(ctx context.Context, atcURL, username, password string
 			Password: password,
 		},
 	})
-	return c, errors.Join(errParse, errJMarshal)
+	return &c, errors.Join(errParse, errJMarshal)
 }
 
 // authenticate to ATC if required (no auth token or force set to true)
