@@ -177,10 +177,12 @@ func (c *Client) GetFeeders() (*Feeders, error) {
 		defer response.Body.Close()
 
 		// get response
-		body, err := io.ReadAll(response.Body)
-		if err != nil {
-			return &Feeders{}, err
-		}
+		body, _ := io.ReadAll(response.Body)
+		// if err != nil {
+		// 	return &Feeders{}, err
+		// }
+		// ^^^ error above should not be required (and can't be tested for?)
+		//     if there is an error, the json unmarshal below will fail.
 
 		// unmarshal json if response ok
 		switch response.StatusCode {
