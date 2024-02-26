@@ -300,9 +300,9 @@ func logNumGoroutines(ctx context.Context, freq time.Duration) {
 // proto is the protocol, defined in lib/feedprotocol.
 // feedInContainerPrefix is the prefix used for feed-in containers (for BEAST connections).
 // innerConnectionPort is the destination port for the feed-in container or MLAT sever.
-func listenWithContext(ctx context.Context, listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, innerConnectionPort int) {
+func listenWithContext(ctx context.Context, stunnelSvr *stunnel.Server, listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, innerConnectionPort int) {
 	for {
-		l, err := listener.NewListener(listenAddr, proto, feedInContainerPrefix, innerConnectionPort)
+		l, err := listener.NewListener(stunnelSvr, listenAddr, proto, feedInContainerPrefix, innerConnectionPort)
 		if err != nil {
 			log.Err(err).Str("proto", proto.Name()).Str("addr", listenAddr).Msg("error creating listener")
 		}
@@ -363,16 +363,9 @@ func runServer(cliContext *cli.Context) error {
 	}
 
 	// initialise ssl/tls subsystem
-	err = stunnel.Init(ctx, syscall.SIGHUP)
+	stunnelSvr, err := stunnel.NewServerWithContext(ctx, cliContext.String("cert"), cliContext.String("key"), syscall.SIGHUP)
 	if err != nil {
 		log.Err(err).Msg("error starting stunnel subsystem")
-		return err
-	}
-
-	// load SSL cert/key
-	err = stunnel.LoadCertAndKeyFromFile(cliContext.String("cert"), cliContext.String("key"))
-	if err != nil {
-		log.Err(err).Msg("error loading TLS cert and/or key")
 		return err
 	}
 
@@ -433,7 +426,7 @@ func runServer(cliContext *cli.Context) error {
 	go func() {
 		defer wg.Done()
 		// listen until context close
-		listenWithContext(ctx, cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"), 12345)
+		listenWithContext(ctx, stunnelSvr, cliContext.String("listenbeast"), feedprotocol.BEAST, cliContext.String("feedincontainerprefix"), 12345)
 	}()
 
 	// start listening for incoming MLAT connections
@@ -441,7 +434,7 @@ func runServer(cliContext *cli.Context) error {
 	go func() {
 		defer wg.Done()
 		// listen until context close
-		listenWithContext(ctx, cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"), 12346)
+		listenWithContext(ctx, stunnelSvr, cliContext.String("listenmlat"), feedprotocol.MLAT, cliContext.String("feedincontainerprefix"), 12346)
 	}()
 
 	// wait for listeners to finish (until context closure)
@@ -466,7 +459,7 @@ func runServer(cliContext *cli.Context) error {
 	}
 
 	// stop stunnel subsystem
-	err = stunnel.Close()
+	err = stunnelSvr.Close()
 	if err != nil {
 		log.Err(err).Msg("error stopping stunnel subsystem")
 	}

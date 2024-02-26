@@ -20,8 +20,8 @@ var (
 
 	// stunnelNewListenerWrapper is a wrapper for stunnel.NewListener.
 	// Variableised to allow overwriting for testing.
-	stunnelNewListenerWrapper = func(network string, laddr string) (l net.Listener, err error) {
-		return stunnel.NewListener(network, laddr)
+	stunnelNewListenerWrapper = func(stunnelServer *stunnel.Server, network string, laddr string) (l net.Listener, err error) {
+		return stunnelServer.NewListener(network, laddr)
 	}
 
 	// proxyConnStartWrapper is a wrapper for *feedproxy.Start().
@@ -38,7 +38,7 @@ var (
 )
 
 // NewListener returns a listener struct that can be Run() to start listening for incoming connections.
-func NewListener(listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, InnerConnectionPort int) (*listener, error) {
+func NewListener(stunnelServer *stunnel.Server, listenAddr string, proto feedprotocol.Protocol, feedInContainerPrefix string, InnerConnectionPort int) (*listener, error) {
 	// get IP address from listenAddr
 	ip := net.ParseIP(strings.Split(listenAddr, ":")[0])
 	if ip == nil {
@@ -59,6 +59,7 @@ func NewListener(listenAddr string, proto feedprotocol.Protocol, feedInContainer
 		},
 		FeedInContainerPrefix: feedInContainerPrefix,
 		InnerConnectionPort:   InnerConnectionPort,
+		stunnelServer:         stunnelServer,
 	}, nil
 }
 
@@ -76,6 +77,9 @@ type listener struct {
 
 	// Port to connect to on feed-in container or MLAT server.
 	InnerConnectionPort int
+
+	// Stunnel server
+	stunnelServer *stunnel.Server
 }
 
 // Run starts a listener listening for incoming connections
@@ -99,6 +103,7 @@ func (l *listener) Run(ctx context.Context) error {
 	// start TLS server
 	log.Info().Msg("starting listener")
 	stunnelListener, err := stunnelNewListenerWrapper(
+		l.stunnelServer,
 		"tcp",
 		fmt.Sprintf("%s:%d", l.ListenAddr.IP.String(), l.ListenAddr.Port),
 	)
