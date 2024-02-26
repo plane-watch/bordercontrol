@@ -102,6 +102,7 @@ func TestListenWithContext(t *testing.T) {
 	go func() {
 		listenWithContext(
 			ctx,
+			&stunnel.Server{},
 			tmpListener.Addr().String(),
 			feedprotocol.BEAST,
 			"test-feed-in-",
@@ -581,9 +582,6 @@ func TestEndToEnd(t *testing.T) {
 	time.Sleep(time.Second * 5)
 
 	// APP TESTING GOES HERE -----------------------------------------------------------
-
-	// test reload cert/key
-	stunnel.ReloadSignalChan <- syscall.SIGHUP
 
 	t.Run("test client BEAST connection", func(t *testing.T) {
 		conn, err := tls.Dial("tcp4", beastAddr.Addr().String(), clientTLSConfig)

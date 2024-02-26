@@ -15,35 +15,16 @@ import (
 
 var (
 
-	// tlsConfig contains tls.Config used to terminate stunnel connections
-	tlsConfig tls.Config
-
-	// kpr represents a keypairReloader, allowing for reload of cert & key files on signal
-	kpr *keypairReloader
-
-	// channel to receive cert & key reload signal
-	ReloadSignalChan chan os.Signal
-
-	// context for this module, allows for clean shutdown
-	ctx context.Context
-
-	// cancel function for ctx
-	cancelCtx context.CancelFunc
-
-	// waitgroup for signal catcher goroutine
-	signalCatcherWg sync.WaitGroup
-
 	// NATS subject to trigger cert/key reload
-	natsSubjReloadCertKey = "pw_bordercontrol.stunnel.reloadcertkey"
-
-	// set to true when Init() is run
-	initialised bool
-
-	// mutex for initialised
-	initialisedMu sync.RWMutex
+	NatsSubjReloadCertKey = "pw_bordercontrol.stunnel.reloadcertkey"
 
 	// error: TLS/SSL subsystem not initialised
 	ErrNotInitialised = errors.New("TLS/SSL subsystem not initialised")
+
+	// wrapper functions that can be overridden for testing
+	wrapperNatsioSignalSendOnSubj = func(subj string, sig os.Signal, ch chan os.Signal) error {
+		return nats_io.SignalSendOnSubj(subj, sig, ch)
+	}
 )
 
 // struct for SSL cert/key (+ mutex for sync)
@@ -54,113 +35,119 @@ type keypairReloader struct {
 	keyPath  string
 }
 
-// Init initialises the TLS/SSL subsystem to enable listening and accepting stunnel connections.
-// Must be run during app initialisation, followed by LoadCertAndKeyFromFile.
-func Init(parentContext context.Context, reloadSignal os.Signal) error {
+type Server struct {
 
-	// prepares context
-	ctx, cancelCtx = context.WithCancel(parentContext)
+	// server context
+	ctx context.Context
 
-	// prep waitgroup for signal catching goroutine
-	signalCatcherWg = sync.WaitGroup{}
+	// cancel function for server context
+	cancel context.CancelFunc
 
-	// prepares channels to catch signal to reload TLS/SSL cert/key
-	ReloadSignalChan = make(chan os.Signal, 1)
-	signal.Notify(ReloadSignalChan, reloadSignal)
+	// path to certificate file
+	certFile string
 
-	if nats_io.IsConnected() {
-		err := nats_io.SignalSendOnSubj(natsSubjReloadCertKey, reloadSignal, ReloadSignalChan)
-		if err != nil {
-			log.Err(err).Str("subj", natsSubjReloadCertKey).Err(err).Msg("subscribe failed")
-			return err
-		}
+	// path to private key file
+	keyFile string
+
+	// tlsConfig contains tls.Config used to terminate stunnel connections
+	tlsConfig tls.Config
+
+	// kpr represents a keypairReloader, allowing for reload of cert & key files on signal
+	kpr *keypairReloader
+
+	// channel to receive cert & key reload signal
+	reloadSignalChan chan os.Signal
+
+	// waitgroup for signal catcher goroutine
+	signalCatcherWg sync.WaitGroup
+
+	// type of signal to trigger certificate reload
+	reloadSignal os.Signal
+}
+
+func NewServer(certFile, keyFile string, reloadSignal os.Signal) (*Server, error) {
+	return NewServerWithContext(context.Background(), certFile, keyFile, reloadSignal)
+}
+
+func NewServerWithContext(ctx context.Context, certFile, keyFile string, reloadSignal os.Signal) (*Server, error) {
+
+	var err error
+
+	s := &Server{
+		certFile:     certFile,
+		keyFile:      keyFile,
+		reloadSignal: reloadSignal,
 	}
 
-	initialisedMu.Lock()
-	defer initialisedMu.Unlock()
-	initialised = true
+	// prep context
+	s.ctx, s.cancel = context.WithCancel(ctx)
+
+	// prepares channel to catch signal to reload TLS/SSL cert/key
+	s.reloadSignalChan = make(chan os.Signal, 1)
+	signal.Notify(s.reloadSignalChan, s.reloadSignal)
+
+	// load cert & key from file
+	err = s.loadCertAndKeyFromFile(s.certFile, s.keyFile)
+	if err != nil {
+		return &Server{}, err
+	}
+
+	log.Info().Msg("started stunnel subsystem")
+
+	return s, nil
+}
+
+func (s *Server) Close() error {
+	// close signalChan so we will no longer perform cert/key reload on signal
+	close(s.reloadSignalChan)
+
+	// cancel the context, so any goroutines will exit
+	s.cancel()
+
+	// wait for goroutines to exit
+	s.signalCatcherWg.Wait()
 
 	log.Info().Msg("started stunnel subsystem")
 
 	return nil
 }
 
-// Close shuts down the SSL/TLS subsystem. Should be run on application shutdown.
-func Close() error {
-
-	// only run if initialised
-	if !isInitialised() {
-		return ErrNotInitialised
+func (s *Server) ReloadCertOnNatsMsg(natsSubject string) error {
+	err := wrapperNatsioSignalSendOnSubj(natsSubject, s.reloadSignal, s.reloadSignalChan)
+	if err != nil {
+		log.Err(err).Str("subj", natsSubject).Err(err).Msg("subscribe failed")
+		return err
 	}
-
-	// close signalChan so we will no longer perform cert/key reload on signal
-	close(ReloadSignalChan)
-
-	// cancel the context, so any goroutines will exit
-	cancelCtx()
-
-	// wait for goroutines to exit
-	signalCatcherWg.Wait()
-
-	// set initialised to false
-	initialisedMu.Lock()
-	defer initialisedMu.Unlock()
-	initialised = false
-
-	log.Info().Msg("stopped stunnel subsystem")
-
 	return nil
-
 }
 
 // LoadCertAndKeyFromFile loads certificate and key from file.
 // Should be run immediately after Init.
-func LoadCertAndKeyFromFile(certFile, keyFile string) error {
-
-	if !isInitialised() {
-		return ErrNotInitialised
-	}
+func (s *Server) loadCertAndKeyFromFile(certFile, keyFile string) error {
 
 	var err error
-	kpr, err = newKeypairReloader(certFile, keyFile)
+
+	s.kpr, err = s.newKeypairReloader(certFile, keyFile)
 	if err != nil {
 		return err
 	}
-	tlsConfig.GetCertificate = kpr.getCertificateFunc()
+	s.tlsConfig.GetCertificate = s.kpr.getCertificateFunc()
 	return nil
 }
 
 // NewListener returns a net.Listener preconfigured with TLS settings to listen for incoming stunnel connections
-func NewListener(network, laddr string) (l net.Listener, err error) {
-
-	if !isInitialised() {
-		return l, ErrNotInitialised
-	}
-
-	l, err = tls.Listen(
+func (s *Server) NewListener(network, laddr string) (net.Listener, error) {
+	return tls.Listen(
 		network,
 		laddr,
-		&tlsConfig,
+		&s.tlsConfig,
 	)
-
-	return l, err
-}
-
-// isInitialised returns true if Init() has been called, else false
-func isInitialised() bool {
-	initialisedMu.RLock()
-	defer initialisedMu.RUnlock()
-	return initialised
 }
 
 // newKeypairReloader handles loading TLS certificate and key from file (certPath, keyPath).
 // It also starts a goroutine to handle reloading TLS cert & key receive from signalChan.
-func newKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
+func (s *Server) newKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 	// for reloading SSL cert/key on SIGHUP. Stolen from: https://stackoverflow.com/questions/37473201/is-there-a-way-to-update-the-tls-certificates-in-a-net-http-server-without-any-d
-
-	if !isInitialised() {
-		return &keypairReloader{}, ErrNotInitialised
-	}
 
 	result := &keypairReloader{
 		certPath: certPath,
@@ -179,17 +166,17 @@ func newKeypairReloader(certPath, keyPath string) (*keypairReloader, error) {
 		return nil, err
 	}
 	result.cert = &cert
-	signalCatcherWg.Add(1)
+	s.signalCatcherWg.Add(1)
 	go func() {
-		defer signalCatcherWg.Done()
+		defer s.signalCatcherWg.Done()
 		for {
 			select {
 			// if context cancelled, then end this goroutine
-			case <-ctx.Done():
+			case <-s.ctx.Done():
 				log.Info().Msg("shutting down TLS certificate and key reloader")
 				return
 			// if signal caught, then reload certificates if they exist
-			case <-ReloadSignalChan:
+			case <-s.reloadSignalChan:
 				log.Info().Msg("reloading TLS certificate and key")
 				if err := result.maybeReload(); err != nil {
 					log.Err(err).Msg("error loading TLS certificate, continuing to use old TLS certificate")
