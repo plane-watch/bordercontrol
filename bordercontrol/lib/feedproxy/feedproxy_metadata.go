@@ -109,8 +109,6 @@ func updateFeederDB(conf *ProxyConfig) {
 		validFeeders.Feeders = f.Feeders
 		validFeeders.mu.Unlock()
 
-		log.Debug().Int("feeders", count).Msg("updated feeder cache from atc")
-
 		// either sleep or exit depending on which comes first
 		select {
 
