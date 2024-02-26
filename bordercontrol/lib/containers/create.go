@@ -123,7 +123,6 @@ func startFeederContainers(conf startFeederContainersConfig, containerToStart Fe
 
 	// update log context with function name
 	log := conf.logger.With().
-		Strs("func", []string{"containers.go", "startFeederContainers"}).
 		Logger()
 
 	// set up docker client

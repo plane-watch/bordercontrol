@@ -217,7 +217,6 @@ func dialContainerTCP(container string, port int) (c *net.TCPConn, err error) {
 
 	// update log context
 	log := log.With().
-		Strs("func", []string{"feeder_conn.go", "dialContainerTCP"}).
 		Str("container", container).
 		Int("port", port).
 		Logger()
@@ -248,7 +247,6 @@ func authenticateFeeder(connIn net.Conn) (clientDetails feederClient, err error)
 
 	// update log context
 	log := log.With().
-		Strs("func", []string{"feeder_conn.go", "authenticateFeeder"}).
 		Logger()
 
 	// if TLS handshake is not complete, then kill the connection
@@ -486,7 +484,6 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 
 	// update log context
 	log := c.Logger.With().
-		Strs("func", []string{"feeder_conn.go", "proxyClientConnection"}).
 		Uint("connNum", c.ConnectionNumber).
 		Logger()
 

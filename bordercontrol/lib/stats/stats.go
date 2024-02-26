@@ -359,7 +359,6 @@ func (conn *Connection) UnregisterConnection() error {
 
 	// update log context
 	log := log.With().
-		Strs("func", []string{"stats.go", "addConnection"}).
 		Str("uuid", conn.ApiKey.String()).
 		Str("src", conn.SrcAddr.String()).
 		Str("dst", conn.DstAddr.String()).
@@ -434,7 +433,6 @@ func (conn *Connection) UnregisterConnection() error {
 func httpRenderStats(w http.ResponseWriter, r *http.Request) {
 
 	log := log.With().
-		Strs("func", []string{"stats.go", "httpRenderStats"}).
 		Str("RemoteAddr", r.RemoteAddr).
 		Str("url", r.URL.Path).
 		Str("RequestURI", r.RequestURI).
@@ -540,7 +538,6 @@ func statsEvictor(freq time.Duration) {
 func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 
 	log := log.With().
-		Strs("func", []string{"stats.go", "apiReturnAllFeeders"}).
 		Str("RemoteAddr", r.RemoteAddr).
 		Str("url", r.URL.Path).
 		Str("RequestURI", r.RequestURI).
@@ -576,7 +573,6 @@ func apiReturnAllFeeders(w http.ResponseWriter, r *http.Request) {
 func apiReturnSingleFeeder(w http.ResponseWriter, r *http.Request) {
 
 	log := log.With().
-		Strs("func", []string{"stats.go", "apiReturnSingleFeeder"}).
 		Str("RemoteAddr", r.RemoteAddr).
 		Str("url", r.URL.Path).
 		Str("RequestURI", r.RequestURI).
@@ -639,7 +635,6 @@ func isInitialised() bool {
 func Init(parentContext context.Context, addr string) error {
 
 	log := log.With().
-		Strs("func", []string{"stats.go", "statsManager"}).
 		Str("addr", addr).
 		Logger()
 

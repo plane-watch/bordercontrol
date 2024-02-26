@@ -155,7 +155,6 @@ func (s *Server) newKeypairReloader(certPath, keyPath string) (*keypairReloader,
 	}
 
 	log := log.With().
-		Strs("func", []string{"tls.go", "NewKeypairReloader"}).
 		Str("certPath", certPath).
 		Str("keyPath", keyPath).
 		Logger()

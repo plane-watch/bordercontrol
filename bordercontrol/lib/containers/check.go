@@ -38,7 +38,6 @@ func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Dur
 
 	// update log context
 	log := conf.logger.With().
-		Strs("func", []string{"containers.go", "checkFeederContainers"}).
 		Logger()
 
 	// cycles through feed-in containers and recreates if needed

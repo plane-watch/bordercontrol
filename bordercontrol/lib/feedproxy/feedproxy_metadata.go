@@ -83,7 +83,6 @@ func updateFeederDB(conf *ProxyConfig) {
 
 	// update log context
 	log := log.With().
-		Strs("func", []string{"feeder_meta.go", "updateFeederDB"}).
 		Logger()
 
 	// loop until context cancellation
