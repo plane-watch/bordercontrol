@@ -507,7 +507,6 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	// check for too-frequent incoming connections
 	err = incomingConnTracker.check(remoteIP, c.ConnectionNumber)
 	if err != nil {
-		log.Err(err).Msg("dropping connection")
 		return err
 	}
 
@@ -529,7 +528,6 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	// Accordingly, we need to track the state...
 	clientDetails, err = authenticateFeederWrapper(c.Connection)
 	if err != nil {
-		log.Err(err).Msg("error authenticating feeder")
 		return err
 	}
 
@@ -544,7 +542,6 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	// get number of connections to check for too frequent connections
 	numConnections, err := statsGetNumConnections(clientDetails.clientApiKey, c.ConnectionProtocol)
 	if err != nil {
-		log.Err(err).Msg("error getting number of connections")
 		return err
 	}
 
@@ -554,7 +551,6 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	// check number of connections, and drop connection if limit exceeded
 	if numConnections >= maxConnectionsPerProto {
 		err := ErrConnectionLimitExceeded
-		log.Err(err).Msg("dropping connection")
 		return err
 	}
 
