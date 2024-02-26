@@ -522,9 +522,6 @@ func (c *ProxyConnection) Start(ctx context.Context) error {
 	if err != nil {
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			return err
-		} else {
-			log.Err(err).Msg("error reading from client")
-			return err
 		}
 	}
 
