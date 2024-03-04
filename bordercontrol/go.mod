@@ -9,7 +9,7 @@ require (
 	github.com/nats-io/nats.go v1.33.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/rs/zerolog v1.32.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/net v0.21.0
 )
