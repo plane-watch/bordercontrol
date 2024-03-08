@@ -3,7 +3,7 @@ module pw_bordercontrol
 go 1.21.6
 
 require (
-	github.com/docker/docker v25.0.3+incompatible
+	github.com/docker/docker v25.0.4+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/nats-io/nats-server/v2 v2.10.11
 	github.com/nats-io/nats.go v1.33.1
