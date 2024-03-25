@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"pw_bordercontrol/lib/stats"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -37,7 +37,7 @@ func promMetricFeederContainersImageCurrentGaugeFunc(feedInImage, feedInContaine
 	filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 	// find containers
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filters})
+	containers, err := cli.ContainerList(ctx, container.ListOptions{Filters: filters})
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +72,7 @@ func promMetricFeederContainersImageNotCurrentGaugeFunc(feedInImage, feedInConta
 	filters.Add("name", fmt.Sprintf("%s*", feedInContainerPrefix))
 
 	// find containers
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filters})
+	containers, err := cli.ContainerList(ctx, container.ListOptions{Filters: filters})
 	if err != nil {
 		panic(err)
 	}

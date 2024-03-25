@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/rs/zerolog"
 )
@@ -57,7 +57,7 @@ func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Dur
 	filterFeedIn.Add("name", fmt.Sprintf("%s*", conf.feedInContainerPrefix))
 
 	// find containers
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filterFeedIn})
+	containers, err := cli.ContainerList(ctx, container.ListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding containers")
 		return time.Second, err
@@ -76,7 +76,7 @@ ContainerLoop:
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
 			log.Info().Msg("out of date feed-in container being killed for recreation")
-			err := cli.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+			err := cli.ContainerRemove(ctx, container.ID, container.RemoveOptions{Force: true})
 			if err != nil {
 				log.Err(err).Msg("error killing out of date feed-in container")
 			} else {
