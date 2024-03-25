@@ -65,18 +65,18 @@ func checkFeederContainers(conf checkFeederContainersConfig) (sleepTime time.Dur
 
 	// for each container...
 ContainerLoop:
-	for _, container := range containers {
+	for _, c := range containers {
 
 		// check containers are running latest feed-in image
-		if container.Image != conf.feedInImageName {
+		if c.Image != conf.feedInImageName {
 
 			// update log context with container name
-			log := log.With().Str("container", container.Names[0][1:]).Logger()
+			log := log.With().Str("container", c.Names[0][1:]).Logger()
 
 			// If a container is found running an out-of-date image, then remove it.
 			// It should be recreated automatically when the client reconnects
 			log.Info().Msg("out of date feed-in container being killed for recreation")
-			err := cli.ContainerRemove(ctx, container.ID, container.RemoveOptions{Force: true})
+			err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true})
 			if err != nil {
 				log.Err(err).Msg("error killing out of date feed-in container")
 			} else {
