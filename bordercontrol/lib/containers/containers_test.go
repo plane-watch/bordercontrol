@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/testutil/daemon"
 	"github.com/google/uuid"
@@ -604,7 +605,7 @@ func TestContainers(t *testing.T) {
 		// ensure out-of-date container has been removed
 		time.Sleep(time.Second * 3) // wait for container to be removed by checkFeederContainers
 		t.Run("ensure out-of-date container has been removed", func(t *testing.T) {
-			cl, err := cli.ContainerList(ctx, types.ContainerListOptions{})
+			cl, err := cli.ContainerList(ctx, container.ListOptions{})
 			require.NoError(t, err, "expected no error from docker")
 			for _, c := range cl {
 				if c.ID == cid {
@@ -615,7 +616,7 @@ func TestContainers(t *testing.T) {
 
 		t.Run("KickFeeder zero containers", func(t *testing.T) {
 			dockerContainerListOrig := dockerContainerList
-			dockerContainerList = func(ctx context.Context, cli *client.Client, options types.ContainerListOptions) ([]types.Container, error) {
+			dockerContainerList = func(ctx context.Context, cli *client.Client, options container.ListOptions) ([]types.Container, error) {
 				return []types.Container{}, nil
 			}
 			err = KickFeeder(TestFeederAPIKey)
@@ -626,7 +627,7 @@ func TestContainers(t *testing.T) {
 
 		t.Run("KickFeeder >1 container", func(t *testing.T) {
 			dockerContainerListOrig := dockerContainerList
-			dockerContainerList = func(ctx context.Context, cli *client.Client, options types.ContainerListOptions) ([]types.Container, error) {
+			dockerContainerList = func(ctx context.Context, cli *client.Client, options container.ListOptions) ([]types.Container, error) {
 				return []types.Container{types.Container{}, types.Container{}}, nil
 			}
 			err = KickFeeder(TestFeederAPIKey)
@@ -650,7 +651,7 @@ func TestContainers(t *testing.T) {
 
 		t.Run("KickFeeder err removing", func(t *testing.T) {
 			dockerContainerRemoveOrig := dockerContainerRemove
-			dockerContainerRemove = func(ctx context.Context, cli *client.Client, containerID string, options types.ContainerRemoveOptions) error {
+			dockerContainerRemove = func(ctx context.Context, cli *client.Client, containerID string, options container.RemoveOptions) error {
 				return ErrTesting
 			}
 			err = KickFeeder(TestFeederAPIKey)

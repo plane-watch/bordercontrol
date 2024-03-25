@@ -3,7 +3,7 @@ package containers
 import (
 	"fmt"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
@@ -64,7 +64,7 @@ func KickFeeder(apiKey uuid.UUID) error {
 	filters.Add("name", containerName)
 
 	// find container
-	containers, err := dockerContainerList(ctx, cli, types.ContainerListOptions{
+	containers, err := dockerContainerList(ctx, cli, container.ListOptions{
 		All:     true,
 		Filters: filters,
 	})
@@ -86,7 +86,7 @@ func KickFeeder(apiKey uuid.UUID) error {
 
 	// kill container
 	log.Info().Msg("requested to kill feed-in container via NATS request")
-	err = dockerContainerRemove(ctx, cli, containers[0].ID, types.ContainerRemoveOptions{
+	err = dockerContainerRemove(ctx, cli, containers[0].ID, container.RemoveOptions{
 		Force: true,
 	})
 	if err != nil {

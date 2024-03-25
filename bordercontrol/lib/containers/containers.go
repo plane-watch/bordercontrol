@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
@@ -78,12 +79,12 @@ var (
 	}
 
 	// Wrapper for cli.ContainerList to allow overriding for testing.
-	dockerContainerList = func(ctx context.Context, cli *client.Client, options types.ContainerListOptions) ([]types.Container, error) {
+	dockerContainerList = func(ctx context.Context, cli *client.Client, options container.ListOptions) ([]types.Container, error) {
 		return cli.ContainerList(ctx, options)
 	}
 
 	// Wrapper for cli.ContainerRemove to allow overriding for testing.
-	dockerContainerRemove = func(ctx context.Context, cli *client.Client, containerID string, options types.ContainerRemoveOptions) error {
+	dockerContainerRemove = func(ctx context.Context, cli *client.Client, containerID string, options container.RemoveOptions) error {
 		return cli.ContainerRemove(ctx, containerID, options)
 	}
 

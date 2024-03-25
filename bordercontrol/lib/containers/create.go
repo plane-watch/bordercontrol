@@ -5,7 +5,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
@@ -156,7 +155,7 @@ func startFeederContainers(conf startFeederContainersConfig, containerToStart Fe
 	filterFeedIn.Add("status", "running")
 
 	// find container
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{Filters: filterFeedIn})
+	containers, err := cli.ContainerList(ctx, container.ListOptions{Filters: filterFeedIn})
 	if err != nil {
 		log.Err(err).Msg("error finding feed-in container")
 	}
@@ -236,7 +235,7 @@ func startFeederContainers(conf startFeederContainersConfig, containerToStart Fe
 		response.ContainerID = resp.ID
 
 		// start container
-		if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 			log.Err(err).Msg("could not start feed-in container")
 			return startContainerResponse{}, err
 		} else {
