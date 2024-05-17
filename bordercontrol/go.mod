@@ -5,7 +5,7 @@ go 1.21.6
 require (
 	github.com/docker/docker v26.1.2+incompatible
 	github.com/google/uuid v1.6.0
-	github.com/nats-io/nats-server/v2 v2.10.14
+	github.com/nats-io/nats-server/v2 v2.10.15
 	github.com/nats-io/nats.go v1.34.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/rs/zerolog v1.32.0
@@ -69,7 +69,7 @@ require (
 	github.com/moby/sys/user v0.1.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/nats-io/jwt/v2 v2.5.5 // indirect
+	github.com/nats-io/jwt/v2 v2.5.6 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
