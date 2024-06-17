@@ -6,7 +6,7 @@ require (
 	github.com/docker/docker v26.1.3+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/nats-io/nats-server/v2 v2.10.16
-	github.com/nats-io/nats.go v1.35.0
+	github.com/nats-io/nats.go v1.36.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.9.0
